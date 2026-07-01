@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
+import { BackButton } from '../components/BackButton'
 import { formatDate, toKLDateISO, shiftDateISO, sortBoardItems } from '../lib/helpers'
 import { fetchBoardItems, createBoardItem, updateBoardItem, markDone } from '../lib/boardApi'
 import type { BoardItemRow, CreateBoardItemPayload, UpdateBoardItemPatch } from '../lib/boardApi'
@@ -273,7 +274,7 @@ export function BoardPage() {
     const centerId = profile.center_id
     let cancelled = false
 
-    fetchCenterMembers(centerId, '').then(({ data, error }) => {
+    fetchCenterMembers(centerId).then(({ data, error }) => {
       if (cancelled) return
       if (error) {
         setMembersError('Could not load members to assign.')
@@ -363,7 +364,10 @@ export function BoardPage() {
   return (
     <div className="min-h-screen bg-cream-100 p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <h1 className="font-display text-2xl text-neutral-800">Daily Ops Board</h1>
+        <div className="flex items-center gap-2">
+          <BackButton fallback="/" />
+          <h1 className="font-display text-2xl text-neutral-800">Daily Ops Board</h1>
+        </div>
 
         <div className="flex items-center justify-between rounded-2xl bg-white p-3 shadow-card">
           <button

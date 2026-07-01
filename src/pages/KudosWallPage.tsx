@@ -4,6 +4,7 @@ import { Award } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { KUDOS_ICON_MAP } from '../components/KudosValueCard'
 import { LoadingState, ErrorState } from '../components/AsyncState'
+import { BackButton } from '../components/BackButton'
 import { formatDate, toKLDateISO } from '../lib/helpers'
 import {
   fetchKudosFeed,
@@ -142,7 +143,10 @@ export function KudosWallPage() {
     <div className="min-h-screen bg-cream-100 p-6">
       <div className="max-w-lg mx-auto space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl text-neutral-800">Kudos Wall</h1>
+          <div className="flex items-center gap-2">
+            <BackButton fallback="/" />
+            <h1 className="font-display text-2xl text-neutral-800">Kudos Wall</h1>
+          </div>
           <Link
             to="/kudos/new"
             className="flex min-h-tap items-center rounded-2xl bg-brand-600 px-4 font-display text-sm text-white shadow-card hover:bg-brand-700"

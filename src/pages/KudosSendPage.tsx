@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { KudosValueCard } from '../components/KudosValueCard'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
+import { BackButton as NavBackButton } from '../components/BackButton'
 import {
   fetchCenterMembers,
   fetchActiveKudosValues,
@@ -56,6 +57,7 @@ function WhoStep({
 
   return (
     <div className="space-y-3">
+      <NavBackButton fallback="/kudos" />
       <h1 className="font-display text-xl text-neutral-800">Who do you want to praise?</h1>
       {error && <ErrorState message={error} />}
       {!error && members === null && <LoadingState label="Loading people…" />}

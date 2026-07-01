@@ -7,15 +7,21 @@ export interface CenterMember {
   title: string | null
 }
 
-export function fetchCenterMembers(centerId: string, excludeUserId: string) {
-  return supabase
+export function fetchCenterMembers(centerId: string, excludeUserId?: string) {
+  let query = supabase
     .from('profiles')
     .select('id, full_name, title')
     .eq('center_id', centerId)
     .eq('active', true)
-    .neq('id', excludeUserId)
-    .order('full_name')
-    .returns<CenterMember[]>()
+
+  // '' is not a valid uuid — Postgres rejects `id=neq.` with 22P02
+  // ("invalid input syntax for type uuid"), so only apply the filter
+  // when a real id is supplied.
+  if (excludeUserId) {
+    query = query.neq('id', excludeUserId)
+  }
+
+  return query.order('full_name').returns<CenterMember[]>()
 }
 
 export interface KudosValueOption {
