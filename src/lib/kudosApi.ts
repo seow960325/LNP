@@ -1,3 +1,4 @@
+import type { PostgrestError } from '@supabase/supabase-js'
 import { supabase } from './supabaseClient'
 
 export interface CenterMember {
@@ -114,6 +115,18 @@ export interface TopRecipient {
   kudos_count: number
 }
 
-export function fetchTopRecipient() {
-  return supabase.rpc('kudos_top_recipient').returns<TopRecipient[]>()
+export async function fetchTopRecipient(): Promise<{
+  data: TopRecipient[] | null
+  error: PostgrestError | null
+}> {
+  // supabase.rpc() has no Database generic to attach here, so its inferred
+  // Result type is `any`. Chaining .returns<TopRecipient[]>() on that `any`
+  // makes postgrest-js's array-mismatch check distribute over `any` and
+  // collapse into a `{ Error: ... } | TopRecipient[]` union — which breaks
+  // under `tsc -b` (composite build) even though a bare `tsc --noEmit` run
+  // against the root solution config silently checks nothing and misses it.
+  // Awaiting first and asserting the known row shape on `data` sidesteps
+  // that builder-generic mismatch entirely.
+  const { data, error } = await supabase.rpc('kudos_top_recipient')
+  return { data: data as TopRecipient[] | null, error }
 }
