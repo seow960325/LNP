@@ -1,0 +1,125 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        brand: {
+          50:  '#fff8f0',
+          100: '#ffefd6',
+          200: '#ffd9a8',
+          300: '#ffbe70',
+          400: '#ff9a38',
+          500: '#f97c16',
+          600: '#e05f0a',
+          700: '#ba470b',
+          800: '#943910',
+          900: '#783110',
+        },
+        sage: {
+          50:  '#f3f8f3',
+          100: '#e2f0e2',
+          200: '#c4e0c5',
+          300: '#97c899',
+          400: '#64aa67',
+          500: '#428e46',
+          600: '#307235',
+          700: '#275b2c',
+          800: '#214925',
+          900: '#1b3c1f',
+        },
+        sky: {
+          50:  '#f0f8ff',
+          100: '#dff0fe',
+          200: '#b8e3fd',
+          300: '#79cdfb',
+          400: '#33b4f7',
+          500: '#099ae8',
+          600: '#027bc6',
+          700: '#0362a1',
+          800: '#075385',
+          900: '#0c456e',
+        },
+        coral: {
+          50:  '#fff4f2',
+          100: '#ffe6e2',
+          200: '#ffd0c9',
+          300: '#ffb0a3',
+          400: '#ff836e',
+          500: '#f85640',
+          600: '#e53a24',
+          700: '#c12d1a',
+          800: '#9f291a',
+          900: '#83271c',
+        },
+        cream: {
+          50:  '#fffdf7',
+          100: '#fffaed',
+          200: '#fef3d0',
+          300: '#fde89d',
+          400: '#fbd85f',
+          500: '#f9c52c',
+        },
+        neutral: {
+          50:  '#fafaf9',
+          100: '#f5f4f2',
+          200: '#e8e6e3',
+          300: '#d4d1cc',
+          400: '#b5b0a8',
+          500: '#928d84',
+          600: '#706b63',
+          700: '#5a564f',
+          800: '#3d3a35',
+          900: '#28261f',
+        },
+      },
+      fontFamily: {
+        sans: ['Nunito Sans', 'system-ui', 'sans-serif'],
+        display: ['Varela Round', 'Nunito Sans', 'sans-serif'],
+      },
+      fontSize: {
+        '2xs': ['0.625rem', { lineHeight: '1rem' }],
+      },
+      borderRadius: {
+        'xl':  '0.875rem',
+        '2xl': '1.25rem',
+        '3xl': '1.75rem',
+        '4xl': '2.5rem',
+      },
+      spacing: {
+        '18': '4.5rem',
+        '22': '5.5rem',
+        '26': '6.5rem',
+        '30': '7.5rem',
+      },
+      minHeight: {
+        'tap':    '2.75rem',
+        'tap-lg': '3.5rem',
+      },
+      minWidth: {
+        'tap': '2.75rem',
+      },
+      boxShadow: {
+        'card':    '0 2px 8px 0 rgba(0,0,0,0.05)',
+        'card-md': '0 4px 16px 0 rgba(0,0,0,0.07)',
+        'card-lg': '0 8px 24px 0 rgba(0,0,0,0.10)',
+      },
+      animation: {
+        'fade-in':  'fadeIn 0.2s ease-out',
+        'slide-up': 'slideUp 0.25s ease-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%':   { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%':   { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+    },
+  },
+  plugins: [],
+}
+
