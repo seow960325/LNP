@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { supabase } from '../lib/supabaseClient'
 import { formatDate, toKLDateISO, shiftDateISO, sortBoardItems } from '../lib/helpers'
 import { fetchBoardItems, createBoardItem, updateBoardItem, markDone } from '../lib/boardApi'
 import type { BoardItemRow, CreateBoardItemPayload, UpdateBoardItemPatch } from '../lib/boardApi'
@@ -157,16 +159,20 @@ function BoardItemCard({
   authorName,
   assignedName,
   canEdit,
+  canDelete,
   onEdit,
   onMarkDone,
+  onDelete,
   marking,
 }: {
   item: BoardItemRow
   authorName: string
   assignedName: string | null
   canEdit: boolean
+  canDelete: boolean
   onEdit: () => void
   onMarkDone: () => void
+  onDelete: () => void
   marking: boolean
 }) {
   const isDone = item.status === 'done'
@@ -212,6 +218,15 @@ function BoardItemCard({
             {marking ? 'Marking…' : 'Mark done'}
           </button>
         )}
+        {canDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="min-h-tap rounded-2xl border border-coral-200 px-3 text-sm text-coral-600 hover:bg-coral-50"
+          >
+            Delete
+          </button>
+        )}
       </div>
     </li>
   )
@@ -236,6 +251,10 @@ export function BoardPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [markingId, setMarkingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+
+  const [deleteTarget, setDeleteTarget] = useState<BoardItemRow | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -296,6 +315,13 @@ export function BoardPage() {
   function canFullyEdit(item: BoardItemRow) {
     if (!profile) return false
     return profile.id === item.author_id || profile.role === 'admin' || profile.role === 'super_admin'
+  }
+
+  // Delete is admin/super_admin only — unlike canFullyEdit, the author is
+  // deliberately NOT allowed to delete their own item.
+  function canDelete() {
+    if (!profile) return false
+    return profile.role === 'admin' || profile.role === 'super_admin'
   }
 
   function closeForm() {
@@ -359,6 +385,23 @@ export function BoardPage() {
       return
     }
     setRefreshKey((k) => k + 1)
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    setDeleteError(null)
+
+    const { error } = await supabase.from('board_items').delete().eq('id', deleteTarget.id)
+
+    setDeleting(false)
+    if (error) {
+      setDeleteError(error.message || 'Could not delete this item. Please try again.')
+      return
+    }
+
+    setItems((current) => current.filter((item) => item.id !== deleteTarget.id))
+    setDeleteTarget(null)
   }
 
   return (
@@ -442,6 +485,7 @@ export function BoardPage() {
         )}
 
         {actionError && <ErrorState message={actionError} />}
+        {deleteError && <ErrorState message={deleteError} />}
 
         {itemsState === 'loading' && <LoadingState label="Loading the board…" />}
         {itemsState === 'error' && <ErrorState message={itemsError ?? 'Something went wrong.'} />}
@@ -459,14 +503,25 @@ export function BoardPage() {
                 authorName={profileNames.get(item.author_id) ?? 'Someone'}
                 assignedName={item.assigned_to ? profileNames.get(item.assigned_to) ?? 'Someone' : null}
                 canEdit={canFullyEdit(item)}
+                canDelete={canDelete()}
                 onEdit={() => setFormMode({ kind: 'edit', item })}
                 onMarkDone={() => handleMarkDone(item.id)}
+                onDelete={() => setDeleteTarget(item)}
                 marking={markingId === item.id}
               />
             ))}
           </ul>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete this board item?"
+        message="This permanently deletes this board item. This cannot be undone."
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+      />
     </div>
   )
 }

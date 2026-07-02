@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { KudosValueBadge } from '../components/KudosValueCard'
 import { Avatar } from '../components/Avatar'
 import { LoadingState, ErrorState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { supabase } from '../lib/supabaseClient'
 import { formatDate, toKLDateISO } from '../lib/helpers'
 import {
   fetchKudosFeed,
@@ -42,6 +45,10 @@ export function KudosWallPanel() {
   const [monthlyError, setMonthlyError] = useState<string | null>(null)
 
   const [topRecipient, setTopRecipient] = useState<TopRecipient | null>(null)
+
+  const [deleteTarget, setDeleteTarget] = useState<FeedItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -143,6 +150,23 @@ export function KudosWallPanel() {
     }
   }, [])
 
+  async function handleDeleteConfirm() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    setDeleteError(null)
+
+    const { error } = await supabase.from('kudos').delete().eq('id', deleteTarget.id)
+
+    setDeleting(false)
+    if (error) {
+      setDeleteError(error.message || 'Could not delete this kudos. Please try again.')
+      return
+    }
+
+    setFeedItems((items) => items.filter((item) => item.id !== deleteTarget.id))
+    setDeleteTarget(null)
+  }
+
   if (!profile) return null
 
   return (
@@ -163,6 +187,8 @@ export function KudosWallPanel() {
           <p className="font-handwriting text-5xl text-brand-700">{monthlyCount}</p>
         )}
       </div>
+
+      {deleteError && <ErrorState message={deleteError} />}
 
       {feedState === 'loading' && <LoadingState label="Loading the wall…" />}
       {feedState === 'error' && <ErrorState message={feedError ?? 'Something went wrong.'} />}
@@ -196,14 +222,35 @@ export function KudosWallPanel() {
                   <p className="text-sm italic text-neutral-600">&ldquo;{item.message}&rdquo;</p>
                 )}
 
-                <p className="pt-1 text-xs text-neutral-400">
-                  by {item.senderName} · {formatDate(item.createdAt)}
-                </p>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <p className="text-xs text-neutral-400">
+                    by {item.senderName} · {formatDate(item.createdAt)}
+                  </p>
+                  {profile?.role === 'super_admin' && (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(item)}
+                      aria-label="Delete this kudos"
+                      className="flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-full text-neutral-300 hover:text-coral-600"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
               </div>
             </li>
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete this kudos?"
+        message="This permanently deletes this kudos. This cannot be undone."
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+      />
     </div>
   )
 }
