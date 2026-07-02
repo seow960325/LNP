@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, ClipboardList, Gift, Trophy } from 'lucide-react'
+import { Bell, CalendarDays, ClipboardList, Gift, Trophy } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { firstName, toKLDateISO } from '../lib/helpers'
@@ -8,6 +8,7 @@ import { fetchOpenTodayCount } from '../lib/boardApi'
 
 const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'Daily Ops Board', to: '/board', Icon: ClipboardList },
+  { label: 'Duty Roster', to: '/roster', Icon: CalendarDays },
   { label: 'Send Kudos', to: '/kudos/new', Icon: Gift },
   { label: 'Kudos Wall', to: '/kudos', Icon: Trophy },
 ]

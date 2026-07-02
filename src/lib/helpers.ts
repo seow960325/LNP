@@ -43,6 +43,23 @@ export function shiftDateISO(dateISO: string, days: number): string {
   return shifted.toISOString().slice(0, 10);
 }
 
+export function formatDateShort(input: string | Date): string {
+  if (Number.isNaN(new Date(input).getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kuala_Lumpur',
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(input));
+}
+
+// Returns the Monday (YYYY-MM-DD) of the week containing dateISO.
+export function getWeekStartISO(dateISO: string): string {
+  const [year, month, day] = dateISO.split('-').map(Number);
+  const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay(); // 0=Sun..6=Sat
+  const diff = dow === 0 ? -6 : 1 - dow;
+  return shiftDateISO(dateISO, diff);
+}
+
 const BOARD_PRIORITY_ORDER: Record<'low' | 'normal' | 'high', number> = { high: 0, normal: 1, low: 2 };
 const BOARD_STATUS_ORDER: Record<'open' | 'done', number> = { open: 0, done: 1 };
 

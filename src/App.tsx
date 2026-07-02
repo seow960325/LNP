@@ -10,6 +10,7 @@ import { ShareholderHomePage } from './pages/ShareholderHomePage'
 import { KudosWallPage } from './pages/KudosWallPage'
 import { KudosSendPage } from './pages/KudosSendPage'
 import { BoardPage } from './pages/BoardPage'
+import { RosterPage } from './pages/RosterPage'
 import { HomePage } from './pages/HomePage'
 
 export function App() {
@@ -30,6 +31,9 @@ export function App() {
 
           {/* Daily Ops Board — any authenticated active user, all roles */}
           <Route path="/board" element={<BoardPage />} />
+
+          {/* Duty Roster — any authenticated active user, all roles (admin/super_admin can edit) */}
+          <Route path="/roster" element={<RosterPage />} />
 
           {/* Admin routes: super_admin + admin */}
           <Route element={<RequireRole allow={['super_admin', 'admin']} />}>
