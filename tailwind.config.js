@@ -76,6 +76,7 @@ export default {
       fontFamily: {
         sans: ['Nunito Sans', 'system-ui', 'sans-serif'],
         display: ['Varela Round', 'Nunito Sans', 'sans-serif'],
+        handwriting: ['Caveat', 'cursive'],
       },
       fontSize: {
         '2xs': ['0.625rem', { lineHeight: '1rem' }],

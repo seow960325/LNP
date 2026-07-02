@@ -55,20 +55,26 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="font-display text-3xl text-neutral-800 mb-1">Center Ops</h1>
-          <p className="text-neutral-500 text-sm">Staff portal — authorised access only</p>
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-brand-50 via-cream-100 to-sky-100 flex items-center justify-center px-4">
+      {/* Decorative blurred blobs */}
+      <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-sky-200/50 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 top-1/3 h-72 w-72 rounded-full bg-brand-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 left-1/4 h-72 w-72 rounded-full bg-cream-300/50 blur-3xl" />
+
+      <div className="relative w-full max-w-sm">
+        <div className="text-center mb-6">
+          <img src="/LNP-Logo.png" alt="Learn N&apos; Play" className="mx-auto h-20 w-auto" />
+          <h1 className="font-handwriting text-5xl leading-tight text-brand-700 mt-1">Learn N&apos; Play</h1>
+          <p className="text-neutral-600 text-sm mt-1">Staff portal — authorised access only</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-card p-8">
+        <div className="rounded-3xl border border-white/40 bg-white/60 p-8 shadow-card-lg backdrop-blur-xl">
           {/* Tab toggle */}
-          <div className="flex rounded-xl bg-neutral-100 p-1 mb-6">
+          <div className="flex rounded-2xl bg-white/50 p-1 mb-6">
             <button
               type="button"
               onClick={() => { setTab('password'); setError(null); setMagicSent(false) }}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors min-h-tap ${
+              className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors min-h-tap ${
                 tab === 'password'
                   ? 'bg-white text-neutral-800 shadow-card'
                   : 'text-neutral-500 hover:text-neutral-700'
@@ -79,7 +85,7 @@ export function LoginPage() {
             <button
               type="button"
               onClick={() => { setTab('magic'); setError(null); setMagicSent(false) }}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors min-h-tap ${
+              className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors min-h-tap ${
                 tab === 'magic'
                   ? 'bg-white text-neutral-800 shadow-card'
                   : 'text-neutral-500 hover:text-neutral-700'
@@ -100,7 +106,7 @@ export function LoginPage() {
                   autoComplete="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 min-h-tap"
+                  className="w-full px-4 py-3 rounded-2xl border border-neutral-200 bg-white/90 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 min-h-tap"
                   placeholder="you@example.com"
                 />
               </div>
@@ -112,7 +118,7 @@ export function LoginPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 min-h-tap"
+                  className="w-full px-4 py-3 rounded-2xl border border-neutral-200 bg-white/90 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 min-h-tap"
                   placeholder="••••••••"
                 />
               </div>
@@ -122,7 +128,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors min-h-tap"
+                className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold py-3 rounded-2xl shadow-card transition-colors min-h-tap"
               >
                 {loading ? 'Signing in…' : 'Sign in'}
               </button>
@@ -140,7 +146,7 @@ export function LoginPage() {
                   autoComplete="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 min-h-tap"
+                  className="w-full px-4 py-3 rounded-2xl border border-neutral-200 bg-white/90 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 min-h-tap"
                   placeholder="you@example.com"
                 />
               </div>
@@ -150,7 +156,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors min-h-tap"
+                className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold py-3 rounded-2xl shadow-card transition-colors min-h-tap"
               >
                 {loading ? 'Sending…' : 'Email me a sign-in link'}
               </button>
