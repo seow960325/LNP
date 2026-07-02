@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
@@ -75,19 +76,24 @@ export function StaffDirectoryPage() {
         {loadState === 'ready' && members.length > 0 && (
           <ul className="space-y-3">
             {members.map((member) => (
-              <li key={member.id} className="flex items-center gap-4 rounded-3xl bg-white p-4 shadow-card">
-                <Avatar fullName={member.full_name} avatarUrl={member.avatar_url} size="lg" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-display text-base font-bold text-neutral-800">
-                    {member.full_name}
-                  </p>
-                  <span
-                    className={`mt-1 inline-block rounded-full px-2 py-0.5 text-2xs font-medium ${ROLE_STYLES[member.role]}`}
-                  >
-                    {ROLE_LABELS[member.role]}
-                  </span>
-                  {member.phone && <p className="mt-1 text-xs text-neutral-500">{member.phone}</p>}
-                </div>
+              <li key={member.id}>
+                <Link
+                  to={`/staff/${member.id}`}
+                  className="flex cursor-pointer items-center gap-4 rounded-3xl bg-white p-4 shadow-card transition-shadow hover:shadow-card-md"
+                >
+                  <Avatar fullName={member.full_name} avatarUrl={member.avatar_url} size="lg" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-display text-base font-bold text-neutral-800">
+                      {member.full_name}
+                    </p>
+                    <span
+                      className={`mt-1 inline-block rounded-full px-2 py-0.5 text-2xs font-medium ${ROLE_STYLES[member.role]}`}
+                    >
+                      {ROLE_LABELS[member.role]}
+                    </span>
+                    {member.phone && <p className="mt-1 text-xs text-neutral-500">{member.phone}</p>}
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>

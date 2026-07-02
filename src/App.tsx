@@ -18,6 +18,7 @@ import { RequestsPage } from './pages/RequestsPage'
 import { RequestsAdminPage } from './pages/RequestsAdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { StaffDirectoryPage } from './pages/StaffDirectoryPage'
+import { StaffMemberDetailPage } from './pages/StaffMemberDetailPage'
 import { StaffDocumentsPage } from './pages/StaffDocumentsPage'
 import { HomePage } from './pages/HomePage'
 
@@ -68,7 +69,12 @@ export function App() {
             {/* Staff Directory — any authenticated active user, all roles, read-only */}
             <Route path="/staff" element={<StaffDirectoryPage />} />
 
-            {/* Staff Documents — any authenticated active user sees own docs; admin/super_admin get upload+delete+staff picker (gated inline via profile.role) */}
+            {/* Staff member detail — any authenticated active user; document section
+                visibility is gated inline (admin sees any owner's docs with manage
+                rights, self sees own docs view-only, everyone else sees no docs) */}
+            <Route path="/staff/:id" element={<StaffMemberDetailPage />} />
+
+            {/* Staff Documents — self-only, view-only for every role (gated inline via profile.role) */}
             <Route path="/documents" element={<StaffDocumentsPage />} />
 
             {/* Admin routes: super_admin + admin */}

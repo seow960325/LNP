@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import type { UserRole } from '../types'
+import type { Profile, UserRole } from '../types'
 
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
@@ -54,4 +54,9 @@ export function fetchStaffDirectory(centerId: string) {
     .eq('active', true)
     .order('full_name')
     .returns<StaffDirectoryEntry[]>()
+}
+
+export async function fetchProfileById(id: string) {
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
+  return { data: data as Profile | null, error }
 }
