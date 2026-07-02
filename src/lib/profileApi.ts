@@ -61,3 +61,25 @@ export async function fetchProfileById(id: string) {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
   return { data: data as Profile | null, error }
 }
+
+export interface StaffManageEntry {
+  id: string
+  full_name: string
+  email: string | null
+  phone: string | null
+  role: UserRole
+  title: string | null
+  active: boolean
+  avatar_url: string | null
+}
+
+// Unlike fetchStaffDirectory (active members only, read-only view), this
+// includes inactive members too so super_admin can reactivate them.
+export function fetchStaffForManagement(centerId: string) {
+  return supabase
+    .from('profiles')
+    .select('id, full_name, email, phone, role, title, active, avatar_url')
+    .eq('center_id', centerId)
+    .order('full_name')
+    .returns<StaffManageEntry[]>()
+}

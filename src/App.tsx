@@ -21,6 +21,7 @@ import { RequestsAdminPage } from './pages/RequestsAdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { StaffDirectoryPage } from './pages/StaffDirectoryPage'
 import { StaffMemberDetailPage } from './pages/StaffMemberDetailPage'
+import { StaffManagePage } from './pages/StaffManagePage'
 import { StaffDocumentsPage } from './pages/StaffDocumentsPage'
 import { HomePage } from './pages/HomePage'
 
@@ -87,6 +88,13 @@ export function App() {
                 visibility is gated inline (admin sees any owner's docs with manage
                 rights, self sees own docs view-only, everyone else sees no docs) */}
             <Route path="/staff/:id" element={<StaffMemberDetailPage />} />
+
+            {/* Staff Management — super_admin only. React Router v6 ranks the
+                static /staff/manage segment above the dynamic /staff/:id, so
+                this never gets swallowed as an :id param regardless of order. */}
+            <Route element={<RequireRole allow={['super_admin']} />}>
+              <Route path="/staff/manage" element={<StaffManagePage />} />
+            </Route>
 
             {/* Staff Documents — self-only, view-only for every role (gated inline via profile.role) */}
             <Route path="/documents" element={<StaffDocumentsPage />} />

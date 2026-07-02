@@ -57,6 +57,15 @@ export function StaffDirectoryPage() {
           <h1 className="font-display text-2xl text-neutral-800">Staff Directory</h1>
         </div>
 
+        {profile.role === 'super_admin' && (
+          <Link
+            to="/staff/manage"
+            className="min-h-tap flex w-full items-center justify-center rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700"
+          >
+            Manage staff
+          </Link>
+        )}
+
         {loadState === 'loading' && <LoadingState label="Loading the directory…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
 
