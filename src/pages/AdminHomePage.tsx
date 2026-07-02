@@ -9,7 +9,7 @@ export function AdminHomePage() {
         <h1 className="font-display text-2xl text-neutral-800">Admin Dashboard</h1>
         <p className="text-neutral-500 text-sm">
           Signed in as <span className="font-medium text-neutral-700">{profile?.full_name}</span>{' '}
-          · <span className="text-brand-600">{profile?.role}</span>
+          · <span className="text-brand-600">{profile?.title || 'Staff'}</span>
         </p>
         <p className="text-xs text-neutral-400 bg-neutral-50 rounded-xl px-4 py-3">
           Phase 1A stub — screens coming in later specs.

@@ -9,18 +9,9 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { StaffDocPanel } from '../components/StaffDocPanel'
 import { fetchProfileById } from '../lib/profileApi'
 import { supabase } from '../lib/supabaseClient'
-import type { Profile, UserRole } from '../types'
+import type { Profile } from '../types'
 
 type LoadState = 'loading' | 'ready' | 'error'
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin: 'Super Admin',
-  admin: 'Admin',
-  teacher: 'Teacher',
-  staff: 'Staff',
-  parent: 'Parent',
-  shareholder: 'Shareholder',
-}
 
 export function StaffMemberDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -122,7 +113,7 @@ export function StaffMemberDetailPage() {
                 <p className="truncate font-display text-lg font-bold text-neutral-800">
                   {member.full_name}
                 </p>
-                <p className="text-sm text-neutral-500">{ROLE_LABELS[member.role]}</p>
+                <p className="text-sm text-neutral-500">{member.title || 'Staff'}</p>
                 {member.email && <p className="mt-1 truncate text-xs text-neutral-500">{member.email}</p>}
                 {member.phone && <p className="text-xs text-neutral-500">{member.phone}</p>}
               </div>

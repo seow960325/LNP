@@ -10,15 +10,6 @@ import type { UserRole } from '../types'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin: 'Super Admin',
-  admin: 'Admin',
-  teacher: 'Teacher',
-  staff: 'Staff',
-  parent: 'Parent',
-  shareholder: 'Shareholder',
-}
-
 const ROLE_STYLES: Record<UserRole, string> = {
   super_admin: 'bg-brand-100 text-brand-700',
   admin: 'bg-brand-50 text-brand-600',
@@ -89,7 +80,7 @@ export function StaffDirectoryPage() {
                     <span
                       className={`mt-1 inline-block rounded-full px-2 py-0.5 text-2xs font-medium ${ROLE_STYLES[member.role]}`}
                     >
-                      {ROLE_LABELS[member.role]}
+                      {member.title || 'Staff'}
                     </span>
                     {member.phone && <p className="mt-1 text-xs text-neutral-500">{member.phone}</p>}
                   </div>

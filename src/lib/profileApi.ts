@@ -42,6 +42,7 @@ export interface StaffDirectoryEntry {
   id: string
   full_name: string
   role: UserRole
+  title: string | null
   phone: string | null
   avatar_url: string | null
 }
@@ -49,7 +50,7 @@ export interface StaffDirectoryEntry {
 export function fetchStaffDirectory(centerId: string) {
   return supabase
     .from('profiles')
-    .select('id, full_name, role, phone, avatar_url')
+    .select('id, full_name, role, title, phone, avatar_url')
     .eq('center_id', centerId)
     .eq('active', true)
     .order('full_name')
