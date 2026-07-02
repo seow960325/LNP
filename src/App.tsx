@@ -18,6 +18,7 @@ import { RequestsPage } from './pages/RequestsPage'
 import { RequestsAdminPage } from './pages/RequestsAdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { StaffDirectoryPage } from './pages/StaffDirectoryPage'
+import { StaffDocumentsPage } from './pages/StaffDocumentsPage'
 import { HomePage } from './pages/HomePage'
 
 function AppLayout() {
@@ -66,6 +67,9 @@ export function App() {
 
             {/* Staff Directory — any authenticated active user, all roles, read-only */}
             <Route path="/staff" element={<StaffDirectoryPage />} />
+
+            {/* Staff Documents — any authenticated active user sees own docs; admin/super_admin get upload+delete+staff picker (gated inline via profile.role) */}
+            <Route path="/documents" element={<StaffDocumentsPage />} />
 
             {/* Admin routes: super_admin + admin */}
             <Route element={<RequireRole allow={['super_admin', 'admin']} />}>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, CalendarDays, ClipboardList, Clock, Trophy, Users, Wifi } from 'lucide-react'
+import { Bell, CalendarDays, ClipboardList, Clock, FileText, Trophy, Users, Wifi } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { firstName, toKLDateISO } from '../lib/helpers'
@@ -16,6 +16,7 @@ const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'WiFi Password', to: '/wifi', Icon: Wifi },
   { label: 'Daily Ops Board', to: '/board', Icon: ClipboardList },
   { label: 'Staff Directory', to: '/staff', Icon: Users },
+  { label: 'Documents', to: '/documents', Icon: FileText },
 ]
 
 function NotificationBell() {
