@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Wifi } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
+import { buildWifiQrValue } from '../lib/helpers'
 import { getWifi, updateWifi } from '../lib/settingsApi'
 import type { WifiInfo } from '../lib/settingsApi'
 
@@ -11,11 +13,11 @@ type LoadState = 'loading' | 'ready' | 'error'
 function WifiGlow() {
   return (
     <div className="relative flex h-20 w-20 items-center justify-center">
-      <span className="absolute h-20 w-20 rounded-full bg-sky-400/10 blur-xl" />
-      <span className="absolute h-14 w-14 rounded-full bg-sky-300/20 blur-lg" />
-      <span className="absolute h-8 w-8 rounded-full bg-sky-200/30 blur-md" />
+      <span className="absolute h-20 w-20 rounded-full bg-brand-400/10 blur-xl" />
+      <span className="absolute h-14 w-14 rounded-full bg-brand-300/20 blur-lg" />
+      <span className="absolute h-8 w-8 rounded-full bg-brand-200/30 blur-md" />
       <Wifi
-        className="relative h-9 w-9 text-sky-100 drop-shadow-[0_0_14px_rgba(186,230,253,0.85)]"
+        className="relative h-9 w-9 text-brand-100 drop-shadow-[0_0_14px_rgba(255,217,168,0.85)]"
         aria-hidden="true"
       />
     </div>
@@ -61,6 +63,7 @@ export function WifiPage() {
 
   const isAdmin = profile.role === 'admin' || profile.role === 'super_admin'
   const hasWifi = wifi.ssid.trim().length > 0 || wifi.password.trim().length > 0
+  const canShowQr = wifi.ssid.trim().length > 0 && wifi.password.trim().length > 0
 
   async function handleCopy() {
     try {
@@ -111,9 +114,9 @@ export function WifiPage() {
 
         {loadState === 'ready' && (
           <>
-            <div className="relative overflow-hidden rounded-4xl bg-gradient-to-br from-[#0b3b4d] via-[#0d2c40] to-[#091825] p-8 text-center shadow-card-lg">
-              <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-sky-400/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-14 -right-10 h-48 w-48 rounded-full bg-sky-300/10 blur-3xl" />
+            <div className="relative overflow-hidden rounded-4xl bg-gradient-to-br from-brand-900 via-brand-800 to-neutral-900 p-8 text-center shadow-card-lg">
+              <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-brand-400/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-14 -right-10 h-48 w-48 rounded-full bg-brand-300/10 blur-3xl" />
 
               <div className="relative flex flex-col items-center gap-6">
                 <WifiGlow />
@@ -121,17 +124,39 @@ export function WifiPage() {
                 {hasWifi ? (
                   <>
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-sky-200/70">Wifi name</p>
+                      <p className="text-xs uppercase tracking-wide text-brand-100/70">Wifi name</p>
                       <p className="mt-1 break-words font-display text-2xl text-white">{wifi.ssid || '—'}</p>
                     </div>
 
                     <div className="h-px w-16 bg-white/15" />
 
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-sky-200/70">Password</p>
+                      <p className="text-xs uppercase tracking-wide text-brand-100/70">Password</p>
                       <p className="mt-1 break-words font-display text-2xl tracking-wide text-white">
                         {wifi.password || '—'}
                       </p>
+                    </div>
+
+                    <div className="h-px w-16 bg-white/15" />
+
+                    <div className="flex flex-col items-center gap-2">
+                      {canShowQr ? (
+                        <div className="rounded-2xl bg-white p-3 shadow-card">
+                          <QRCodeSVG
+                            value={buildWifiQrValue(wifi.ssid, wifi.password)}
+                            size={140}
+                            bgColor="#ffffff"
+                            fgColor="#783110"
+                            level="M"
+                            marginSize={0}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-[164px] w-[164px] items-center justify-center rounded-2xl bg-white/10 p-4 text-center text-xs text-brand-100/70">
+                          Add both a network name and password to generate a QR code.
+                        </div>
+                      )}
+                      <p className="text-xs text-brand-100/70">Scan to join WiFi</p>
                     </div>
 
                     {wifi.password && (
@@ -145,7 +170,7 @@ export function WifiPage() {
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-sky-100/80">WiFi not set up yet — ask your admin.</p>
+                  <p className="text-sm text-brand-100/80">WiFi not set up yet — ask your admin.</p>
                 )}
               </div>
             </div>

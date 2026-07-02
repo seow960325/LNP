@@ -75,13 +75,14 @@ export function fetchKudosFeed(centerId: string) {
 export interface NamedProfile {
   id: string
   full_name: string
+  avatar_url: string | null
 }
 
 export function fetchProfilesByIds(ids: string[]) {
   if (ids.length === 0) {
     return Promise.resolve({ data: [] as NamedProfile[], error: null })
   }
-  return supabase.from('profiles').select('id, full_name').in('id', ids).returns<NamedProfile[]>()
+  return supabase.from('profiles').select('id, full_name, avatar_url').in('id', ids).returns<NamedProfile[]>()
 }
 
 export interface NamedKudosValue {

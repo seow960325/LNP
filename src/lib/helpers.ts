@@ -86,6 +86,15 @@ export function firstName(fullName: string): string {
   return spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex);
 }
 
+// Builds a standard WIFI:// join string per the WIFI: QR spec, escaping
+// \ ; , : " inside ssid/password so symbols in real-world passwords survive.
+export function buildWifiQrValue(ssid: string, password: string, authType: 'WPA' | 'WEP' | 'nopass' = 'WPA'): string {
+  function escape(value: string): string {
+    return value.replace(/[\\;,:"]/g, '\\$&');
+  }
+  return `WIFI:T:${authType};S:${escape(ssid)};P:${escape(password)};;`;
+}
+
 export function sortBoardItems<
   T extends { priority: 'low' | 'normal' | 'high'; status: 'open' | 'done'; created_at: string }
 >(items: T[]): T[] {

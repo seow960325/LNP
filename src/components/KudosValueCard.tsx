@@ -11,6 +11,35 @@ export const KUDOS_ICON_MAP: Record<string, LucideIcon> = {
   lightbulb: Lightbulb,
 }
 
+const BADGE_SIZES: Record<'xs' | 'sm' | 'md' | 'lg', { wrap: string; icon: string }> = {
+  xs: { wrap: 'h-5 w-5', icon: 'h-2.5 w-2.5' },
+  sm: { wrap: 'h-9 w-9', icon: 'h-4 w-4' },
+  md: { wrap: 'h-14 w-14', icon: 'h-6 w-6' },
+  lg: { wrap: 'h-20 w-20', icon: 'h-9 w-9' },
+}
+
+// Shared "icon in a soft circle" treatment used everywhere a kudos value is
+// shown — the value picker, the send confirmation, and the wall feed — so
+// the premium look stays consistent without repeating the styling.
+export function KudosValueBadge({
+  iconKey,
+  size = 'md',
+}: {
+  iconKey: string
+  size?: 'xs' | 'sm' | 'md' | 'lg'
+}) {
+  const Icon = KUDOS_ICON_MAP[iconKey] ?? Award
+  const { wrap, icon } = BADGE_SIZES[size]
+
+  return (
+    <span
+      className={`inline-flex ${wrap} shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-cream-200 shadow-card`}
+    >
+      <Icon className={`${icon} text-brand-600`} aria-hidden="true" />
+    </span>
+  )
+}
+
 export interface KudosValueCardProps {
   id: string
   name: string
@@ -33,8 +62,6 @@ export function KudosValueCard({
 }: KudosValueCardProps) {
   const [tooltipOpen, setTooltipOpen] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
-
-  const Icon = KUDOS_ICON_MAP[iconKey] ?? Award
 
   useEffect(() => {
     if (!tooltipOpen) return
@@ -83,7 +110,7 @@ export function KudosValueCard({
           : 'border-neutral-200 bg-white shadow-card'
       }`}
     >
-      <Icon className="h-6 w-6 shrink-0 text-brand-600" aria-hidden="true" />
+      <KudosValueBadge iconKey={iconKey} size="sm" />
 
       <span className="font-display text-neutral-800">{name}</span>
 

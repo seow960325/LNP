@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { KudosValueCard } from '../components/KudosValueCard'
+import { KudosValueCard, KudosValueBadge } from '../components/KudosValueCard'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton as NavBackButton } from '../components/BackButton'
 import {
@@ -57,7 +57,6 @@ function WhoStep({
 
   return (
     <div className="space-y-3">
-      <NavBackButton fallback="/kudos" />
       <h1 className="font-display text-xl text-neutral-800">Who do you want to praise?</h1>
       {error && <ErrorState message={error} />}
       {!error && members === null && <LoadingState label="Loading people…" />}
@@ -171,9 +170,15 @@ function MessageStep({
     <div className="space-y-3">
       <BackButton onClick={onBack} disabled={sending} />
       <h1 className="font-display text-xl text-neutral-800">Add a message</h1>
-      <p className="text-sm text-neutral-500">
-        {value.name} for <span className="font-medium text-neutral-700">{recipient.full_name}</span>
-      </p>
+
+      <div className="flex flex-col items-center gap-3 rounded-3xl bg-white p-6 text-center shadow-card">
+        <KudosValueBadge iconKey={value.icon_key} size="lg" />
+        <p className="text-sm text-neutral-500">
+          <span className="font-display text-neutral-800">{value.name}</span> for{' '}
+          <span className="font-medium text-neutral-700">{recipient.full_name}</span>
+        </p>
+      </div>
+
       <textarea
         value={message}
         onChange={(event) => onMessageChange(event.target.value.slice(0, MAX_MESSAGE_LENGTH))}
@@ -199,9 +204,64 @@ function MessageStep({
   )
 }
 
-export function KudosSendPage() {
+interface SentSummary {
+  recipientName: string
+  valueName: string
+  iconKey: string
+  message: string | null
+}
+
+function SentConfirmation({
+  summary,
+  onSendAnother,
+  onViewWall,
+}: {
+  summary: SentSummary
+  onSendAnother: () => void
+  onViewWall: () => void
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col items-center gap-3 rounded-3xl bg-gradient-to-br from-brand-50 via-cream-100 to-sky-50 p-8 text-center shadow-card-lg">
+        <KudosValueBadge iconKey={summary.iconKey} size="lg" />
+        <p className="font-handwriting text-4xl text-brand-700">Kudos sent!</p>
+        <p className="text-sm text-neutral-600">
+          <span className="font-display text-neutral-800">{summary.valueName}</span> for{' '}
+          <span className="font-medium text-neutral-700">{summary.recipientName}</span>
+        </p>
+        {summary.message && (
+          <p className="rounded-2xl bg-white/70 px-4 py-3 text-sm italic text-neutral-600">
+            &ldquo;{summary.message}&rdquo;
+          </p>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onSendAnother}
+          className="min-h-tap flex-1 rounded-2xl border border-neutral-200 bg-white font-display text-sm text-neutral-600 shadow-card hover:bg-neutral-50"
+        >
+          Send another
+        </button>
+        <button
+          type="button"
+          onClick={onViewWall}
+          className="min-h-tap flex-1 rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700"
+        >
+          View kudos wall
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Content-only — no page chrome — so it can be reused both as its own
+// standalone route (KudosSendPage, below) and as a tab inside the combined
+// Kudos hub page. `onViewWall` lets the caller decide what "view the wall"
+// means (switch tabs inside the hub, or navigate when standalone).
+export function KudosSendPanel({ onViewWall }: { onViewWall: () => void }) {
   const { profile } = useAuth()
-  const navigate = useNavigate()
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [recipient, setRecipient] = useState<CenterMember | null>(null)
@@ -209,8 +269,18 @@ export function KudosSendPage() {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [sent, setSent] = useState<SentSummary | null>(null)
 
   if (!profile) return null
+
+  function resetFlow() {
+    setStep(1)
+    setRecipient(null)
+    setValue(null)
+    setMessage('')
+    setSendError(null)
+    setSent(null)
+  }
 
   async function handleSend() {
     if (!profile || !recipient || !value) return
@@ -230,52 +300,73 @@ export function KudosSendPage() {
       setSendError('Could not send kudos. Please try again.')
       return
     }
-    navigate('/kudos')
+    setSent({
+      recipientName: recipient.full_name,
+      valueName: value.name,
+      iconKey: value.icon_key,
+      message: trimmed.length > 0 ? trimmed : null,
+    })
   }
+
+  if (sent) {
+    return <SentConfirmation summary={sent} onSendAnother={resetFlow} onViewWall={onViewWall} />
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Step {step} of 3</p>
+
+      {step === 1 && (
+        <WhoStep
+          centerId={profile.center_id}
+          currentUserId={profile.id}
+          selected={recipient}
+          onPick={(member) => {
+            setRecipient(member)
+            setStep(2)
+          }}
+        />
+      )}
+
+      {step === 2 && (
+        <WhatStep
+          centerId={profile.center_id}
+          selected={value}
+          onPick={(picked) => {
+            setValue(picked)
+            setStep(3)
+          }}
+          onBack={() => setStep(1)}
+        />
+      )}
+
+      {step === 3 && recipient && value && (
+        <MessageStep
+          recipient={recipient}
+          value={value}
+          message={message}
+          onMessageChange={setMessage}
+          onBack={() => setStep(2)}
+          onSend={handleSend}
+          sending={sending}
+          error={sendError}
+        />
+      )}
+    </div>
+  )
+}
+
+// Standalone legacy route (/kudos/new) — kept working in case anything still
+// links directly to it. The Kudos hub page renders KudosSendPanel directly
+// instead of this wrapper.
+export function KudosSendPage() {
+  const navigate = useNavigate()
 
   return (
     <div className="min-h-screen bg-cream-100 p-6">
       <div className="max-w-lg mx-auto space-y-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-          Step {step} of 3
-        </p>
-
-        {step === 1 && (
-          <WhoStep
-            centerId={profile.center_id}
-            currentUserId={profile.id}
-            selected={recipient}
-            onPick={(member) => {
-              setRecipient(member)
-              setStep(2)
-            }}
-          />
-        )}
-
-        {step === 2 && (
-          <WhatStep
-            centerId={profile.center_id}
-            selected={value}
-            onPick={(picked) => {
-              setValue(picked)
-              setStep(3)
-            }}
-            onBack={() => setStep(1)}
-          />
-        )}
-
-        {step === 3 && recipient && value && (
-          <MessageStep
-            recipient={recipient}
-            value={value}
-            message={message}
-            onMessageChange={setMessage}
-            onBack={() => setStep(2)}
-            onSend={handleSend}
-            sending={sending}
-            error={sendError}
-          />
-        )}
+        <NavBackButton fallback="/kudos" />
+        <KudosSendPanel onViewWall={() => navigate('/kudos')} />
       </div>
     </div>
   )

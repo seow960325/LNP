@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Award } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { KUDOS_ICON_MAP } from '../components/KudosValueCard'
+import { KudosValueBadge } from '../components/KudosValueCard'
+import { Avatar } from '../components/Avatar'
 import { LoadingState, ErrorState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
 import { formatDate, toKLDateISO } from '../lib/helpers'
@@ -14,10 +13,12 @@ import {
   fetchTopRecipient,
 } from '../lib/kudosApi'
 import type { TopRecipient } from '../lib/kudosApi'
+import { KudosSendPanel } from './KudosSendPage'
 
 interface FeedItem {
   id: string
   recipientName: string
+  recipientAvatarUrl: string | null
   senderName: string
   valueName: string
   iconKey: string
@@ -27,7 +28,10 @@ interface FeedItem {
 
 type FeedState = 'loading' | 'ready' | 'error'
 
-export function KudosWallPage() {
+// Content-only — no page chrome — so it can be reused both as its own
+// standalone route (kept for backward compat) and as a tab inside the
+// combined Kudos hub page.
+export function KudosWallPanel() {
   const { profile } = useAuth()
 
   const [feedState, setFeedState] = useState<FeedState>('loading')
@@ -74,15 +78,17 @@ export function KudosWallPage() {
         return
       }
 
-      const profileNameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]))
+      const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
       const valueById = new Map((values ?? []).map((v) => [v.id, v]))
 
       const items: FeedItem[] = rows.map((row) => {
         const value = valueById.get(row.value_id)
+        const recipient = profileById.get(row.to_user_id)
         return {
           id: row.id,
-          recipientName: profileNameById.get(row.to_user_id) ?? 'Someone',
-          senderName: profileNameById.get(row.from_user_id) ?? 'Someone',
+          recipientName: recipient?.full_name ?? 'Someone',
+          recipientAvatarUrl: recipient?.avatar_url ?? null,
+          senderName: profileById.get(row.from_user_id)?.full_name ?? 'Someone',
           valueName: value?.name ?? 'Kudos',
           iconKey: value?.icon_key ?? '',
           message: row.message,
@@ -140,76 +146,106 @@ export function KudosWallPage() {
   if (!profile) return null
 
   return (
+    <div className="space-y-4">
+      {topRecipient && (
+        <div className="flex items-center gap-2 rounded-2xl border border-cream-300 bg-cream-100 px-4 py-3 text-sm text-neutral-700">
+          <span>🌟</span> Most appreciated: <span className="font-display">{topRecipient.full_name}</span>
+        </div>
+      )}
+
+      <div className="rounded-3xl bg-gradient-to-br from-brand-50 via-cream-100 to-sky-50 p-5 shadow-card">
+        <p className="text-xs text-neutral-500">Kudos you received this month</p>
+        {monthlyError ? (
+          <p className="text-sm text-coral-600">{monthlyError}</p>
+        ) : monthlyCount === null ? (
+          <p className="font-handwriting text-4xl text-neutral-300">…</p>
+        ) : (
+          <p className="font-handwriting text-5xl text-brand-700">{monthlyCount}</p>
+        )}
+      </div>
+
+      {feedState === 'loading' && <LoadingState label="Loading the wall…" />}
+      {feedState === 'error' && <ErrorState message={feedError ?? 'Something went wrong.'} />}
+
+      {feedState === 'ready' && feedItems.length === 0 && (
+        <div className="space-y-3 rounded-3xl bg-white p-8 text-center shadow-card">
+          <p className="text-neutral-500">No kudos yet — be the first!</p>
+        </div>
+      )}
+
+      {feedState === 'ready' && feedItems.length > 0 && (
+        <ul className="space-y-3">
+          {feedItems.map((item) => (
+            <li
+              key={item.id}
+              className="flex gap-4 rounded-3xl bg-white p-4 shadow-card transition-shadow hover:shadow-card-md"
+            >
+              <Avatar fullName={item.recipientName} avatarUrl={item.recipientAvatarUrl} size="xl" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="min-w-0 truncate font-display text-lg font-bold text-neutral-800">
+                    {item.recipientName}
+                  </p>
+                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-cream-100 py-0.5 pl-0.5 pr-2 text-2xs font-medium text-brand-600">
+                    <KudosValueBadge iconKey={item.iconKey} size="xs" />
+                    {item.valueName}
+                  </span>
+                </div>
+
+                {item.message && (
+                  <p className="text-sm italic text-neutral-600">&ldquo;{item.message}&rdquo;</p>
+                )}
+
+                <p className="pt-1 text-xs text-neutral-400">
+                  by {item.senderName} · {formatDate(item.createdAt)}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+type Tab = 'wall' | 'send'
+
+// Kudos hub — the single home-card entry point, combining the wall (feed +
+// monthly stats) and the send flow into one page via tabs.
+export function KudosWallPage() {
+  const [tab, setTab] = useState<Tab>('wall')
+
+  return (
     <div className="min-h-screen bg-cream-100 p-6">
       <div className="max-w-lg mx-auto space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BackButton fallback="/" />
-            <h1 className="font-display text-2xl text-neutral-800">Kudos Wall</h1>
-          </div>
-          <Link
-            to="/kudos/new"
-            className="flex min-h-tap items-center rounded-2xl bg-brand-600 px-4 font-display text-sm text-white shadow-card hover:bg-brand-700"
+        <div className="flex items-center gap-2">
+          <BackButton fallback="/" />
+          <h1 className="font-display text-2xl text-neutral-800">Kudos</h1>
+        </div>
+
+        <div className="flex gap-2 rounded-2xl bg-white p-1.5 shadow-card">
+          <button
+            type="button"
+            onClick={() => setTab('wall')}
+            className={`min-h-tap flex-1 rounded-xl font-display text-sm transition-colors ${
+              tab === 'wall' ? 'bg-brand-600 text-white shadow-card' : 'text-neutral-600 hover:bg-neutral-50'
+            }`}
           >
-            Give kudos
-          </Link>
+            Wall
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('send')}
+            className={`min-h-tap flex-1 rounded-xl font-display text-sm transition-colors ${
+              tab === 'send' ? 'bg-brand-600 text-white shadow-card' : 'text-neutral-600 hover:bg-neutral-50'
+            }`}
+          >
+            Send Kudos
+          </button>
         </div>
 
-        {topRecipient && (
-          <div className="rounded-2xl border border-cream-300 bg-cream-100 px-4 py-3 text-sm text-neutral-700">
-            🌟 Most appreciated: <span className="font-display">{topRecipient.full_name}</span>
-          </div>
-        )}
-
-        <div className="rounded-2xl bg-white p-4 shadow-card">
-          <p className="text-xs text-neutral-500">Kudos you received this month</p>
-          {monthlyError ? (
-            <p className="text-sm text-coral-600">{monthlyError}</p>
-          ) : monthlyCount === null ? (
-            <p className="font-display text-2xl text-neutral-300">…</p>
-          ) : (
-            <p className="font-display text-2xl text-brand-600">{monthlyCount}</p>
-          )}
-        </div>
-
-        {feedState === 'loading' && <LoadingState label="Loading the wall…" />}
-        {feedState === 'error' && <ErrorState message={feedError ?? 'Something went wrong.'} />}
-
-        {feedState === 'ready' && feedItems.length === 0 && (
-          <div className="space-y-3 rounded-2xl bg-white p-8 text-center shadow-card">
-            <p className="text-neutral-500">No kudos yet — be the first!</p>
-            <Link
-              to="/kudos/new"
-              className="inline-flex min-h-tap items-center justify-center rounded-2xl bg-brand-600 px-4 font-display text-sm text-white shadow-card hover:bg-brand-700"
-            >
-              Give kudos
-            </Link>
-          </div>
-        )}
-
-        {feedState === 'ready' && feedItems.length > 0 && (
-          <ul className="space-y-3">
-            {feedItems.map((item) => {
-              const Icon = KUDOS_ICON_MAP[item.iconKey] ?? Award
-              return (
-                <li key={item.id} className="space-y-1 rounded-2xl bg-white p-4 shadow-card">
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-5 w-5 text-brand-600" aria-hidden="true" />
-                    <span className="font-display text-neutral-800">{item.valueName}</span>
-                  </div>
-                  <p className="text-sm text-neutral-700">
-                    <span className="font-medium">{item.senderName}</span> →{' '}
-                    <span className="font-medium">{item.recipientName}</span>
-                  </p>
-                  {item.message && (
-                    <p className="text-sm italic text-neutral-600">&ldquo;{item.message}&rdquo;</p>
-                  )}
-                  <p className="text-xs text-neutral-400">{formatDate(item.createdAt)}</p>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        {tab === 'wall' && <KudosWallPanel />}
+        {tab === 'send' && <KudosSendPanel onViewWall={() => setTab('wall')} />}
       </div>
     </div>
   )
