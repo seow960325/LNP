@@ -2,8 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { RequireAuth } from './components/RequireAuth'
 import { RequireRole } from './components/RequireRole'
 import { AppHeader } from './components/AppHeader'
+import { useAuth } from './contexts/AuthContext'
 import { LoginPage } from './pages/LoginPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
+import { ForceChangePasswordPage } from './pages/ForceChangePasswordPage'
 import { AdminHomePage } from './pages/AdminHomePage'
 import { ParentHomePage } from './pages/ParentHomePage'
 import { ShareholderHomePage } from './pages/ShareholderHomePage'
@@ -22,7 +24,16 @@ import { StaffMemberDetailPage } from './pages/StaffMemberDetailPage'
 import { StaffDocumentsPage } from './pages/StaffDocumentsPage'
 import { HomePage } from './pages/HomePage'
 
+// Gate: a user whose password was admin-reset is locked out of every route
+// under here until they set a new password — see ForceChangePasswordPage,
+// which lives outside this layout so it's reachable without looping back.
 function AppLayout() {
+  const { profile } = useAuth()
+
+  if (profile?.must_change_password) {
+    return <Navigate to="/force-change-password" replace />
+  }
+
   return (
     <>
       <AppHeader />
@@ -41,6 +52,9 @@ export function App() {
 
         {/* Protected — must be authenticated with a resolved profile */}
         <Route element={<RequireAuth />}>
+          {/* Outside AppLayout so the must_change_password gate can't loop back here */}
+          <Route path="/force-change-password" element={<ForceChangePasswordPage />} />
+
           <Route element={<AppLayout />}>
             <Route path="/" element={<HomePage />} />
 

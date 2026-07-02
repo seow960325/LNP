@@ -1,0 +1,137 @@
+// Edge Function: admin-reset-password
+// Generates a temporary password for a target user and forces them to
+// change it on next login. The ONLY place service_role is used.
+//
+// Auth matrix enforced here (server-side, cannot be bypassed by the client):
+//   - caller must be admin or super_admin           else 403
+//   - admin may reset ONLY normal staff (not admin/super_admin) else 403
+//   - super_admin may reset anyone
+//   - target must be in the same center as caller (unless caller is super_admin) else 403
+
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function generateTempPassword(): string {
+  const bytes = new Uint32Array(1)
+  crypto.getRandomValues(bytes)
+  return String(bytes[0] % 1000000).padStart(6, '0')
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders })
+
+  try {
+    // --- 1. Identify the caller from their JWT (anon client + caller's token) ---
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return json({ error: 'Missing Authorization header' }, 401)
+    }
+
+    const callerClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    )
+
+    const { data: { user: caller }, error: callerErr } = await callerClient.auth.getUser()
+    if (callerErr || !caller) {
+      return json({ error: 'Invalid or expired session' }, 401)
+    }
+
+    // --- 2. Load caller's profile (role + center) ---
+    const { data: callerProfile, error: cpErr } = await callerClient
+      .from('profiles')
+      .select('id, role, center_id')
+      .eq('id', caller.id)
+      .single()
+    if (cpErr || !callerProfile) {
+      return json({ error: 'Caller profile not found' }, 403)
+    }
+
+    const callerRole = callerProfile.role
+    const isSuper = callerRole === 'super_admin'
+    const isAdmin = callerRole === 'admin' || callerRole === 'super_admin'
+    if (!isAdmin) {
+      return json({ error: 'Forbidden: admin or super_admin only' }, 403)
+    }
+
+    // --- 3. Parse target ---
+    const body = await req.json().catch(() => null)
+    const targetUserId = body?.targetUserId
+    if (!targetUserId || typeof targetUserId !== 'string') {
+      return json({ error: 'targetUserId is required' }, 400)
+    }
+    if (targetUserId === caller.id) {
+      return json({ error: 'Use normal password change for your own account' }, 400)
+    }
+
+    // --- 4. service_role client (bypasses RLS) — used ONLY below, server-side ---
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,   // <-- the master key, secret, never sent to client
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    )
+
+    // --- 5. Load target profile to enforce the auth matrix ---
+    const { data: targetProfile, error: tpErr } = await admin
+      .from('profiles')
+      .select('id, role, center_id')
+      .eq('id', targetUserId)
+      .single()
+    if (tpErr || !targetProfile) {
+      return json({ error: 'Target user not found' }, 404)
+    }
+
+    // Rule: admin (non-super) may reset ONLY normal staff, same center.
+    if (!isSuper) {
+      const targetIsPrivileged =
+        targetProfile.role === 'admin' || targetProfile.role === 'super_admin'
+      if (targetIsPrivileged) {
+        return json({ error: 'Forbidden: admin cannot reset admin/super_admin' }, 403)
+      }
+      if (targetProfile.center_id !== callerProfile.center_id) {
+        return json({ error: 'Forbidden: target is in a different center' }, 403)
+      }
+    }
+
+    // --- 6. Do the reset: set temp password + force change on next login ---
+    const tempPassword = generateTempPassword()
+
+    const { error: pwErr } = await admin.auth.admin.updateUserById(targetUserId, {
+      password: tempPassword,
+    })
+    if (pwErr) {
+      return json({ error: `Failed to set password: ${pwErr.message}` }, 500)
+    }
+
+    const { error: flagErr } = await admin
+      .from('profiles')
+      .update({ must_change_password: true })
+      .eq('id', targetUserId)
+    if (flagErr) {
+      // Password already changed but flag failed — report so admin knows.
+      return json({
+        error: `Password reset but failed to set change-required flag: ${flagErr.message}`,
+        tempPassword,   // still return it so the reset isn't lost
+      }, 207)
+    }
+
+    // --- 7. Return temp password (plaintext, only time it exists) ---
+    return json({ tempPassword }, 200)
+
+  } catch (e) {
+    return json({ error: `Unexpected error: ${String(e)}` }, 500)
+  }
+})
+
+function json(body: unknown, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
