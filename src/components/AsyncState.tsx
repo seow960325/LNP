@@ -21,3 +21,11 @@ export function EmptyState({ message }: { message: string }) {
     </div>
   )
 }
+
+export function SuccessState({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-sage-200 bg-sage-50 px-4 py-3 text-sm text-sage-700">
+      {message}
+    </div>
+  )
+}

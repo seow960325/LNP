@@ -5,7 +5,6 @@ import { AppHeader } from './components/AppHeader'
 import { LoginPage } from './pages/LoginPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { AdminHomePage } from './pages/AdminHomePage'
-import { StaffHomePage } from './pages/StaffHomePage'
 import { ParentHomePage } from './pages/ParentHomePage'
 import { ShareholderHomePage } from './pages/ShareholderHomePage'
 import { KudosWallPage } from './pages/KudosWallPage'
@@ -17,6 +16,8 @@ import { AttendanceAdminPage } from './pages/AttendanceAdminPage'
 import { WifiPage } from './pages/WifiPage'
 import { RequestsPage } from './pages/RequestsPage'
 import { RequestsAdminPage } from './pages/RequestsAdminPage'
+import { ProfilePage } from './pages/ProfilePage'
+import { StaffDirectoryPage } from './pages/StaffDirectoryPage'
 import { HomePage } from './pages/HomePage'
 
 function AppLayout() {
@@ -60,16 +61,17 @@ export function App() {
             {/* Requests — any authenticated active user, all roles */}
             <Route path="/requests" element={<RequestsPage />} />
 
+            {/* Profile — any authenticated active user, edits own row only */}
+            <Route path="/profile" element={<ProfilePage />} />
+
+            {/* Staff Directory — any authenticated active user, all roles, read-only */}
+            <Route path="/staff" element={<StaffDirectoryPage />} />
+
             {/* Admin routes: super_admin + admin */}
             <Route element={<RequireRole allow={['super_admin', 'admin']} />}>
               <Route path="/admin" element={<AdminHomePage />} />
               <Route path="/attendance/admin" element={<AttendanceAdminPage />} />
               <Route path="/requests/admin" element={<RequestsAdminPage />} />
-            </Route>
-
-            {/* Staff routes: super_admin + admin can also access staff view */}
-            <Route element={<RequireRole allow={['super_admin', 'admin', 'teacher', 'staff']} />}>
-              <Route path="/staff" element={<StaffHomePage />} />
             </Route>
 
             {/* Parent — Phase 2 stub */}

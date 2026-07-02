@@ -1,4 +1,5 @@
-const SIZES: Record<'md' | 'lg' | 'xl', string> = {
+const SIZES: Record<'sm' | 'md' | 'lg' | 'xl', string> = {
+  sm: 'h-8 w-8 text-xs',
   md: 'h-10 w-10 text-sm',
   lg: 'h-14 w-14 text-base',
   xl: 'h-16 w-16 text-lg',
@@ -21,7 +22,7 @@ export function Avatar({
 }: {
   fullName: string
   avatarUrl?: string | null
-  size?: 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }) {
   const sizeClasses = SIZES[size]
 

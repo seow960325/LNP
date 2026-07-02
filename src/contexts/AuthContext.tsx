@@ -11,6 +11,7 @@ interface AuthContextValue {
   profile: Profile | null
   profileState: ProfileState
   signOut: () => Promise<void>
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -78,8 +79,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  // Re-reads the current user's own profile row without a loading flicker —
+  // used after the user edits their own name/phone/avatar so the header and
+  // any other screen reading `profile` from context picks up the change
+  // immediately instead of waiting for the next auth state change.
+  async function refreshProfile() {
+    if (!user) return
+    await fetchProfile(user.id)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, profile, profileState, signOut }}>
+    <AuthContext.Provider value={{ user, profile, profileState, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
