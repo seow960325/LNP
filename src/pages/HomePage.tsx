@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, CalendarDays, ClipboardList, Gift, Trophy } from 'lucide-react'
+import { Bell, CalendarDays, ClipboardList, Clock, Gift, Trophy, UserCheck, Wifi } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { firstName, toKLDateISO } from '../lib/helpers'
@@ -9,9 +9,17 @@ import { fetchOpenTodayCount } from '../lib/boardApi'
 const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'Daily Ops Board', to: '/board', Icon: ClipboardList },
   { label: 'Duty Roster', to: '/roster', Icon: CalendarDays },
+  { label: 'Attendance', to: '/attendance', Icon: Clock },
+  { label: 'WiFi Password', to: '/wifi', Icon: Wifi },
   { label: 'Send Kudos', to: '/kudos/new', Icon: Gift },
   { label: 'Kudos Wall', to: '/kudos', Icon: Trophy },
 ]
+
+const ADMIN_TILE: { label: string; to: string; Icon: LucideIcon } = {
+  label: 'Attendance (Admin)',
+  to: '/attendance/admin',
+  Icon: UserCheck,
+}
 
 function NotificationBell() {
   const { profile } = useAuth()
@@ -56,6 +64,9 @@ export function HomePage() {
 
   if (!profile) return null
 
+  const isAdmin = profile.role === 'admin' || profile.role === 'super_admin'
+  const tiles = isAdmin ? [...TILES, ADMIN_TILE] : TILES
+
   return (
     <div className="min-h-screen bg-cream-100 p-6">
       <div className="mx-auto max-w-lg space-y-6">
@@ -65,7 +76,7 @@ export function HomePage() {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          {TILES.map(({ label, to, Icon }) => (
+          {tiles.map(({ label, to, Icon }) => (
             <Link
               key={to}
               to={to}

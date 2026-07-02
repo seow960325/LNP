@@ -60,6 +60,23 @@ export function getWeekStartISO(dateISO: string): string {
   return shiftDateISO(dateISO, diff);
 }
 
+// 24h HH:MM in KL time, for displaying/pre-filling a stored timestamptz.
+export function formatTimeKL(input: string | Date): string {
+  if (Number.isNaN(new Date(input).getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kuala_Lumpur',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(input));
+}
+
+// Combines a YYYY-MM-DD date with an HH:MM time, both understood as KL
+// (fixed UTC+8, no DST), into a timestamptz-compatible ISO string.
+export function klDateTimeToISO(dateISO: string, hhmm: string): string {
+  return new Date(`${dateISO}T${hhmm}:00+08:00`).toISOString();
+}
+
 const BOARD_PRIORITY_ORDER: Record<'low' | 'normal' | 'high', number> = { high: 0, normal: 1, low: 2 };
 const BOARD_STATUS_ORDER: Record<'open' | 'done', number> = { open: 0, done: 1 };
 

@@ -11,6 +11,9 @@ import { KudosWallPage } from './pages/KudosWallPage'
 import { KudosSendPage } from './pages/KudosSendPage'
 import { BoardPage } from './pages/BoardPage'
 import { RosterPage } from './pages/RosterPage'
+import { AttendancePage } from './pages/AttendancePage'
+import { AttendanceAdminPage } from './pages/AttendanceAdminPage'
+import { WifiPage } from './pages/WifiPage'
 import { HomePage } from './pages/HomePage'
 
 export function App() {
@@ -35,9 +38,16 @@ export function App() {
           {/* Duty Roster — any authenticated active user, all roles (admin/super_admin can edit) */}
           <Route path="/roster" element={<RosterPage />} />
 
+          {/* Attendance self clock-in/out — any authenticated active user, all roles */}
+          <Route path="/attendance" element={<AttendancePage />} />
+
+          {/* WiFi Password — any authenticated active user, all roles (admin/super_admin can edit) */}
+          <Route path="/wifi" element={<WifiPage />} />
+
           {/* Admin routes: super_admin + admin */}
           <Route element={<RequireRole allow={['super_admin', 'admin']} />}>
             <Route path="/admin" element={<AdminHomePage />} />
+            <Route path="/attendance/admin" element={<AttendanceAdminPage />} />
           </Route>
 
           {/* Staff routes: super_admin + admin can also access staff view */}
