@@ -5,10 +5,20 @@ import { BackButton } from '../components/BackButton'
 import { formatDateShort, getWeekStartISO, shiftDateISO, toKLDateISO } from '../lib/helpers'
 import { fetchCenterMembers } from '../lib/kudosApi'
 import type { CenterMember } from '../lib/kudosApi'
-import { fetchWeekShifts, addShift, removeShift } from '../lib/rosterApi'
-import type { RosterShiftRow } from '../lib/rosterApi'
+import { fetchWeekShifts, addShift, removeShift, fetchApprovedLeave } from '../lib/rosterApi'
+import type { RosterShiftRow, RosterLeaveRow } from '../lib/rosterApi'
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+const LEAVE_LABELS: Record<RosterLeaveRow['type'], string> = {
+  annual_leave: 'AL',
+  medical_leave: 'ML',
+}
+
+const LEAVE_TITLES: Record<RosterLeaveRow['type'], string> = {
+  annual_leave: 'Annual leave',
+  medical_leave: 'Medical leave',
+}
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -25,6 +35,8 @@ export function RosterPage() {
   const [shiftsState, setShiftsState] = useState<LoadState>('loading')
   const [shifts, setShifts] = useState<RosterShiftRow[]>([])
   const [shiftsError, setShiftsError] = useState<string | null>(null)
+
+  const [leave, setLeave] = useState<RosterLeaveRow[]>([])
 
   const [togglingKey, setTogglingKey] = useState<string | null>(null)
   const [mutateError, setMutateError] = useState<string | null>(null)
@@ -71,13 +83,45 @@ export function RosterPage() {
     }
   }, [profile, weekStart, refreshKey])
 
+  // Read-only overlay — approved leave is looked up alongside shifts but
+  // never written to roster_shifts, so it doesn't need its own load/error
+  // state gating the page; a failed fetch just means no leave pills show.
+  useEffect(() => {
+    if (!profile) return
+    let cancelled = false
+    const weekEnd = shiftDateISO(weekStart, 5)
+
+    fetchApprovedLeave(profile.center_id, weekStart, weekEnd).then(({ data, error }) => {
+      if (cancelled || error || !data) return
+      setLeave(data)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [profile, weekStart])
+
   if (!profile) return null
 
   const isAdmin = profile.role === 'admin' || profile.role === 'super_admin'
   const days = Array.from({ length: 6 }, (_, i) => shiftDateISO(weekStart, i))
   const currentWeekStart = getWeekStartISO(toKLDateISO(new Date()))
   const isCurrentWeek = weekStart === currentWeekStart
+  const today = toKLDateISO(new Date())
   const shiftMap = new Map(shifts.map((s) => [`${s.user_id}|${s.date}`, s]))
+
+  const leaveByUser = new Map<string, RosterLeaveRow[]>()
+  for (const row of leave) {
+    const existing = leaveByUser.get(row.user_id)
+    if (existing) existing.push(row)
+    else leaveByUser.set(row.user_id, [row])
+  }
+
+  function leaveOnDay(userId: string, day: string): RosterLeaveRow | null {
+    const rows = leaveByUser.get(userId)
+    if (!rows) return null
+    return rows.find((row) => day >= row.start_date && day <= (row.end_date ?? row.start_date)) ?? null
+  }
 
   async function handleToggle(userId: string, date: string) {
     if (!profile || !isAdmin || togglingKey) return
@@ -137,7 +181,7 @@ export function RosterPage() {
                 onClick={() => setWeekStart(currentWeekStart)}
                 className="text-xs text-brand-600 hover:underline"
               >
-                This week
+                Back to this week
               </button>
             )}
           </div>
@@ -166,39 +210,64 @@ export function RosterPage() {
         )}
 
         {membersState === 'ready' && shiftsState === 'ready' && members.length > 0 && (
-          <div className="overflow-x-auto rounded-2xl bg-white shadow-card">
-            <table className="w-full min-w-[520px] border-collapse text-sm">
+          <div className="rounded-2xl bg-white shadow-card">
+            <table className="w-full table-fixed border-collapse text-sm">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-10 min-w-[120px] bg-white px-3 py-2 text-left font-display text-xs text-neutral-500">
-                    Member
-                  </th>
-                  {days.map((day, i) => (
-                    <th key={day} className="px-2 py-2 text-center font-display text-xs text-neutral-500">
-                      <div>{WEEKDAY_LABELS[i]}</div>
-                      <div className="text-2xs font-normal text-neutral-400">{formatDateShort(day)}</div>
-                    </th>
-                  ))}
+                  <th className="w-16 px-1 py-2 text-left font-display text-2xs text-neutral-500">Member</th>
+                  {days.map((day, i) => {
+                    const isToday = isCurrentWeek && day === today
+                    return (
+                      <th
+                        key={day}
+                        className={`px-0.5 py-2 text-center font-display text-2xs text-neutral-500 ${
+                          isToday ? 'bg-brand-50' : ''
+                        }`}
+                      >
+                        <div className={isToday ? 'font-bold text-brand-700' : ''}>{WEEKDAY_LABELS[i]}</div>
+                        <div className="text-2xs font-normal text-neutral-400">{formatDateShort(day)}</div>
+                      </th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {members.map((member) => (
                   <tr key={member.id} className="border-t border-neutral-100">
-                    <td className="sticky left-0 z-10 min-w-[120px] bg-white px-3 py-2 font-display text-sm text-neutral-800">
+                    <td
+                      className="w-16 truncate px-1 py-2 font-display text-2xs text-neutral-800"
+                      title={member.full_name}
+                    >
                       {member.full_name}
                     </td>
                     {days.map((day) => {
                       const key = `${member.id}|${day}`
                       const isOn = shiftMap.has(key)
                       const label = `${member.full_name}, ${formatDateShort(day)}`
+                      const isToday = isCurrentWeek && day === today
+                      const leaveRow = leaveOnDay(member.id, day)
+                      const cellTint = isToday ? 'bg-brand-50' : ''
+
+                      if (leaveRow) {
+                        return (
+                          <td key={day} className={`px-0.5 py-2 text-center ${cellTint}`}>
+                            <span
+                              className="mx-auto inline-block rounded-full bg-neutral-100 px-1 py-0.5 text-2xs font-medium text-neutral-500"
+                              title={`${label}: ${LEAVE_TITLES[leaveRow.type]} (approved)`}
+                            >
+                              {LEAVE_LABELS[leaveRow.type]}
+                            </span>
+                          </td>
+                        )
+                      }
 
                       if (!isAdmin) {
                         return (
-                          <td key={day} className="px-2 py-2 text-center">
+                          <td key={day} className={`px-0.5 py-2 text-center ${cellTint}`}>
                             <div
                               role="img"
                               aria-label={isOn ? `${label}: on duty` : `${label}: off`}
-                              className={`mx-auto h-3 w-3 rounded-full ${
+                              className={`mx-auto h-2.5 w-2.5 rounded-full ${
                                 isOn ? 'bg-brand-600' : 'border border-neutral-200'
                               }`}
                             />
@@ -207,7 +276,7 @@ export function RosterPage() {
                       }
 
                       return (
-                        <td key={day} className="px-2 py-2 text-center">
+                        <td key={day} className={`px-0 py-2 text-center ${cellTint}`}>
                           <button
                             type="button"
                             onClick={() => handleToggle(member.id, day)}
@@ -217,7 +286,7 @@ export function RosterPage() {
                             className="mx-auto flex min-h-tap min-w-tap items-center justify-center rounded-full disabled:opacity-50"
                           >
                             <span
-                              className={`h-3 w-3 rounded-full ${isOn ? 'bg-brand-600' : 'border border-neutral-200'}`}
+                              className={`h-2.5 w-2.5 rounded-full ${isOn ? 'bg-brand-600' : 'border border-neutral-200'}`}
                             />
                           </button>
                         </td>

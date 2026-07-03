@@ -34,3 +34,26 @@ export function addShift(centerId: string, userId: string, date: string) {
 export function removeShift(shiftId: string) {
   return supabase.from('roster_shifts').delete().eq('id', shiftId)
 }
+
+export interface RosterLeaveRow {
+  user_id: string
+  type: 'annual_leave' | 'medical_leave'
+  start_date: string
+  end_date: string | null
+}
+
+// Read-only overlay for the roster — approved leave never touches
+// roster_shifts. end_date can be null (single-day leave), so the range
+// filter below only narrows to candidate rows; RosterPage does the exact
+// per-day containment check using (end_date ?? start_date).
+export function fetchApprovedLeave(centerId: string, weekStartDate: string, weekEndDate: string) {
+  return supabase
+    .from('requests')
+    .select('user_id, type, start_date, end_date')
+    .eq('center_id', centerId)
+    .eq('status', 'approved')
+    .in('type', ['annual_leave', 'medical_leave'])
+    .lte('start_date', weekEndDate)
+    .or(`end_date.gte.${weekStartDate},end_date.is.null`)
+    .returns<RosterLeaveRow[]>()
+}
