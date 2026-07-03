@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, CalendarDays, ClipboardList, Clock, FileText, Trophy, Users, Wifi } from 'lucide-react'
+import { Bell, CalendarDays, ClipboardList, Clock, FileText, Trophy, Users, Wallet, Wifi } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { firstName, toKLDateISO } from '../lib/helpers'
@@ -17,6 +17,12 @@ const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'Daily Ops Board', to: '/board', Icon: ClipboardList },
   { label: 'Staff Directory', to: '/staff', Icon: Users },
   { label: 'Documents', to: '/documents', Icon: FileText },
+]
+
+// Admin/super_admin only — appended to TILES rather than gated inline so the
+// shared grid layout logic stays untouched for every other role.
+const ADMIN_TILES: { label: string; to: string; Icon: LucideIcon }[] = [
+  { label: 'Payroll', to: '/payroll', Icon: Wallet },
 ]
 
 function NotificationBell() {
@@ -62,6 +68,9 @@ export function HomePage() {
 
   if (!profile) return null
 
+  const isAdmin = profile.role === 'admin' || profile.role === 'super_admin'
+  const tiles = isAdmin ? [...TILES, ...ADMIN_TILES] : TILES
+
   return (
     <div className="min-h-screen bg-cream-100 p-6">
       <div className="mx-auto max-w-lg space-y-6">
@@ -71,7 +80,7 @@ export function HomePage() {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          {TILES.map(({ label, to, Icon }) => (
+          {tiles.map(({ label, to, Icon }) => (
             <Link
               key={to}
               to={to}
