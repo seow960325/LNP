@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from '../components/Avatar'
-import { ErrorState, SuccessState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabaseClient'
 import { validateAvatarFile, uploadAvatar, updateOwnProfile } from '../lib/profileApi'
@@ -19,12 +19,7 @@ export function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   const [uploading, setUploading] = useState(false)
-  const [avatarError, setAvatarError] = useState<string | null>(null)
-  const [avatarSuccess, setAvatarSuccess] = useState(false)
-
   const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
   useEffect(() => {
     if (profile && !initialized.current) {
@@ -55,39 +50,34 @@ export function ProfilePage() {
 
     const validationError = validateAvatarFile(file)
     if (validationError) {
-      setAvatarError(validationError)
-      setAvatarSuccess(false)
+      toast.error(validationError)
       return
     }
 
-    setAvatarError(null)
-    setAvatarSuccess(false)
     setUploading(true)
 
     const { publicUrl, error } = await uploadAvatar(profile.id, file)
     if (error || !publicUrl) {
       setUploading(false)
-      setAvatarError('Could not upload the photo. Please try again.')
+      toast.error('Could not upload the photo. Please try again.')
       return
     }
 
     const { error: saveError } = await updateOwnProfile(profile.id, { avatar_url: publicUrl })
     setUploading(false)
     if (saveError) {
-      setAvatarError('Photo uploaded but could not be saved. Please try again.')
+      toast.error('Photo uploaded but could not be saved. Please try again.')
       return
     }
 
     setAvatarUrl(publicUrl)
-    setAvatarSuccess(true)
     await refreshProfile()
+    toast.success('Photo updated')
   }
 
   async function handleSaveDetails() {
     if (!profile || saving) return
     setSaving(true)
-    setSaveError(null)
-    setSaveSuccess(false)
 
     const { error } = await updateOwnProfile(profile.id, {
       full_name: fullName.trim(),
@@ -95,11 +85,11 @@ export function ProfilePage() {
     })
     setSaving(false)
     if (error) {
-      setSaveError('Could not save your changes. Please try again.')
+      toast.error('Could not save your changes. Please try again.')
       return
     }
-    setSaveSuccess(true)
     await refreshProfile()
+    toast.success('Profile saved')
   }
 
   return (
@@ -131,8 +121,6 @@ export function ProfilePage() {
             />
           </div>
           <p className="text-xs text-neutral-500">{uploading ? 'Uploading…' : 'Tap the camera to change your photo'}</p>
-          {avatarError && <ErrorState message={avatarError} />}
-          {avatarSuccess && <SuccessState message="Photo updated." />}
         </div>
 
         <div className="space-y-3 rounded-2xl bg-white p-4 shadow-card-md">
@@ -164,9 +152,6 @@ export function ProfilePage() {
               {email ?? '—'}
             </p>
           </div>
-
-          {saveError && <ErrorState message={saveError} />}
-          {saveSuccess && <SuccessState message="Profile saved." />}
 
           <button
             type="button"

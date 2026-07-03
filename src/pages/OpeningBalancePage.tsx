@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
@@ -19,8 +20,6 @@ interface RowState {
   openingEpfEmployee: number
   openingSocsoEmployee: number
   saving: boolean
-  saved: boolean
-  saveError: string | null
 }
 
 function buildRow(staff: PayrollStaffMember, opening: YtdOpeningBalance | undefined): RowState {
@@ -34,8 +33,6 @@ function buildRow(staff: PayrollStaffMember, opening: YtdOpeningBalance | undefi
     openingEpfEmployee: opening?.opening_epf_employee ?? 0,
     openingSocsoEmployee: opening?.opening_socso_employee ?? 0,
     saving: false,
-    saved: false,
-    saveError: null,
   }
 }
 
@@ -115,12 +112,12 @@ export function OpeningBalancePage() {
   }
 
   function handleFieldChange(employeeId: string, field: OpeningField, value: number) {
-    updateRow(employeeId, (row) => ({ ...row, [field]: value, saved: false, saveError: null }))
+    updateRow(employeeId, (row) => ({ ...row, [field]: value }))
   }
 
   async function handleSave(row: RowState) {
     if (!profile) return
-    updateRow(row.employeeId, (r) => ({ ...r, saving: true, saveError: null, saved: false }))
+    updateRow(row.employeeId, (r) => ({ ...r, saving: true }))
 
     const { data, error } = await upsertYtdOpening({
       id: row.openingId ?? undefined,
@@ -134,14 +131,13 @@ export function OpeningBalancePage() {
     })
 
     if (error || !data) {
-      updateRow(row.employeeId, (r) => ({ ...r, saving: false, saveError: 'Could not save. Please try again.' }))
+      updateRow(row.employeeId, (r) => ({ ...r, saving: false }))
+      toast.error('Could not save. Please try again.')
       return
     }
 
-    updateRow(row.employeeId, (r) => ({ ...r, saving: false, saved: true, openingId: data.id }))
-    setTimeout(() => {
-      updateRow(row.employeeId, (r) => ({ ...r, saved: false }))
-    }, 1500)
+    updateRow(row.employeeId, (r) => ({ ...r, saving: false, openingId: data.id }))
+    toast.success('Opening balance saved')
   }
 
   return (
@@ -233,9 +229,8 @@ export function OpeningBalancePage() {
                       disabled={row.saving}
                       className="min-h-tap rounded-xl bg-brand-600 px-3 text-xs text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
                     >
-                      {row.saving ? 'Saving…' : row.saved ? 'Saved!' : 'Save'}
+                      {row.saving ? 'Saving…' : 'Save'}
                     </button>
-                    {row.saveError && <p className="mt-1 max-w-[140px] text-2xs text-coral-600">{row.saveError}</p>}
                   </td>
                 </tr>
               ))}

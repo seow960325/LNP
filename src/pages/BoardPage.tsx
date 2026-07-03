@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
@@ -43,7 +44,6 @@ function BoardItemForm({
   members,
   membersError,
   submitting,
-  error,
   onCancel,
   onSubmit,
 }: {
@@ -51,7 +51,6 @@ function BoardItemForm({
   members: CenterMember[] | null
   membersError: string | null
   submitting: boolean
-  error: string | null
   onCancel: () => void
   onSubmit: (values: BoardItemFormValues) => void
 }) {
@@ -129,8 +128,6 @@ function BoardItemForm({
           </select>
         )}
       </div>
-
-      {error && <ErrorState message={error} />}
 
       <div className="flex gap-2">
         <button
@@ -248,13 +245,10 @@ export function BoardPage() {
   const [members, setMembers] = useState<CenterMember[] | null>(null)
   const [membersError, setMembersError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [markingId, setMarkingId] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
 
   const [deleteTarget, setDeleteTarget] = useState<BoardItemRow | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -326,13 +320,11 @@ export function BoardPage() {
 
   function closeForm() {
     setFormMode({ kind: 'closed' })
-    setSaveError(null)
   }
 
   async function handleCreate(values: BoardItemFormValues) {
     if (!profile) return
     setSaving(true)
-    setSaveError(null)
     const payload: CreateBoardItemPayload = {
       center_id: profile.center_id,
       author_id: profile.id,
@@ -347,16 +339,16 @@ export function BoardPage() {
     const { error } = await createBoardItem(payload)
     setSaving(false)
     if (error) {
-      setSaveError('Could not create the item. Please try again.')
+      toast.error('Could not create the item. Please try again.')
       return
     }
     closeForm()
     setRefreshKey((k) => k + 1)
+    toast.success('Item added')
   }
 
   async function handleUpdate(item: BoardItemRow, values: BoardItemFormValues) {
     setSaving(true)
-    setSaveError(null)
     const patch: UpdateBoardItemPatch = {
       title: values.title.trim(),
       body: values.body.trim().length > 0 ? values.body.trim() : null,
@@ -368,40 +360,41 @@ export function BoardPage() {
     const { error } = await updateBoardItem(item.id, patch)
     setSaving(false)
     if (error) {
-      setSaveError('Could not save changes. Please try again.')
+      toast.error('Could not save changes. Please try again.')
       return
     }
     closeForm()
     setRefreshKey((k) => k + 1)
+    toast.success('Item updated')
   }
 
   async function handleMarkDone(id: string) {
     setMarkingId(id)
-    setActionError(null)
     const { error } = await markDone(id)
     setMarkingId(null)
     if (error) {
-      setActionError('Could not mark the item done. Please try again.')
+      toast.error('Could not mark the item done. Please try again.')
       return
     }
     setRefreshKey((k) => k + 1)
+    toast.success('Item marked done')
   }
 
   async function handleDeleteConfirm() {
     if (!deleteTarget) return
     setDeleting(true)
-    setDeleteError(null)
 
     const { error } = await supabase.from('board_items').delete().eq('id', deleteTarget.id)
 
     setDeleting(false)
     if (error) {
-      setDeleteError(error.message || 'Could not delete this item. Please try again.')
+      toast.error(error.message || 'Could not delete this item. Please try again.')
       return
     }
 
     setItems((current) => current.filter((item) => item.id !== deleteTarget.id))
     setDeleteTarget(null)
+    toast.success('Item deleted')
   }
 
   return (
@@ -459,7 +452,6 @@ export function BoardPage() {
             members={members}
             membersError={membersError}
             submitting={saving}
-            error={saveError}
             onCancel={closeForm}
             onSubmit={handleCreate}
           />
@@ -478,14 +470,10 @@ export function BoardPage() {
             members={members}
             membersError={membersError}
             submitting={saving}
-            error={saveError}
             onCancel={closeForm}
             onSubmit={(values) => handleUpdate(formMode.item, values)}
           />
         )}
-
-        {actionError && <ErrorState message={actionError} />}
-        {deleteError && <ErrorState message={deleteError} />}
 
         {itemsState === 'loading' && <LoadingState label="Loading the board…" />}
         {itemsState === 'error' && <ErrorState message={itemsError ?? 'Something went wrong.'} />}

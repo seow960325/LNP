@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
@@ -187,15 +188,12 @@ export function RequestsPanel() {
   const [showCreate, setShowCreate] = useState(false)
   const [createValues, setCreateValues] = useState<FormValues>(emptyForm())
   const [createSaving, setCreateSaving] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<FormValues>(emptyForm())
   const [editSaving, setEditSaving] = useState(false)
-  const [editError, setEditError] = useState<string | null>(null)
 
   const [cancellingId, setCancellingId] = useState<string | null>(null)
-  const [cancelErrorId, setCancelErrorId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -222,65 +220,61 @@ export function RequestsPanel() {
 
   function openCreate() {
     setCreateValues(emptyForm())
-    setCreateError(null)
     setShowCreate(true)
   }
 
   function closeCreate() {
     setShowCreate(false)
-    setCreateError(null)
   }
 
   async function handleCreate() {
     if (!profile || createSaving) return
     setCreateSaving(true)
-    setCreateError(null)
     const { error } = await createRequest(profile.center_id, profile.id, toRequestInput(createValues))
     setCreateSaving(false)
     if (error) {
-      setCreateError('Could not submit your request. Please try again.')
+      toast.error('Could not submit your request. Please try again.')
       return
     }
     setShowCreate(false)
     setRefreshKey((k) => k + 1)
+    toast.success('Request submitted')
   }
 
   function openEdit(row: RequestRow) {
     setEditingId(row.id)
     setEditValues(toFormValues(row))
-    setEditError(null)
   }
 
   function closeEdit() {
     setEditingId(null)
-    setEditError(null)
   }
 
   async function handleEditSave(row: RequestRow) {
     if (editSaving) return
     setEditSaving(true)
-    setEditError(null)
     const { error } = await updateRequest(row.id, toRequestInput(editValues))
     setEditSaving(false)
     if (error) {
-      setEditError('Could not save changes. Please try again.')
+      toast.error('Could not save changes. Please try again.')
       return
     }
     setEditingId(null)
     setRefreshKey((k) => k + 1)
+    toast.success('Request updated')
   }
 
   async function handleCancel(row: RequestRow) {
     if (cancellingId) return
     setCancellingId(row.id)
-    setCancelErrorId(null)
     const { error } = await cancelRequest(row.id)
     setCancellingId(null)
     if (error) {
-      setCancelErrorId(row.id)
+      toast.error('Could not cancel the request. Please try again.')
       return
     }
     setRefreshKey((k) => k + 1)
+    toast.success('Request cancelled')
   }
 
   return (
@@ -301,8 +295,6 @@ export function RequestsPanel() {
       {showCreate && (
         <div className="space-y-3 rounded-2xl bg-white p-4 shadow-card-md">
           <RequestFormFields values={createValues} onChange={setCreateValues} disabled={createSaving} />
-
-          {createError && <ErrorState message={createError} />}
 
           <div className="flex gap-2">
             <button
@@ -367,15 +359,9 @@ export function RequestsPanel() {
                 </div>
               )}
 
-              {cancelErrorId === row.id && (
-                <ErrorState message="Could not cancel the request. Please try again." />
-              )}
-
               {editingId === row.id && (
                 <div className="space-y-3 border-t border-neutral-100 pt-3">
                   <RequestFormFields values={editValues} onChange={setEditValues} disabled={editSaving} />
-
-                  {editError && <ErrorState message={editError} />}
 
                   <div className="flex gap-2">
                     <button

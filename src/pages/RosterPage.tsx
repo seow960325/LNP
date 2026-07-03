@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
@@ -39,7 +40,6 @@ export function RosterPage() {
   const [leave, setLeave] = useState<RosterLeaveRow[]>([])
 
   const [togglingKey, setTogglingKey] = useState<string | null>(null)
-  const [mutateError, setMutateError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -123,11 +123,15 @@ export function RosterPage() {
     return rows.find((row) => day >= row.start_date && day <= (row.end_date ?? row.start_date)) ?? null
   }
 
+  // Error-only toasts here, deliberately — a duty roster edit session is
+  // rapid, repeated toggling across many cells, and a success toast per
+  // click would spam the corner. The dot flipping is itself the success
+  // signal; a failure is the one outcome that isn't otherwise visible once
+  // the optimistic update above reverts.
   async function handleToggle(userId: string, date: string) {
     if (!profile || !isAdmin || togglingKey) return
     const key = `${userId}|${date}`
     const existing = shiftMap.get(key)
-    setMutateError(null)
     setTogglingKey(key)
 
     if (existing) {
@@ -135,7 +139,7 @@ export function RosterPage() {
       const { error } = await removeShift(existing.id)
       setTogglingKey(null)
       if (error) {
-        setMutateError('Could not update the roster. Please try again.')
+        toast.error('Could not update the roster. Please try again.')
         setShifts((prev) => [...prev, existing])
         return
       }
@@ -146,7 +150,7 @@ export function RosterPage() {
       const { error } = await addShift(profile.center_id, userId, date)
       setTogglingKey(null)
       if (error) {
-        setMutateError('Could not update the roster. Please try again.')
+        toast.error('Could not update the roster. Please try again.')
         setShifts((prev) => prev.filter((s) => s.id !== tempId))
         return
       }
@@ -194,8 +198,6 @@ export function RosterPage() {
             →
           </button>
         </div>
-
-        {mutateError && <ErrorState message={mutateError} />}
 
         {(membersState === 'loading' || shiftsState === 'loading') && <LoadingState label="Loading the roster…" />}
 

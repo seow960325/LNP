@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { KudosValueBadge } from '../components/KudosValueCard'
 import { Avatar } from '../components/Avatar'
@@ -48,7 +49,6 @@ export function KudosWallPanel() {
 
   const [deleteTarget, setDeleteTarget] = useState<FeedItem | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -153,18 +153,18 @@ export function KudosWallPanel() {
   async function handleDeleteConfirm() {
     if (!deleteTarget) return
     setDeleting(true)
-    setDeleteError(null)
 
     const { error } = await supabase.from('kudos').delete().eq('id', deleteTarget.id)
 
     setDeleting(false)
     if (error) {
-      setDeleteError(error.message || 'Could not delete this kudos. Please try again.')
+      toast.error(error.message || 'Could not delete this kudos. Please try again.')
       return
     }
 
     setFeedItems((items) => items.filter((item) => item.id !== deleteTarget.id))
     setDeleteTarget(null)
+    toast.success('Kudos deleted')
   }
 
   if (!profile) return null
@@ -187,8 +187,6 @@ export function KudosWallPanel() {
           <p className="font-handwriting text-5xl text-brand-700">{monthlyCount}</p>
         )}
       </div>
-
-      {deleteError && <ErrorState message={deleteError} />}
 
       {feedState === 'loading' && <LoadingState label="Loading the wall…" />}
       {feedState === 'error' && <ErrorState message={feedError ?? 'Something went wrong.'} />}

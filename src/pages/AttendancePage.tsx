@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
@@ -21,7 +22,6 @@ export function AttendanceClockPanel() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [row, setRow] = useState<AttendanceRow | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -49,27 +49,27 @@ export function AttendanceClockPanel() {
   async function handleClockIn() {
     if (!profile || submitting) return
     setSubmitting(true)
-    setActionError(null)
     const { data, error } = await clockIn(profile.center_id, profile.id)
     setSubmitting(false)
     if (error || !data) {
-      setActionError('Could not clock in. Please try again.')
+      toast.error('Could not clock in. Please try again.')
       return
     }
     setRow(data)
+    toast.success('Clocked in')
   }
 
   async function handleClockOut() {
     if (!row || submitting) return
     setSubmitting(true)
-    setActionError(null)
     const { data, error } = await clockOut(row.id)
     setSubmitting(false)
     if (error || !data) {
-      setActionError('Could not clock out. Please try again.')
+      toast.error('Could not clock out. Please try again.')
       return
     }
     setRow(data)
+    toast.success('Clocked out')
   }
 
   return (
@@ -80,8 +80,6 @@ export function AttendanceClockPanel() {
       {loadState === 'ready' && (
         <div className="space-y-4 rounded-3xl bg-white p-8 text-center shadow-card">
           <p className="font-display text-lg text-neutral-800">{formatDate(toKLDateISO(new Date()))}</p>
-
-          {actionError && <ErrorState message={actionError} />}
 
           {!row && (
             <div className="space-y-4">

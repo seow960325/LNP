@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Lock, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
@@ -92,7 +93,6 @@ interface RowState {
   saving: boolean
   finalizing: boolean
   reopening: boolean
-  saveError: string | null
   // Pure UI state — whether the earnings-input/employer-contribution detail
   // panel is open. Never read by recomputeRow/buildPayslipInput; hidden
   // fields stay fully live and are always included when saving.
@@ -179,7 +179,6 @@ function buildRow(
     saving: false,
     finalizing: false,
     reopening: false,
-    saveError: null,
     expanded: false,
   }
 
@@ -439,7 +438,6 @@ function PayrollTableRow({
               </button>
             )}
           </div>
-          {row.saveError && <p className="mt-1 max-w-[140px] text-2xs text-coral-600">{row.saveError}</p>}
         </td>
       </tr>
 
@@ -510,11 +508,9 @@ export function PayrollPage() {
   const [finalizeTarget, setFinalizeTarget] = useState<string | null>(null)
   const [reopenTarget, setReopenTarget] = useState<string | null>(null)
   const [savingAll, setSavingAll] = useState(false)
-  const [saveAllError, setSaveAllError] = useState<string | null>(null)
 
   const [bulkFinalizeConfirmOpen, setBulkFinalizeConfirmOpen] = useState(false)
   const [bulkFinalizing, setBulkFinalizing] = useState(false)
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -584,20 +580,10 @@ export function PayrollPage() {
     setRows((prev) => prev.map((r) => (r.employeeId === employeeId ? updater(r) : r)))
   }
 
-  // Non-blocking notification — used for PDF generation/upload outcomes,
-  // which must never roll back a successful finalize (see
-  // generateAndUploadPayslipPdf below).
-  function showToast(message: string) {
-    setToastMessage(message)
-    setTimeout(() => {
-      setToastMessage((current) => (current === message ? null : current))
-    }, 6000)
-  }
-
   function handleFieldChange(employeeId: string, field: EditableField, value: number) {
     if (!settings) return
     updateRow(employeeId, (row) =>
-      recomputeRow({ ...row, [field]: value, dirty: true, saveError: null }, settings, month)
+      recomputeRow({ ...row, [field]: value, dirty: true }, settings, month)
     )
   }
 
@@ -610,7 +596,6 @@ export function PayrollPage() {
           [OVERRIDE_ROW_KEY[field]]: value,
           manualOverrides: { ...row.manualOverrides, [field]: true },
           dirty: true,
-          saveError: null,
         },
         settings,
         month
@@ -633,21 +618,34 @@ export function PayrollPage() {
     )
   }
 
+  // Toast-free — used internally by confirmFinalize/confirmBulkFinalize/
+  // handleSaveAll, which each own a single summary toast for their action.
+  // The standalone per-row "Save" button uses handleSaveRowClick below,
+  // which is the only caller that toasts on this specific operation.
   async function saveRow(row: RowState): Promise<RowState | null> {
     if (!profile) return null
-    updateRow(row.employeeId, (r) => ({ ...r, saving: true, saveError: null }))
+    updateRow(row.employeeId, (r) => ({ ...r, saving: true }))
 
     const input = buildPayslipInput(row, year, month, profile.center_id, profile.id)
     const { data, error } = await upsertPayslip(input)
 
     if (error || !data) {
-      updateRow(row.employeeId, (r) => ({ ...r, saving: false, saveError: 'Could not save. Please try again.' }))
+      updateRow(row.employeeId, (r) => ({ ...r, saving: false }))
       return null
     }
 
     const saved: RowState = { ...row, saving: false, dirty: false, payslipId: data.id, status: data.status }
     updateRow(row.employeeId, () => saved)
     return saved
+  }
+
+  async function handleSaveRowClick(row: RowState) {
+    const saved = await saveRow(row)
+    if (saved) {
+      toast.success('Payslip saved')
+    } else {
+      toast.error('Could not save. Please try again.')
+    }
   }
 
   // Generates the payslip PDF and uploads it to the staff-docs bucket +
@@ -689,12 +687,18 @@ export function PayrollPage() {
 
   async function handleSaveAll() {
     setSavingAll(true)
-    setSaveAllError(null)
     const draftRows = rows.filter((r) => r.status === 'draft')
     const results = await Promise.all(draftRows.map((r) => saveRow(r)))
     setSavingAll(false)
-    if (results.some((r) => r === null)) {
-      setSaveAllError('Some payslips could not be saved. Check the rows marked with an error below.')
+
+    const failedCount = results.filter((r) => r === null).length
+    const savedCount = results.length - failedCount
+    if (failedCount === 0) {
+      toast.success(`${savedCount} draft${savedCount === 1 ? '' : 's'} saved`)
+    } else if (savedCount === 0) {
+      toast.error('Could not save any drafts. Please try again.')
+    } else {
+      toast.warning(`${savedCount} saved, ${failedCount} failed`)
     }
   }
 
@@ -706,18 +710,20 @@ export function PayrollPage() {
       return
     }
 
-    updateRow(row.employeeId, (r) => ({ ...r, finalizing: true, saveError: null }))
+    updateRow(row.employeeId, (r) => ({ ...r, finalizing: true }))
     const saved = await saveRow(row)
     if (!saved || !saved.payslipId) {
       updateRow(row.employeeId, (r) => ({ ...r, finalizing: false }))
       setFinalizeTarget(null)
+      toast.error('Could not save payslip before finalizing. Please try again.')
       return
     }
 
     const { data, error } = await finalizePayslip(saved.payslipId, profile.id)
     if (error || !data) {
-      updateRow(row.employeeId, (r) => ({ ...r, finalizing: false, saveError: 'Could not finalize. Please try again.' }))
+      updateRow(row.employeeId, (r) => ({ ...r, finalizing: false }))
       setFinalizeTarget(null)
+      toast.error('Could not finalize. Please try again.')
       return
     }
 
@@ -726,7 +732,9 @@ export function PayrollPage() {
 
     const pdfError = await generateAndUploadPayslipPdf(saved, data)
     if (pdfError) {
-      showToast(`Payslip finalized but PDF upload failed: ${pdfError}`)
+      toast.warning(`Payslip finalized but PDF upload failed: ${pdfError}`)
+    } else {
+      toast.success('Payslip finalized')
     }
   }
 
@@ -742,7 +750,7 @@ export function PayrollPage() {
     // and finalizing dozens of payslips concurrently in the browser would
     // block the tab. One at a time is fine for a monthly payroll run.
     for (const row of draftRows) {
-      updateRow(row.employeeId, (r) => ({ ...r, finalizing: true, saveError: null }))
+      updateRow(row.employeeId, (r) => ({ ...r, finalizing: true }))
       const saved = await saveRow(row)
       if (!saved || !saved.payslipId) {
         updateRow(row.employeeId, (r) => ({ ...r, finalizing: false }))
@@ -751,11 +759,7 @@ export function PayrollPage() {
 
       const { data, error } = await finalizePayslip(saved.payslipId, profile.id)
       if (error || !data) {
-        updateRow(row.employeeId, (r) => ({
-          ...r,
-          finalizing: false,
-          saveError: 'Could not finalize. Please try again.',
-        }))
+        updateRow(row.employeeId, (r) => ({ ...r, finalizing: false }))
         continue
       }
 
@@ -770,13 +774,13 @@ export function PayrollPage() {
     setBulkFinalizeConfirmOpen(false)
 
     if (finalizedCount === 0) {
-      showToast('No draft payslips could be finalized.')
+      toast.error('No draft payslips could be finalized.')
     } else if (pdfFailures > 0) {
-      showToast(
+      toast.warning(
         `${finalizedCount} finalized, ${pdfFailures} PDF upload${pdfFailures === 1 ? '' : 's'} failed.`
       )
     } else {
-      showToast(`${finalizedCount} payslip${finalizedCount === 1 ? '' : 's'} finalized.`)
+      toast.success(`${finalizedCount} payslip${finalizedCount === 1 ? '' : 's'} finalized.`)
     }
   }
 
@@ -791,13 +795,15 @@ export function PayrollPage() {
     updateRow(row.employeeId, (r) => ({ ...r, reopening: true }))
     const { data, error } = await reopenPayslip(row.payslipId)
     if (error || !data) {
-      updateRow(row.employeeId, (r) => ({ ...r, reopening: false, saveError: 'Could not reopen. Please try again.' }))
+      updateRow(row.employeeId, (r) => ({ ...r, reopening: false }))
       setReopenTarget(null)
+      toast.error('Could not reopen. Please try again.')
       return
     }
 
     updateRow(row.employeeId, (r) => ({ ...r, reopening: false, status: 'draft' }))
     setReopenTarget(null)
+    toast.success('Payslip reopened')
   }
 
   function handlePeriodChange(value: string) {
@@ -864,16 +870,6 @@ export function PayrollPage() {
           )}
         </div>
 
-        {toastMessage && (
-          <div className="flex items-center justify-between gap-2 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
-            <span>{toastMessage}</span>
-            <button type="button" onClick={() => setToastMessage(null)} className="shrink-0 text-brand-600 hover:underline">
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {saveAllError && <ErrorState message={saveAllError} />}
         {ytdWarning && <ErrorState message={ytdWarning} />}
 
         {loadState === 'loading' && <LoadingState label="Loading payroll…" />}
@@ -910,7 +906,7 @@ export function PayrollPage() {
                   onFieldChange={handleFieldChange}
                   onOverrideChange={handleOverrideChange}
                   onClearOverride={handleClearOverride}
-                  onSave={saveRow}
+                  onSave={handleSaveRowClick}
                   onRequestFinalize={setFinalizeTarget}
                   onRequestReopen={setReopenTarget}
                   onToggleExpand={handleToggleExpand}

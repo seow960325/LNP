@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { RequireAuth } from './components/RequireAuth'
 import { RequireRole } from './components/RequireRole'
 import { AppHeader } from './components/AppHeader'
@@ -21,7 +22,6 @@ import { RequestsAdminPage } from './pages/RequestsAdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { StaffDirectoryPage } from './pages/StaffDirectoryPage'
 import { StaffMemberDetailPage } from './pages/StaffMemberDetailPage'
-import { StaffManagePage } from './pages/StaffManagePage'
 import { StaffDocumentsPage } from './pages/StaffDocumentsPage'
 import { PayrollPage } from './pages/PayrollPage'
 import { OpeningBalancePage } from './pages/OpeningBalancePage'
@@ -48,6 +48,18 @@ function AppLayout() {
 export function App() {
   return (
     <BrowserRouter>
+      <Toaster
+        position="top-right"
+        richColors
+        duration={3000}
+        toastOptions={{
+          classNames: {
+            toast: 'rounded-2xl shadow-card-lg border border-neutral-200 font-sans',
+            title: 'font-display text-sm',
+            description: 'text-neutral-600',
+          },
+        }}
+      />
       <Routes>
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
@@ -86,17 +98,11 @@ export function App() {
             {/* Staff Directory — any authenticated active user, all roles, read-only */}
             <Route path="/staff" element={<StaffDirectoryPage />} />
 
-            {/* Staff member detail — any authenticated active user; document section
-                visibility is gated inline (admin sees any owner's docs with manage
-                rights, self sees own docs view-only, everyone else sees no docs) */}
+            {/* Staff member detail — any authenticated active user; document and
+                management sections are gated inline (admin+super_admin get the
+                Management block and doc-manage rights, self sees own docs
+                view-only, everyone else sees neither) */}
             <Route path="/staff/:id" element={<StaffMemberDetailPage />} />
-
-            {/* Staff Management — super_admin only. React Router v6 ranks the
-                static /staff/manage segment above the dynamic /staff/:id, so
-                this never gets swallowed as an :id param regardless of order. */}
-            <Route element={<RequireRole allow={['super_admin']} />}>
-              <Route path="/staff/manage" element={<StaffManagePage />} />
-            </Route>
 
             {/* Staff Documents — self-only, view-only for every role (gated inline via profile.role) */}
             <Route path="/documents" element={<StaffDocumentsPage />} />

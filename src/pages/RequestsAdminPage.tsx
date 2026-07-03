@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
@@ -53,7 +54,6 @@ export function RequestsAdminPanel() {
 
   const [filter, setFilter] = useState<Filter>('pending')
   const [reviewingId, setReviewingId] = useState<string | null>(null)
-  const [reviewErrorId, setReviewErrorId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -84,14 +84,14 @@ export function RequestsAdminPanel() {
   async function handleReview(row: AdminRequestRow, status: 'approved' | 'rejected') {
     if (!profile || reviewingId) return
     setReviewingId(row.id)
-    setReviewErrorId(null)
     const { error } = await reviewRequest(row.id, status, profile.id)
     setReviewingId(null)
     if (error) {
-      setReviewErrorId(row.id)
+      toast.error('Could not update this request. Please try again.')
       return
     }
     setRefreshKey((k) => k + 1)
+    toast.success(status === 'approved' ? 'Request approved' : 'Request rejected')
   }
 
   return (
@@ -160,10 +160,6 @@ export function RequestsAdminPanel() {
                     Approve
                   </button>
                 </div>
-              )}
-
-              {reviewErrorId === row.id && (
-                <ErrorState message="Could not update this request. Please try again." />
               )}
             </li>
           ))}

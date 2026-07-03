@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
-import { ErrorState } from '../components/AsyncState'
 import { supabase } from '../lib/supabaseClient'
 
 // Full-takeover page shown when profile.must_change_password is true (e.g.
@@ -13,7 +13,6 @@ export function ForceChangePasswordPage() {
 
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   if (!profile) return null
@@ -30,17 +29,16 @@ export function ForceChangePasswordPage() {
     if (!profile) return
     const validationError = validate()
     if (validationError) {
-      setError(validationError)
+      toast.error(validationError)
       return
     }
 
     setSaving(true)
-    setError(null)
 
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
     if (updateError) {
       setSaving(false)
-      setError(updateError.message || 'Could not update your password. Please try again.')
+      toast.error(updateError.message || 'Could not update your password. Please try again.')
       return
     }
 
@@ -51,10 +49,11 @@ export function ForceChangePasswordPage() {
 
     setSaving(false)
     if (profileError) {
-      setError('Password updated, but could not clear the change-required flag. Please contact an admin.')
+      toast.error('Password updated, but could not clear the change-required flag. Please contact an admin.')
       return
     }
 
+    toast.success('Password updated')
     await refreshProfile()
     navigate('/')
   }
@@ -100,8 +99,6 @@ export function ForceChangePasswordPage() {
                 placeholder="••••••••"
               />
             </div>
-
-            {error && <ErrorState message={error} />}
 
             <button
               type="submit"

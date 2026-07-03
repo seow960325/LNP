@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { KudosValueCard, KudosValueBadge } from '../components/KudosValueCard'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
@@ -155,7 +156,6 @@ function MessageStep({
   onBack,
   onSend,
   sending,
-  error,
 }: {
   recipient: CenterMember
   value: KudosValueOption
@@ -164,7 +164,6 @@ function MessageStep({
   onBack: () => void
   onSend: () => void
   sending: boolean
-  error: string | null
 }) {
   return (
     <div className="space-y-3">
@@ -191,7 +190,6 @@ function MessageStep({
       <p className="text-right text-xs text-neutral-400">
         {message.length}/{MAX_MESSAGE_LENGTH}
       </p>
-      {error && <ErrorState message={error} />}
       <button
         type="button"
         onClick={onSend}
@@ -268,7 +266,6 @@ export function KudosSendPanel({ onViewWall }: { onViewWall: () => void }) {
   const [value, setValue] = useState<KudosValueOption | null>(null)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
-  const [sendError, setSendError] = useState<string | null>(null)
   const [sent, setSent] = useState<SentSummary | null>(null)
 
   if (!profile) return null
@@ -278,14 +275,12 @@ export function KudosSendPanel({ onViewWall }: { onViewWall: () => void }) {
     setRecipient(null)
     setValue(null)
     setMessage('')
-    setSendError(null)
     setSent(null)
   }
 
   async function handleSend() {
     if (!profile || !recipient || !value) return
     setSending(true)
-    setSendError(null)
     const trimmed = message.trim()
     const { error } = await sendKudos({
       center_id: profile.center_id,
@@ -297,9 +292,10 @@ export function KudosSendPanel({ onViewWall }: { onViewWall: () => void }) {
     })
     setSending(false)
     if (error) {
-      setSendError('Could not send kudos. Please try again.')
+      toast.error('Could not send kudos. Please try again.')
       return
     }
+    toast.success('Kudos posted')
     setSent({
       recipientName: recipient.full_name,
       valueName: value.name,
@@ -349,7 +345,6 @@ export function KudosSendPanel({ onViewWall }: { onViewWall: () => void }) {
           onBack={() => setStep(2)}
           onSend={handleSend}
           sending={sending}
-          error={sendError}
         />
       )}
     </div>

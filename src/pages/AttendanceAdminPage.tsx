@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
@@ -38,7 +39,6 @@ export function AttendanceAdminPanel() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [formValues, setFormValues] = useState<EditFormValues>({ clockIn: '', clockOut: '', note: '' })
   const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -68,18 +68,15 @@ export function AttendanceAdminPanel() {
   function openEdit(row: MemberAttendance) {
     setEditingUserId(row.user_id)
     setFormValues(toFormValues(row))
-    setSaveError(null)
   }
 
   function closeEdit() {
     setEditingUserId(null)
-    setSaveError(null)
   }
 
   async function handleSave(row: MemberAttendance) {
     if (!profile || saving) return
     setSaving(true)
-    setSaveError(null)
 
     const clockInISO = formValues.clockIn ? klDateTimeToISO(selectedDate, formValues.clockIn) : null
     const clockOutISO = formValues.clockOut ? klDateTimeToISO(selectedDate, formValues.clockOut) : null
@@ -95,11 +92,12 @@ export function AttendanceAdminPanel() {
     )
     setSaving(false)
     if (error) {
-      setSaveError('Could not save changes. Please try again.')
+      toast.error('Could not save changes. Please try again.')
       return
     }
     closeEdit()
     setRefreshKey((k) => k + 1)
+    toast.success('Attendance updated')
   }
 
   return (
@@ -200,8 +198,6 @@ export function AttendanceAdminPanel() {
                       className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
                     />
                   </div>
-
-                  {saveError && <ErrorState message={saveError} />}
 
                   <div className="flex gap-2">
                     <button
