@@ -70,6 +70,7 @@ export interface StaffManageEntry {
   role: UserRole
   title: string | null
   active: boolean
+  is_paid_employee: boolean
   avatar_url: string | null
 }
 
@@ -78,7 +79,7 @@ export interface StaffManageEntry {
 export function fetchStaffForManagement(centerId: string) {
   return supabase
     .from('profiles')
-    .select('id, full_name, email, phone, role, title, active, avatar_url')
+    .select('id, full_name, email, phone, role, title, active, is_paid_employee, avatar_url')
     .eq('center_id', centerId)
     .order('full_name')
     .returns<StaffManageEntry[]>()

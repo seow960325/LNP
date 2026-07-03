@@ -10,7 +10,7 @@ import { toKLDateISO } from '../lib/helpers'
 import { calcPayroll } from '../lib/payrollCalc'
 import {
   fetchPayrollSettings,
-  fetchActiveStaff,
+  fetchPayrollStaff,
   fetchPayslips,
   fetchYtd,
   upsertPayslip,
@@ -67,6 +67,7 @@ interface RowState {
   employeeId: string
   fullName: string
   title: string | null
+  active: boolean
   payslipId: string | null
   status: PayslipStatus
   base: number
@@ -153,6 +154,7 @@ function buildRow(
     employeeId: staff.id,
     fullName: staff.full_name,
     title: staff.title,
+    active: staff.active,
     payslipId: payslip?.id ?? null,
     status: payslip?.status ?? 'draft',
     base: payslip?.base_salary ?? 0,
@@ -337,6 +339,11 @@ function PayrollTableRow({
           <div className="flex items-center gap-1 font-display text-sm text-neutral-800">
             {!editable && <Lock className="h-3 w-3 shrink-0 text-neutral-400" aria-hidden="true" />}
             {row.fullName}
+            {!row.active && (
+              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-2xs font-medium text-neutral-500">
+                Resigned
+              </span>
+            )}
           </div>
           {row.title && <p className="text-2xs text-neutral-400">{row.title}</p>}
         </td>
@@ -498,6 +505,7 @@ export function PayrollPage() {
   const [ytdWarning, setYtdWarning] = useState<string | null>(null)
   const [settings, setSettings] = useState<PayrollSettings | null>(null)
   const [rows, setRows] = useState<RowState[]>([])
+  const [includeInactive, setIncludeInactive] = useState(false)
 
   const [finalizeTarget, setFinalizeTarget] = useState<string | null>(null)
   const [reopenTarget, setReopenTarget] = useState<string | null>(null)
@@ -520,7 +528,7 @@ export function PayrollPage() {
 
       const [settingsResult, staffResult, payslipResult] = await Promise.all([
         fetchPayrollSettings(centerId),
-        fetchActiveStaff(centerId),
+        fetchPayrollStaff(centerId, includeInactive),
         fetchPayslips(centerId, year, month),
       ])
 
@@ -566,7 +574,7 @@ export function PayrollPage() {
     return () => {
       cancelled = true
     }
-  }, [profile, year, month])
+  }, [profile, year, month, includeInactive])
 
   if (!profile) return null
 
@@ -814,15 +822,26 @@ export function PayrollPage() {
         </div>
 
         <div className="flex items-center justify-between gap-2 rounded-2xl bg-white p-3 shadow-card">
-          <label className="flex items-center gap-2 text-xs text-neutral-500">
-            Period
-            <input
-              type="month"
-              value={`${year}-${String(month).padStart(2, '0')}`}
-              onChange={(event) => handlePeriodChange(event.target.value)}
-              className="min-h-tap rounded-2xl border border-neutral-200 px-3 text-sm text-neutral-800"
-            />
-          </label>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-xs text-neutral-500">
+              Period
+              <input
+                type="month"
+                value={`${year}-${String(month).padStart(2, '0')}`}
+                onChange={(event) => handlePeriodChange(event.target.value)}
+                className="min-h-tap rounded-2xl border border-neutral-200 px-3 text-sm text-neutral-800"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-neutral-500">
+              <input
+                type="checkbox"
+                checked={includeInactive}
+                onChange={(event) => setIncludeInactive(event.target.checked)}
+                className="h-4 w-4 rounded border-neutral-300"
+              />
+              Include resigned staff
+            </label>
+          </div>
           {loadState === 'ready' && (
             <div className="flex shrink-0 gap-2">
               <button

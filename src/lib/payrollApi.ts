@@ -17,6 +17,7 @@ export interface PayrollStaffMember {
   id: string
   full_name: string
   title: string | null
+  active: boolean
 }
 
 export interface ManualOverrides {
@@ -109,11 +110,30 @@ export async function fetchPayrollSettings(centerId: string) {
 export function fetchActiveStaff(centerId: string) {
   return supabase
     .from('profiles')
-    .select('id, full_name, title')
+    .select('id, full_name, title, active')
     .eq('center_id', centerId)
     .eq('active', true)
     .order('full_name')
     .returns<PayrollStaffMember[]>()
+}
+
+// Same as fetchActiveStaff, but lets the caller opt into seeing deactivated
+// (resigned) staff too — needed so admins can still run a resigned staff
+// member's final payslip after their profile is deactivated.
+export function fetchPayrollStaff(centerId: string, includeInactive: boolean) {
+  let query = supabase
+    .from('profiles')
+    .select('id, full_name, title, active')
+    .eq('center_id', centerId)
+    // Non-paid staff (e.g. shareholders) never draw a salary, so they never
+    // belong on payroll — enforced regardless of the resigned-staff toggle.
+    .eq('is_paid_employee', true)
+
+  if (!includeInactive) {
+    query = query.eq('active', true)
+  }
+
+  return query.order('full_name').returns<PayrollStaffMember[]>()
 }
 
 export function fetchPayslips(centerId: string, year: number, month: number) {

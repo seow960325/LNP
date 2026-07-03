@@ -179,6 +179,9 @@ function MemberRow({
   const [toggleError, setToggleError] = useState<string | null>(null)
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false)
 
+  const [togglingPaid, setTogglingPaid] = useState(false)
+  const [paidToggleError, setPaidToggleError] = useState<string | null>(null)
+
   const dirty = draftRole !== member.role || draftTitle !== (member.title ?? '')
 
   async function handleSave() {
@@ -211,6 +214,20 @@ function MemberRow({
     setDeactivateConfirmOpen(false)
     if (error) {
       setToggleError(error.message || 'Could not update this member. Please try again.')
+      return
+    }
+    onChanged()
+  }
+
+  async function handleTogglePaid(nextPaid: boolean) {
+    setTogglingPaid(true)
+    setPaidToggleError(null)
+
+    const { error } = await supabase.from('profiles').update({ is_paid_employee: nextPaid }).eq('id', member.id)
+
+    setTogglingPaid(false)
+    if (error) {
+      setPaidToggleError(error.message || 'Could not update this member. Please try again.')
       return
     }
     onChanged()
@@ -268,6 +285,19 @@ function MemberRow({
           )}
         </div>
       </div>
+
+      <label className="flex items-center gap-2 text-xs text-neutral-500">
+        <input
+          type="checkbox"
+          checked={member.is_paid_employee}
+          onChange={(event) => handleTogglePaid(event.target.checked)}
+          disabled={togglingPaid}
+          className="h-4 w-4 rounded border-neutral-300 disabled:opacity-60"
+        />
+        Paid employee
+        {togglingPaid && <span className="text-2xs text-neutral-400">Saving…</span>}
+      </label>
+      {paidToggleError && <ErrorState message={paidToggleError} />}
 
       {saveError && <ErrorState message={saveError} />}
 
