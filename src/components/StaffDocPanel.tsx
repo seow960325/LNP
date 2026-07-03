@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -42,7 +43,6 @@ function UploadForm({
   const [file, setFile] = useState<File | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState<string | null>(null)
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const chosen = event.target.files?.[0] ?? null
@@ -59,7 +59,6 @@ function UploadForm({
     }
 
     setUploading(true)
-    setUploadError(null)
     await onUpload({ docType, year, month: docType === 'payslip' ? month : null, file })
     setUploading(false)
     setFile(null)
@@ -125,7 +124,6 @@ function UploadForm({
       </div>
 
       {validationError && <ErrorState message={validationError} />}
-      {uploadError && <ErrorState message={uploadError} />}
 
       <button
         type="button"
@@ -154,12 +152,8 @@ export function StaffDocPanel({ ownerId, canManage }: { ownerId: string; canMana
   const [documents, setDocuments] = useState<StaffDocumentRow[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const [viewError, setViewError] = useState<string | null>(null)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-
   const [deleteTarget, setDeleteTarget] = useState<StaffDocumentRow | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -182,10 +176,9 @@ export function StaffDocPanel({ ownerId, canManage }: { ownerId: string; canMana
   }, [ownerId, refreshKey])
 
   async function handleView(doc: StaffDocumentRow) {
-    setViewError(null)
     const { data, error } = await createStaffDocSignedUrl(doc.storage_path)
     if (error || !data) {
-      setViewError('Could not open this document. Please try again.')
+      toast.error('Could not open this document. Please try again.')
       return
     }
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
@@ -193,7 +186,6 @@ export function StaffDocPanel({ ownerId, canManage }: { ownerId: string; canMana
 
   async function handleUpload(params: { docType: StaffDocType; year: number; month: number | null; file: File }) {
     if (!profile) return
-    setUploadError(null)
 
     const { error } = await uploadStaffDocument({
       ownerId,
@@ -206,35 +198,34 @@ export function StaffDocPanel({ ownerId, canManage }: { ownerId: string; canMana
     })
 
     if (error) {
-      setUploadError(error.message || 'Could not upload the document. Please try again.')
+      toast.error(error.message || 'Could not upload the document. Please try again.')
       return
     }
 
     setRefreshKey((k) => k + 1)
+    toast.success('Document uploaded')
   }
 
   async function handleDeleteConfirm() {
     if (!deleteTarget) return
     setDeleting(true)
-    setDeleteError(null)
 
     const { error } = await deleteStaffDocument(deleteTarget)
 
     setDeleting(false)
     if (error) {
-      setDeleteError(error.message || 'Could not delete this document. Please try again.')
+      toast.error(error.message || 'Could not delete this document. Please try again.')
       return
     }
 
     setDocuments((current) => current.filter((doc) => doc.id !== deleteTarget.id))
     setDeleteTarget(null)
+    toast.success('Document deleted')
   }
 
   return (
     <div className="space-y-4">
       {effectiveCanManage && <UploadForm onUpload={handleUpload} />}
-      {uploadError && <ErrorState message={uploadError} />}
-      {viewError && <ErrorState message={viewError} />}
 
       {docsState === 'loading' && <LoadingState label="Loading documents…" />}
       {docsState === 'error' && <ErrorState message={docsError ?? 'Something went wrong.'} />}
@@ -273,8 +264,6 @@ export function StaffDocPanel({ ownerId, canManage }: { ownerId: string; canMana
           ))}
         </ul>
       )}
-
-      {deleteError && <ErrorState message={deleteError} />}
 
       <ConfirmDialog
         open={deleteTarget !== null}

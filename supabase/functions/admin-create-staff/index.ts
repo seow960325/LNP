@@ -18,7 +18,14 @@ function generateTempPassword(): string {
   return String(bytes[0] % 1000000).padStart(6, '0')
 }
 
-const ALLOWED_ROLES = ['admin', 'teacher', 'staff', 'shareholder']
+// Target roles a caller may assign to a new account, keyed by the caller's
+// own role. super_admin and parent are never assignable by anyone through
+// this function. shareholder is reserved for super_admin — an admin caller
+// must not be able to mint a shareholder account.
+const ALLOWED_ROLES_BY_CALLER: Record<string, string[]> = {
+  super_admin: ['admin', 'teacher', 'staff', 'shareholder'],
+  admin: ['admin', 'teacher', 'staff'],
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders })
@@ -37,9 +44,11 @@ Deno.serve(async (req) => {
       .from('profiles').select('id, role, center_id').eq('id', caller.id).single()
     if (cpErr || !callerProfile) return json({ error: 'Caller profile not found' }, 403)
 
-    // Only super_admin may register staff.
-    if (callerProfile.role !== 'super_admin') {
-      return json({ error: 'Forbidden: super_admin only' }, 403)
+    // admin + super_admin may register staff. Which target roles each may
+    // assign is tiered — see ALLOWED_ROLES_BY_CALLER.
+    const allowedRoles = ALLOWED_ROLES_BY_CALLER[callerProfile.role]
+    if (!allowedRoles) {
+      return json({ error: 'Forbidden: admin or super_admin only' }, 403)
     }
 
     const body = await req.json().catch(() => null)
@@ -50,7 +59,13 @@ Deno.serve(async (req) => {
     const phone = body?.phone?.trim() || null
 
     if (!fullName || !email || !role) return json({ error: 'fullName, email, role are required' }, 400)
-    if (!ALLOWED_ROLES.includes(role)) return json({ error: 'Invalid role' }, 400)
+    if (!['admin', 'teacher', 'staff', 'shareholder'].includes(role)) {
+      return json({ error: 'Invalid role' }, 400)
+    }
+    if (!allowedRoles.includes(role)) {
+      const callerLabel = callerProfile.role === 'admin' ? 'Admins' : 'You'
+      return json({ error: `${callerLabel} cannot create ${role} accounts.` }, 403)
+    }
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

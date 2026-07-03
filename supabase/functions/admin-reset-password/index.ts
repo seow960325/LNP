@@ -4,8 +4,10 @@
 //
 // Auth matrix enforced here (server-side, cannot be bypassed by the client):
 //   - caller must be admin or super_admin           else 403
+//   - the app owner's account can only be reset by the owner themselves,
+//     even a super_admin caller is blocked                        else 403
 //   - admin may reset ONLY normal staff (not admin/super_admin) else 403
-//   - super_admin may reset anyone
+//   - super_admin may reset anyone (except the owner, per above)
 //   - target must be in the same center as caller (unless caller is super_admin) else 403
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -46,7 +48,7 @@ Deno.serve(async (req) => {
     // --- 2. Load caller's profile (role + center) ---
     const { data: callerProfile, error: cpErr } = await callerClient
       .from('profiles')
-      .select('id, role, center_id')
+      .select('id, role, center_id, is_app_owner')
       .eq('id', caller.id)
       .single()
     if (cpErr || !callerProfile) {
@@ -80,11 +82,18 @@ Deno.serve(async (req) => {
     // --- 5. Load target profile to enforce the auth matrix ---
     const { data: targetProfile, error: tpErr } = await admin
       .from('profiles')
-      .select('id, role, center_id')
+      .select('id, role, center_id, is_app_owner')
       .eq('id', targetUserId)
       .single()
     if (tpErr || !targetProfile) {
       return json({ error: 'Target user not found' }, 404)
+    }
+
+    // Owner protection: nobody but the app owner themselves may modify the
+    // owner's account — not even another super_admin. Stronger than the
+    // isSuper bypass below; this check applies regardless of caller role.
+    if (targetProfile.is_app_owner === true && callerProfile.is_app_owner !== true) {
+      return json({ error: 'This profile cannot be modified.' }, 403)
     }
 
     // Rule: admin (non-super) may reset ONLY normal staff, same center.
