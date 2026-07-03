@@ -33,6 +33,7 @@ export function InvoiceDetailPage() {
   const [editingIssueDate, setEditingIssueDate] = useState('')
   const [editingDueDate, setEditingDueDate] = useState('')
   const [editingNotes, setEditingNotes] = useState('')
+  const [editingDiscount, setEditingDiscount] = useState(0)
   const [editingLineItems, setEditingLineItems] = useState<CreateInvoiceLineItemPayload[]>([])
   const [saving, setSaving] = useState(false)
 
@@ -59,6 +60,7 @@ export function InvoiceDetailPage() {
       setEditingIssueDate(data.issue_date)
       setEditingDueDate(data.due_date || '')
       setEditingNotes(data.notes || '')
+      setEditingDiscount(data.discount || 0)
       setEditingLineItems(
         (data.invoice_line_items || []).map((item) => ({
           description: item.description,
@@ -78,6 +80,8 @@ export function InvoiceDetailPage() {
 
   const canEdit = invoice && (invoice.status === 'draft' || invoice.status === 'sent')
   const subtotal = editingLineItems.reduce((sum, item) => sum + item.amount, 0)
+  const editingTotal = Math.max(0, subtotal - editingDiscount)
+  const invoiceTotal = invoice ? Math.max(0, invoice.subtotal - invoice.discount) : 0
   const formatDate = (date: string) => new Date(date).toLocaleDateString('en-MY')
   const formatCurrency = (amount: number) => `RM ${amount.toFixed(2)}`
 
@@ -90,6 +94,7 @@ export function InvoiceDetailPage() {
       issue_date: editingIssueDate,
       due_date: editingDueDate || undefined,
       notes: editingNotes.trim() || undefined,
+      discount: editingDiscount,
     }
 
     const { error: updateError } = await updateInvoice(invoice.id, updates)
@@ -273,6 +278,26 @@ export function InvoiceDetailPage() {
                       {formatCurrency(subtotal)}
                     </div>
                   </div>
+
+                  <div>
+                    <label className="text-xs text-muted">Discount</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editingDiscount}
+                      onChange={(e) => setEditingDiscount(parseFloat(e.target.value) || 0)}
+                      disabled={saving}
+                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-muted">Total (after discount)</label>
+                    <div className="mt-1 min-h-tap w-full rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-ink">
+                      {formatCurrency(editingTotal)}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="rounded-xl bg-white p-5 shadow-card">
@@ -386,10 +411,20 @@ export function InvoiceDetailPage() {
                     </div>
                   </div>
 
-                  <div className="border-t border-line pt-3">
+                  <div className="border-t border-line pt-3 space-y-1">
                     <div className="flex justify-between">
-                      <span className="text-lg font-bold text-ink">Subtotal</span>
-                      <span className="text-lg font-bold text-accent-hover">{formatCurrency(invoice.subtotal)}</span>
+                      <span className="text-sm text-muted">Subtotal</span>
+                      <span className="text-sm text-ink">{formatCurrency(invoice.subtotal)}</span>
+                    </div>
+                    {invoice.discount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted">Discount</span>
+                        <span className="text-sm text-ink">-{formatCurrency(invoice.discount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-lg font-bold text-ink">Total</span>
+                      <span className="text-lg font-bold text-accent-hover">{formatCurrency(invoiceTotal)}</span>
                     </div>
                   </div>
 
@@ -461,24 +496,11 @@ export function InvoiceDetailPage() {
         )}
       </div>
 
-      <ConfirmDialog
-        open={confirmPaidOpen}
-        title="Mark invoice as paid?"
-        message="Select payment method:"
-        confirmLabel="Mark as Paid"
-        onConfirm={handleMarkPaid}
-        onCancel={() => setConfirmPaidOpen(false)}
-        loading={confirming}
-      />
-
       {confirmPaidOpen && (
-        <div className="fixed inset-0 z-40 pointer-events-none" />
-      )}
-
-      {confirmPaidOpen && (
-        <div className="fixed inset-0 z-40 pointer-events-auto flex items-center justify-center">
-          <div className="space-y-3 rounded-2xl bg-white p-6 shadow-card-lg max-w-sm">
-            <p className="font-semibold text-sm text-ink">Payment Method</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+          <div className="w-full max-w-sm space-y-3 rounded-2xl bg-white p-6 shadow-card-lg animate-fade-in">
+            <h2 className="font-semibold text-lg text-ink">Mark invoice as paid?</h2>
+            <p className="text-sm text-muted">Select payment method:</p>
             <select
               value={paymentMethodForPaid}
               onChange={(e) => setPaymentMethodForPaid(e.target.value)}
@@ -494,7 +516,10 @@ export function InvoiceDetailPage() {
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setConfirmPaidOpen(false)}
+                onClick={() => {
+                  setConfirmPaidOpen(false)
+                  setPaymentMethodForPaid('')
+                }}
                 disabled={confirming}
                 className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-50"
               >
