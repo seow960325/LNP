@@ -6,6 +6,7 @@ import { BackButton } from '../components/BackButton'
 import { TabNav, BILLING_TABS } from '../components/TabNav'
 import { fetchInvoices } from '../lib/billingApi'
 import type { InvoiceWithDetails } from '../lib/billingApi'
+import { formatDate } from '../lib/helpers'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -52,7 +53,6 @@ export function InvoicesPage() {
 
   if (!profile || !isAdmin) return null
 
-  const formatDate = (date: string) => new Date(date).toLocaleDateString('en-MY')
   const formatCurrency = (amount: number) => `RM ${amount.toFixed(2)}`
 
   return (

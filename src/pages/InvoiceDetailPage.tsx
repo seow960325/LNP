@@ -14,7 +14,7 @@ import {
   deleteInvoice,
 } from '../lib/billingApi'
 import type { InvoiceWithDetails, CreateInvoiceLineItemPayload, UpdateInvoicePatch } from '../lib/billingApi'
-import { downloadInvoicePdf } from '../lib/invoicePdf'
+import { formatDate } from '../lib/helpers'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -82,11 +82,17 @@ export function InvoiceDetailPage() {
   const subtotal = editingLineItems.reduce((sum, item) => sum + item.amount, 0)
   const editingTotal = Math.max(0, subtotal - editingDiscount)
   const invoiceTotal = invoice ? Math.max(0, invoice.subtotal - invoice.discount) : 0
-  const formatDate = (date: string) => new Date(date).toLocaleDateString('en-MY')
   const formatCurrency = (amount: number) => `RM ${amount.toFixed(2)}`
 
   async function handleSave() {
     if (!invoice) return
+
+    const validLineItems = editingLineItems.filter((item) => item.description.trim() !== '' || item.amount !== 0)
+    if (validLineItems.length === 0) {
+      toast.error('Add at least one line item')
+      return
+    }
+
     setSaving(true)
 
     const updates: UpdateInvoicePatch = {
@@ -104,7 +110,7 @@ export function InvoiceDetailPage() {
       return
     }
 
-    const { error: lineItemsError } = await updateInvoiceLineItems(invoice.id, editingLineItems)
+    const { error: lineItemsError } = await updateInvoiceLineItems(invoice.id, validLineItems)
     if (lineItemsError) {
       toast.error('Failed to update line items')
       setSaving(false)
@@ -190,6 +196,18 @@ export function InvoiceDetailPage() {
 
   function removeLineItem(index: number) {
     setEditingLineItems((prev) => prev.filter((_, i) => i !== index).map((item, i) => ({ ...item, sort_order: i })))
+  }
+
+  async function handleDownloadPdf() {
+    if (!invoice) return
+    try {
+      // Loaded on demand — pdfmake and its embedded fonts are ~1.3 MB and only
+      // needed when an admin actually downloads a PDF.
+      const { downloadInvoicePdf } = await import('../lib/invoicePdf')
+      await downloadInvoicePdf(invoice)
+    } catch {
+      toast.error('Failed to generate PDF')
+    }
   }
 
   function updateLineItem(index: number, field: keyof CreateInvoiceLineItemPayload, value: string | number) {
@@ -476,7 +494,7 @@ export function InvoiceDetailPage() {
 
                   <button
                     type="button"
-                    onClick={() => downloadInvoicePdf(invoice)}
+                    onClick={handleDownloadPdf}
                     className="min-h-tap rounded-xl border border-accent/30 px-4 font-semibold text-sm text-accent hover:bg-accent-soft"
                   >
                     Download PDF

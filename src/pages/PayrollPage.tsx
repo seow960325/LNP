@@ -27,7 +27,6 @@ import type {
   ManualOverrides,
   YtdTotals,
 } from '../lib/payrollApi'
-import { generatePayslipPdf } from '../lib/payslipPdf'
 import type { PayslipPdfData } from '../lib/payslipPdf'
 import { uploadPayslipDocument } from '../lib/staffDocsApi'
 
@@ -668,6 +667,9 @@ export function PayrollPage() {
         ytd_socso_employee: row.ytd.ytdSocsoEmployee + row.socsoEmployee,
       }
 
+      // Loaded on demand — pdfmake and its embedded fonts are ~1.3 MB and only
+      // admins generating payslips ever need them.
+      const { generatePayslipPdf } = await import('../lib/payslipPdf')
       const blob = await generatePayslipPdf(
         pdfData,
         { full_name: row.fullName, title: row.title },
