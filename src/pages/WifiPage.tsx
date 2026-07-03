@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Wifi } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
+import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
 import { buildWifiQrValue } from '../lib/helpers'
+import { copyToClipboard } from '../lib/clipboard'
 import { getWifi, updateWifi } from '../lib/settingsApi'
 import type { WifiInfo } from '../lib/settingsApi'
 
@@ -31,12 +33,9 @@ export function WifiPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [wifi, setWifi] = useState<WifiInfo>({ ssid: '', password: '' })
 
-  const [copied, setCopied] = useState(false)
-
   const [isEditing, setIsEditing] = useState(false)
   const [formValues, setFormValues] = useState<WifiInfo>({ ssid: '', password: '' })
   const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -66,39 +65,36 @@ export function WifiPage() {
   const canShowQr = wifi.ssid.trim().length > 0 && wifi.password.trim().length > 0
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(wifi.password)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // Clipboard access denied/unavailable — non-critical, fail quietly.
+    const ok = await copyToClipboard(wifi.password)
+    if (ok) {
+      toast.success('Copied to clipboard')
+    } else {
+      toast.error("Couldn't copy — long-press the password to copy manually")
     }
   }
 
   function openEdit() {
     setFormValues(wifi)
-    setSaveError(null)
     setIsEditing(true)
   }
 
   function closeEdit() {
     setIsEditing(false)
-    setSaveError(null)
   }
 
   async function handleSave() {
     if (!profile || saving) return
     setSaving(true)
-    setSaveError(null)
     const nextWifi: WifiInfo = { ssid: formValues.ssid.trim(), password: formValues.password }
     const { error } = await updateWifi(profile.center_id, nextWifi.ssid, nextWifi.password)
     setSaving(false)
     if (error) {
-      setSaveError('Could not save the WiFi details. Please try again.')
+      toast.error('Could not save the WiFi details. Please try again.')
       return
     }
     setWifi(nextWifi)
     setIsEditing(false)
+    toast.success('WiFi details saved')
   }
 
   return (
@@ -165,7 +161,7 @@ export function WifiPage() {
                         onClick={handleCopy}
                         className="min-h-tap-lg w-full rounded-2xl bg-white/10 font-display text-white shadow-card backdrop-blur hover:bg-white/20"
                       >
-                        {copied ? 'Copied!' : 'Copy Password'}
+                        Copy Password
                       </button>
                     )}
                   </>
@@ -205,8 +201,6 @@ export function WifiPage() {
                     className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm focus:border-brand-600 focus:outline-none disabled:opacity-60"
                   />
                 </div>
-
-                {saveError && <ErrorState message={saveError} />}
 
                 <div className="flex gap-2">
                   <button
