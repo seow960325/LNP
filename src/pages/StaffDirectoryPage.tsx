@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
+import { RegisterStaffForm, TempPasswordModal } from '../components/RegisterStaffForm'
 import { fetchStaffDirectory } from '../lib/profileApi'
 import type { StaffDirectoryEntry } from '../lib/profileApi'
 import type { UserRole } from '../types'
@@ -21,18 +22,19 @@ const ROLE_STYLES: Record<UserRole, string> = {
 
 export function StaffDirectoryPage() {
   const { profile } = useAuth()
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin'
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [members, setMembers] = useState<StaffDirectoryEntry[]>([])
 
-  useEffect(() => {
-    if (!profile) return
-    let cancelled = false
-    setLoadState('loading')
+  const [showRegisterForm, setShowRegisterForm] = useState(false)
+  const [newTempPassword, setNewTempPassword] = useState<string | null>(null)
 
+  function loadMembers() {
+    if (!profile) return
+    setLoadState('loading')
     fetchStaffDirectory(profile.center_id).then(({ data, error }) => {
-      if (cancelled) return
       if (error || !data) {
         setLoadError('Could not load the staff directory. Please try again.')
         setLoadState('error')
@@ -41,10 +43,10 @@ export function StaffDirectoryPage() {
       setMembers(data)
       setLoadState('ready')
     })
+  }
 
-    return () => {
-      cancelled = true
-    }
+  useEffect(() => {
+    loadMembers()
   }, [profile])
 
   if (!profile) return null
@@ -57,13 +59,25 @@ export function StaffDirectoryPage() {
           <h1 className="font-display text-2xl text-neutral-800">Staff Directory</h1>
         </div>
 
-        {profile.role === 'super_admin' && (
-          <Link
-            to="/staff/manage"
-            className="min-h-tap flex w-full items-center justify-center rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700"
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setShowRegisterForm((open) => !open)}
+            className="min-h-tap w-full rounded-2xl border border-brand-200 bg-white font-display text-sm text-brand-700 shadow-card hover:bg-brand-50"
           >
-            Manage staff
-          </Link>
+            {showRegisterForm ? 'Cancel' : '+ Add staff'}
+          </button>
+        )}
+
+        {isAdmin && showRegisterForm && (
+          <RegisterStaffForm
+            callerRole={profile.role}
+            onCreated={(tempPassword) => {
+              setShowRegisterForm(false)
+              setNewTempPassword(tempPassword)
+              loadMembers()
+            }}
+          />
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading the directory…" />}
@@ -99,6 +113,14 @@ export function StaffDirectoryPage() {
           </ul>
         )}
       </div>
+
+      {newTempPassword && (
+        <TempPasswordModal
+          password={newTempPassword}
+          description="Give this temporary password to the new staff member. They must set a new password on first login."
+          onClose={() => setNewTempPassword(null)}
+        />
+      )}
     </div>
   )
 }

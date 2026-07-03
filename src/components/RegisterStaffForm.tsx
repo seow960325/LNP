@@ -1,0 +1,211 @@
+import { useState } from 'react'
+import { FunctionsHttpError } from '@supabase/supabase-js'
+import { toast } from 'sonner'
+import { copyToClipboard } from '../lib/clipboard'
+import { supabase } from '../lib/supabaseClient'
+import type { UserRole } from '../types'
+
+// Roles assignable through staff management UI (registration + the detail
+// page's role editor). super_admin and parent are deliberately excluded —
+// super_admin can't be self-service granted, and parent accounts aren't staff.
+export const EDITABLE_ROLES: { value: UserRole; label: string }[] = [
+  { value: 'admin', label: 'Principal (admin)' },
+  { value: 'teacher', label: 'Teacher' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'shareholder', label: 'Shareholder' },
+]
+
+export async function extractInvokeError(error: unknown, fallback: string): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json()
+      if (body?.error) return body.error
+    } catch {
+      // Body wasn't JSON — fall back to the generic message.
+    }
+  }
+  return fallback
+}
+
+// Shared "temp password" reveal used both after registering a new staff
+// member and after resetting an existing one's password.
+export function TempPasswordModal({
+  password,
+  description,
+  onClose,
+}: {
+  password: string
+  description: string
+  onClose: () => void
+}) {
+  async function handleCopy() {
+    const ok = await copyToClipboard(password)
+    if (ok) {
+      toast.success('Copied to clipboard')
+    } else {
+      toast.error("Couldn't copy — long-press the password to copy manually")
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4">
+      <div className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-6 shadow-card-lg">
+        <h2 className="font-display text-lg text-neutral-800">Temporary password</h2>
+        <p className="text-sm text-neutral-600">{description}</p>
+        <div className="flex items-center justify-between gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
+          <span className="font-display text-lg tracking-wide text-neutral-800">{password}</span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="min-h-tap shrink-0 rounded-2xl border border-neutral-200 px-3 text-sm text-neutral-600 hover:bg-neutral-50"
+          >
+            Copy
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="min-h-tap w-full rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// callerRole narrows the role options to what admin-create-staff will
+// actually accept from this caller (server-side tiering in that function is
+// the real enforcement — see ALLOWED_ROLES_BY_CALLER there). admin doesn't
+// get 'shareholder'; that role is reserved for super_admin.
+export function RegisterStaffForm({
+  callerRole,
+  onCreated,
+}: {
+  callerRole: UserRole
+  onCreated: (tempPassword: string) => void
+}) {
+  const roleOptions =
+    callerRole === 'super_admin' ? EDITABLE_ROLES : EDITABLE_ROLES.filter((option) => option.value !== 'shareholder')
+
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<UserRole>('teacher')
+  const [title, setTitle] = useState('')
+  const [phone, setPhone] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!fullName.trim() || !email.trim()) return
+
+    setSubmitting(true)
+
+    const { data, error: invokeError } = await supabase.functions.invoke('admin-create-staff', {
+      body: {
+        fullName: fullName.trim(),
+        email: email.trim(),
+        role,
+        title: title.trim() || undefined,
+        phone: phone.trim() || undefined,
+      },
+    })
+
+    setSubmitting(false)
+
+    if (invokeError) {
+      toast.error(await extractInvokeError(invokeError, 'Could not register this staff member. Please try again.'))
+      return
+    }
+    if (!data?.tempPassword) {
+      toast.error('Could not register this staff member. Please try again.')
+      return
+    }
+
+    toast.success('Staff member registered')
+    setFullName('')
+    setEmail('')
+    setRole('teacher')
+    setTitle('')
+    setPhone('')
+    onCreated(data.tempPassword)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-3xl bg-white p-4 shadow-card">
+      <p className="font-display text-sm text-neutral-700">Register new staff</p>
+
+      <div>
+        <label className="text-xs text-neutral-500">Full name</label>
+        <input
+          type="text"
+          value={fullName}
+          onChange={(event) => setFullName(event.target.value)}
+          disabled={submitting}
+          required
+          className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+        />
+      </div>
+
+      <div>
+        <label className="text-xs text-neutral-500">Email</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          disabled={submitting}
+          required
+          className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-neutral-500">Role</label>
+          <select
+            value={role}
+            onChange={(event) => setRole(event.target.value as UserRole)}
+            disabled={submitting}
+            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+          >
+            {roleOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-neutral-500">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            disabled={submitting}
+            placeholder="e.g. Lead Teacher"
+            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-neutral-500">Phone (optional)</label>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
+          disabled={submitting}
+          className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={submitting || !fullName.trim() || !email.trim()}
+        className="min-h-tap w-full rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+      >
+        {submitting ? 'Registering…' : 'Register staff member'}
+      </button>
+    </form>
+  )
+}

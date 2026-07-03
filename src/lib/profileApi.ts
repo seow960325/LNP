@@ -45,12 +45,15 @@ export interface StaffDirectoryEntry {
   title: string | null
   phone: string | null
   avatar_url: string | null
+  // Internal protection flag only — never render an "owner" label/badge
+  // anywhere. David's displayed title stays "Shareholder" as normal.
+  is_app_owner: boolean
 }
 
 export function fetchStaffDirectory(centerId: string) {
   return supabase
     .from('profiles')
-    .select('id, full_name, role, title, phone, avatar_url')
+    .select('id, full_name, role, title, phone, avatar_url, is_app_owner')
     .eq('center_id', centerId)
     .eq('active', true)
     .order('full_name')
@@ -60,27 +63,4 @@ export function fetchStaffDirectory(centerId: string) {
 export async function fetchProfileById(id: string) {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
   return { data: data as Profile | null, error }
-}
-
-export interface StaffManageEntry {
-  id: string
-  full_name: string
-  email: string | null
-  phone: string | null
-  role: UserRole
-  title: string | null
-  active: boolean
-  is_paid_employee: boolean
-  avatar_url: string | null
-}
-
-// Unlike fetchStaffDirectory (active members only, read-only view), this
-// includes inactive members too so super_admin can reactivate them.
-export function fetchStaffForManagement(centerId: string) {
-  return supabase
-    .from('profiles')
-    .select('id, full_name, email, phone, role, title, active, is_paid_employee, avatar_url')
-    .eq('center_id', centerId)
-    .order('full_name')
-    .returns<StaffManageEntry[]>()
 }
