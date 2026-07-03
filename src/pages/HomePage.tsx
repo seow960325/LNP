@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, CalendarDays, ClipboardList, Clock, FileText, Trophy, Users, Wallet, Wifi } from 'lucide-react'
+import { Bell, CalendarDays, ClipboardList, Clock, FileText, Trophy, Users, Wallet, Wifi, Package, Users2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { firstName, toKLDateISO } from '../lib/helpers'
@@ -23,6 +23,8 @@ const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
 // shared grid layout logic stays untouched for every other role.
 const ADMIN_TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'Payroll', to: '/payroll', Icon: Wallet },
+  { label: 'Fee Packages', to: '/packages', Icon: Package },
+  { label: 'Students', to: '/students', Icon: Users2 },
 ]
 
 function NotificationBell() {

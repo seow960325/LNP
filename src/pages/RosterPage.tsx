@@ -4,9 +4,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
 import { formatDateShort, getWeekStartISO, shiftDateISO, toKLDateISO } from '../lib/helpers'
-import { fetchCenterMembers } from '../lib/kudosApi'
 import type { CenterMember } from '../lib/kudosApi'
-import { fetchWeekShifts, addShift, removeShift, fetchApprovedLeave } from '../lib/rosterApi'
+import { fetchRosterMembers, fetchWeekShifts, addShift, removeShift, fetchApprovedLeave } from '../lib/rosterApi'
 import type { RosterShiftRow, RosterLeaveRow } from '../lib/rosterApi'
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -46,7 +45,7 @@ export function RosterPage() {
     let cancelled = false
     setMembersState('loading')
 
-    fetchCenterMembers(profile.center_id).then(({ data, error }) => {
+    fetchRosterMembers(profile.center_id).then(({ data, error }) => {
       if (cancelled) return
       if (error || !data) {
         setMembersError('Could not load center members. Please try again.')

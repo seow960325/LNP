@@ -1,5 +1,22 @@
 import { supabase } from './supabaseClient'
 import { shiftDateISO } from './helpers'
+import type { CenterMember } from './kudosApi'
+
+// Roster-only member list — teachers and the principal (admin) are the only
+// actual working staff who take shifts. super_admin (David — shareholder,
+// not an employee), shareholder, staff (role being phased out), and parent
+// are excluded here even though they may appear in the general center-member
+// list (fetchCenterMembers in kudosApi.ts) used by Kudos/Board/Attendance.
+export function fetchRosterMembers(centerId: string) {
+  return supabase
+    .from('profiles')
+    .select('id, full_name, title')
+    .eq('center_id', centerId)
+    .eq('active', true)
+    .in('role', ['teacher', 'admin'])
+    .order('full_name')
+    .returns<CenterMember[]>()
+}
 
 export interface RosterShiftRow {
   id: string

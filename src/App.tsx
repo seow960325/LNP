@@ -25,6 +25,8 @@ import { StaffMemberDetailPage } from './pages/StaffMemberDetailPage'
 import { StaffDocumentsPage } from './pages/StaffDocumentsPage'
 import { PayrollPage } from './pages/PayrollPage'
 import { OpeningBalancePage } from './pages/OpeningBalancePage'
+import { PackagesPage } from './pages/PackagesPage'
+import { StudentsPage } from './pages/StudentsPage'
 import { HomePage } from './pages/HomePage'
 
 // Gate: a user whose password was admin-reset is locked out of every route
@@ -114,6 +116,8 @@ export function App() {
               <Route path="/requests/admin" element={<RequestsAdminPage />} />
               <Route path="/payroll" element={<PayrollPage />} />
               <Route path="/payroll/opening" element={<OpeningBalancePage />} />
+              <Route path="/packages" element={<PackagesPage />} />
+              <Route path="/students" element={<StudentsPage />} />
             </Route>
 
             {/* Parent — Phase 2 stub */}
