@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Award, Handshake, Heart, Lightbulb, Star } from 'lucide-react'
+import { Award, Handshake, Heart, Info, Lightbulb, Star } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 // Exported so other kudos screens (e.g. the Wall) can render the same
@@ -33,9 +33,9 @@ export function KudosValueBadge({
 
   return (
     <span
-      className={`inline-flex ${wrap} shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-cream-200 shadow-card`}
+      className={`inline-flex ${wrap} shrink-0 items-center justify-center rounded-full bg-accent-soft shadow-card`}
     >
-      <Icon className={`${icon} text-brand-600`} aria-hidden="true" />
+      <Icon className={`${icon} text-accent`} aria-hidden="true" />
     </span>
   )
 }
@@ -104,39 +104,39 @@ export function KudosValueCard({
       tabIndex={0}
       onClick={handleSelect}
       onKeyDown={handleKeyDown}
-      className={`relative flex min-h-tap-lg items-center gap-3 rounded-2xl border py-4 pl-4 pr-14 cursor-pointer transition-colors ${
+      className={`relative flex min-h-tap-lg items-center gap-3 rounded-xl border py-4 pl-4 pr-14 cursor-pointer transition-colors ${
         selected
-          ? 'border-brand-600 bg-cream-50'
-          : 'border-neutral-200 bg-white shadow-card'
+          ? 'border-accent bg-cream'
+          : 'border-line bg-white shadow-card'
       }`}
     >
       <KudosValueBadge iconKey={iconKey} size="sm" />
 
-      <span className="font-display text-neutral-800">{name}</span>
+      <span className="font-semibold text-ink">{name}</span>
 
       <button
         type="button"
         onClick={handleInfoClick}
         aria-label={`About ${name}`}
         aria-expanded={tooltipOpen}
-        className="absolute right-2 top-2 flex min-h-tap min-w-tap items-center justify-center rounded-full text-neutral-400 hover:text-neutral-600"
+        className="absolute right-2 top-2 flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted/70 hover:text-muted"
       >
-        <span aria-hidden="true">ⓘ</span>
+        <Info className="h-4 w-4" aria-hidden="true" />
       </button>
 
       <span
         aria-hidden={!selected}
         className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-          selected ? 'border-brand-600' : 'border-neutral-300'
+          selected ? 'border-accent' : 'border-line'
         }`}
       >
-        {selected && <span className="h-2.5 w-2.5 rounded-full bg-brand-600" />}
+        {selected && <span className="h-2.5 w-2.5 rounded-full bg-accent" />}
       </span>
 
       {tooltipOpen && (
         <div
           role="tooltip"
-          className="absolute right-2 top-12 z-10 w-56 rounded-xl bg-neutral-800 p-3 text-xs text-white shadow-card-lg animate-fade-in"
+          className="absolute right-2 top-12 z-10 w-56 rounded-xl bg-ink/90 p-3 text-xs text-white shadow-card-lg animate-fade-in"
         >
           {description}
         </div>

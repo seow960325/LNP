@@ -11,11 +11,11 @@ export function StaffDocumentsPage() {
   if (!profile) return null
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Documents</h1>
+          <h1 className="font-bold text-2xl text-ink">Documents</h1>
         </div>
 
         <StaffDocPanel ownerId={profile.id} canManage={false} />

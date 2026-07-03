@@ -121,28 +121,28 @@ function ManagementSection({
   }
 
   return (
-    <div className="space-y-3 rounded-3xl bg-white p-4 shadow-card">
-      <p className="font-display text-sm text-neutral-700">Management</p>
+    <div className="space-y-3 rounded-xl bg-white p-5 shadow-card">
+      <p className="font-semibold text-sm text-ink">Management</p>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-neutral-500">Title</label>
+          <label className="text-xs text-muted">Title</label>
           <input
             type="text"
             value={draftTitle}
             onChange={(event) => setDraftTitle(event.target.value)}
             disabled={saving}
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           />
         </div>
         {canEditRole && (
           <div>
-            <label className="text-xs text-neutral-500">Role</label>
+            <label className="text-xs text-muted">Role</label>
             <select
               value={draftRole}
               onChange={(event) => setDraftRole(event.target.value as UserRole)}
               disabled={saving}
-              className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+              className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
             >
               {PROMOTABLE_ROLES.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -154,16 +154,16 @@ function ManagementSection({
         )}
       </div>
 
-      <label className="flex items-center gap-2 text-xs text-neutral-500">
+      <label className="flex items-center gap-2 text-xs text-muted">
         <input
           type="checkbox"
           checked={member.is_paid_employee}
           onChange={(event) => handleTogglePaid(event.target.checked)}
           disabled={togglingPaid}
-          className="h-4 w-4 rounded border-neutral-300 disabled:opacity-60"
+          className="h-4 w-4 rounded border-line disabled:opacity-60"
         />
         Paid employee
-        {togglingPaid && <span className="text-2xs text-neutral-400">Saving…</span>}
+        {togglingPaid && <span className="text-2xs text-muted/70">Saving…</span>}
       </label>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -171,7 +171,7 @@ function ManagementSection({
           type="button"
           onClick={handleSave}
           disabled={saving || !dirty}
-          className="min-h-tap rounded-2xl bg-brand-600 px-4 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-50"
+          className="min-h-tap rounded-xl bg-accent px-4 font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -182,7 +182,7 @@ function ManagementSection({
               type="button"
               onClick={() => setDeactivateConfirmOpen(true)}
               disabled={togglingActive}
-              className="min-h-tap rounded-2xl border border-coral-200 px-4 text-sm text-coral-600 hover:bg-coral-50 disabled:opacity-50"
+              className="min-h-tap rounded-xl border border-danger/20 px-4 text-sm text-danger hover:bg-danger/10 disabled:opacity-50"
             >
               Deactivate
             </button>
@@ -191,7 +191,7 @@ function ManagementSection({
               type="button"
               onClick={() => handleToggleActive(true)}
               disabled={togglingActive}
-              className="min-h-tap rounded-2xl border border-sage-200 px-4 text-sm text-sage-700 hover:bg-sage-50 disabled:opacity-50"
+              className="min-h-tap rounded-xl border border-success/30 px-4 text-sm text-success hover:bg-success-soft disabled:opacity-50"
             >
               {togglingActive ? 'Reactivating…' : 'Reactivate'}
             </button>
@@ -297,11 +297,11 @@ export function StaffMemberDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/staff" />
-          <h1 className="font-display text-2xl text-neutral-800">Staff Member</h1>
+          <h1 className="font-bold text-2xl text-ink">Staff Member</h1>
         </div>
 
         {loadState === 'loading' && <LoadingState label="Loading…" />}
@@ -309,15 +309,15 @@ export function StaffMemberDetailPage() {
 
         {loadState === 'ready' && member && (
           <>
-            <div className="flex items-center gap-4 rounded-3xl bg-white p-4 shadow-card">
+            <div className="flex items-center gap-4 rounded-xl bg-white p-5 shadow-card">
               <Avatar fullName={member.full_name} avatarUrl={member.avatar_url} size="xl" />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-display text-lg font-bold text-neutral-800">
+                <p className="truncate text-lg font-bold text-ink">
                   {member.full_name}
                 </p>
-                <p className="text-sm text-neutral-500">{member.title || 'Staff'}</p>
-                {member.email && <p className="mt-1 truncate text-xs text-neutral-500">{member.email}</p>}
-                {member.phone && <p className="text-xs text-neutral-500">{member.phone}</p>}
+                <p className="text-sm text-muted">{member.title || 'Staff'}</p>
+                {member.email && <p className="mt-1 truncate text-xs text-muted">{member.email}</p>}
+                {member.phone && <p className="text-xs text-muted">{member.phone}</p>}
               </div>
             </div>
 
@@ -334,7 +334,7 @@ export function StaffMemberDetailPage() {
               <button
                 type="button"
                 onClick={() => setResetConfirmOpen(true)}
-                className="min-h-tap w-full rounded-2xl border border-coral-200 bg-white font-display text-sm text-coral-600 shadow-card hover:bg-coral-50"
+                className="min-h-tap w-full rounded-xl border border-danger/20 bg-white font-semibold text-sm text-danger shadow-card hover:bg-danger/10"
               >
                 Reset password
               </button>

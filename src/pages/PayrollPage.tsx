@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Lock, RotateCcw } from 'lucide-react'
+import { ChevronDown, ChevronUp, Lock, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
@@ -47,9 +47,9 @@ const STATUS_LABELS: Record<PayslipStatus, string> = {
 }
 
 const STATUS_BADGE: Record<PayslipStatus, string> = {
-  draft: 'bg-neutral-100 text-neutral-600',
-  finalized: 'bg-sage-100 text-sage-700',
-  sent: 'bg-sky-100 text-sky-700',
+  draft: 'bg-line/60 text-muted',
+  finalized: 'bg-success-soft text-success',
+  sent: 'bg-accent-soft text-accent-hover',
 }
 
 // Maps a ManualOverrides key to the RowState field it shadows.
@@ -244,7 +244,7 @@ function EditableCell({
       value={value}
       onChange={(event) => onChange(parseFloat(event.target.value) || 0)}
       disabled={disabled}
-      className="w-20 rounded-xl border border-neutral-200 px-2 py-1 text-right text-xs disabled:opacity-60"
+      className="w-20 rounded-lg border border-line px-2 py-1 text-right text-xs disabled:opacity-60"
     />
   )
 }
@@ -273,7 +273,7 @@ function OverridableCell({
           type="button"
           onClick={onClear}
           title="Reset to calculated value"
-          className="text-neutral-400 hover:text-neutral-600"
+          className="text-muted/70 hover:text-muted"
         >
           <RotateCcw className="h-3 w-3" aria-hidden="true" />
         </button>
@@ -287,7 +287,7 @@ function OverridableCell({
         disabled={disabled}
         title={overridden ? 'Manually overridden — not auto-recalculated' : undefined}
         className={`w-20 rounded-xl border px-2 py-1 text-right text-xs disabled:opacity-60 ${
-          overridden ? 'border-coral-300 bg-coral-50' : 'border-neutral-200'
+          overridden ? 'border-danger/30 bg-danger/10' : 'border-line'
         }`}
       />
     </div>
@@ -300,7 +300,7 @@ const TABLE_COLUMN_COUNT = 10
 
 function DetailField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 text-2xs text-neutral-500">
+    <div className="flex flex-col gap-1 text-2xs text-muted">
       {label}
       {children}
     </div>
@@ -333,18 +333,18 @@ function PayrollTableRow({
 
   return (
     <>
-      <tr className="border-t border-neutral-100">
-        <td className="sticky left-0 z-10 min-w-[140px] bg-white px-3 py-2">
-          <div className="flex items-center gap-1 font-display text-sm text-neutral-800">
-            {!editable && <Lock className="h-3 w-3 shrink-0 text-neutral-400" aria-hidden="true" />}
+      <tr className="group border-t border-line transition-colors hover:bg-cream/70">
+        <td className="sticky left-0 z-10 min-w-[140px] bg-white px-3 py-2 transition-colors group-hover:bg-cream">
+          <div className="flex items-center gap-1 font-semibold text-sm text-ink">
+            {!editable && <Lock className="h-3 w-3 shrink-0 text-muted/70" aria-hidden="true" />}
             {row.fullName}
             {!row.active && (
-              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-2xs font-medium text-neutral-500">
+              <span className="rounded-full bg-line/60 px-2 py-0.5 text-2xs font-semibold text-muted">
                 Resigned
               </span>
             )}
           </div>
-          {row.title && <p className="text-2xs text-neutral-400">{row.title}</p>}
+          {row.title && <p className="text-2xs text-muted/70">{row.title}</p>}
         </td>
         <td className="px-2 py-2 text-right">
           <EditableCell value={row.base} editable={editable} disabled={busy} onChange={(v) => onFieldChange(row.employeeId, 'base', v)} />
@@ -389,19 +389,24 @@ function PayrollTableRow({
             onClear={() => onClearOverride(row.employeeId, 'pcb')}
           />
         </td>
-        <td className="px-2 py-2 text-right font-display text-sm font-bold text-neutral-800">{formatMoney(row.netPay)}</td>
+        <td className="px-2 py-2 text-right text-sm font-bold text-accent-hover">{formatMoney(row.netPay)}</td>
         <td className="px-2 py-2 text-center">
           <button
             type="button"
             onClick={() => onToggleExpand(row.employeeId)}
             aria-expanded={row.expanded}
-            className="text-xs text-brand-600 hover:underline"
+            className="inline-flex items-center gap-0.5 text-xs text-accent hover:text-accent-hover hover:underline"
           >
-            {row.expanded ? '▾ less' : '▸ more'}
+            {row.expanded ? (
+              <ChevronUp className="h-3 w-3" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="h-3 w-3" aria-hidden="true" />
+            )}
+            {row.expanded ? 'less' : 'more'}
           </button>
         </td>
         <td className="px-2 py-2 text-center">
-          <span className={`rounded-full px-2 py-0.5 text-2xs font-medium ${STATUS_BADGE[row.status]}`}>
+          <span className={`rounded-full px-2.5 py-0.5 text-2xs font-semibold ${STATUS_BADGE[row.status]}`}>
             {STATUS_LABELS[row.status]}
           </span>
         </td>
@@ -413,7 +418,7 @@ function PayrollTableRow({
                   type="button"
                   onClick={() => onSave(row)}
                   disabled={busy}
-                  className="min-h-tap rounded-xl bg-brand-600 px-3 text-xs text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+                  className="min-h-tap rounded-xl bg-accent px-3 text-xs text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
                 >
                   {row.saving ? 'Saving…' : 'Save'}
                 </button>
@@ -421,7 +426,7 @@ function PayrollTableRow({
                   type="button"
                   onClick={() => onRequestFinalize(row.employeeId)}
                   disabled={busy}
-                  className="min-h-tap rounded-xl border border-sage-200 px-3 text-xs text-sage-700 hover:bg-sage-50 disabled:opacity-60"
+                  className="min-h-tap rounded-xl border border-success/30 px-3 text-xs text-success hover:bg-success-soft disabled:opacity-60"
                 >
                   {row.finalizing ? 'Finalizing…' : 'Finalize'}
                 </button>
@@ -432,7 +437,7 @@ function PayrollTableRow({
                 type="button"
                 onClick={() => onRequestReopen(row.employeeId)}
                 disabled={busy}
-                className="min-h-tap rounded-xl border border-coral-200 px-3 text-xs text-coral-600 hover:bg-coral-50 disabled:opacity-60"
+                className="min-h-tap rounded-xl border border-danger/20 px-3 text-xs text-danger hover:bg-danger/10 disabled:opacity-60"
               >
                 {row.reopening ? 'Reopening…' : 'Reopen'}
               </button>
@@ -442,11 +447,11 @@ function PayrollTableRow({
       </tr>
 
       {row.expanded && (
-        <tr className="border-t border-neutral-100 bg-neutral-50">
+        <tr className="border-t border-line bg-cream">
           <td colSpan={TABLE_COLUMN_COUNT} className="px-4 py-3">
             <div className="flex flex-wrap gap-x-8 gap-y-3">
               <div className="flex flex-wrap items-end gap-3">
-                <p className="w-full font-display text-2xs uppercase tracking-wide text-neutral-400">
+                <p className="w-full font-semibold text-2xs uppercase tracking-wide text-muted/70">
                   Earnings breakdown
                 </p>
                 <DetailField label="Allowance">
@@ -462,25 +467,25 @@ function PayrollTableRow({
                   <EditableCell value={row.unpaid} editable={editable} disabled={busy} onChange={(v) => onFieldChange(row.employeeId, 'unpaid', v)} />
                 </DetailField>
                 <DetailField label="Gross">
-                  <span className="text-sm text-neutral-800">{formatMoney(row.grossPay)}</span>
+                  <span className="text-sm text-ink">{formatMoney(row.grossPay)}</span>
                 </DetailField>
               </div>
 
-              <div className="flex flex-wrap items-end gap-3 border-l border-neutral-200 pl-6">
-                <p className="w-full font-display text-2xs uppercase tracking-wide text-neutral-400">
+              <div className="flex flex-wrap items-end gap-3 border-l border-line pl-6">
+                <p className="w-full font-semibold text-2xs uppercase tracking-wide text-muted/70">
                   Employer contributions
                 </p>
                 <DetailField label="EPF (er)">
-                  <span className="text-sm text-neutral-800">{formatMoney(row.epfEmployer)}</span>
+                  <span className="text-sm text-ink">{formatMoney(row.epfEmployer)}</span>
                 </DetailField>
                 <DetailField label="SOCSO (er)">
-                  <span className="text-sm text-neutral-800">{formatMoney(row.socsoEmployer)}</span>
+                  <span className="text-sm text-ink">{formatMoney(row.socsoEmployer)}</span>
                 </DetailField>
                 <DetailField label="EIS (er)">
-                  <span className="text-sm text-neutral-800">{formatMoney(row.eisEmployer)}</span>
+                  <span className="text-sm text-ink">{formatMoney(row.eisEmployer)}</span>
                 </DetailField>
                 <DetailField label="Total Deduct">
-                  <span className="text-sm text-neutral-800">{formatMoney(row.totalDeductions)}</span>
+                  <span className="text-sm text-ink">{formatMoney(row.totalDeductions)}</span>
                 </DetailField>
               </div>
             </div>
@@ -817,33 +822,33 @@ export function PayrollPage() {
   const reopenRow = rows.find((r) => r.employeeId === reopenTarget) ?? null
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Payroll</h1>
-          <Link to="/payroll/opening" className="ml-auto text-xs text-brand-600 hover:underline">
+          <h1 className="font-bold text-2xl text-ink">Payroll</h1>
+          <Link to="/payroll/opening" className="ml-auto text-xs text-accent hover:underline">
             Opening Balances
           </Link>
         </div>
 
-        <div className="flex items-center justify-between gap-2 rounded-2xl bg-white p-3 shadow-card">
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-white p-3 shadow-card">
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-xs text-neutral-500">
+            <label className="flex items-center gap-2 text-xs text-muted">
               Period
               <input
                 type="month"
                 value={`${year}-${String(month).padStart(2, '0')}`}
                 onChange={(event) => handlePeriodChange(event.target.value)}
-                className="min-h-tap rounded-2xl border border-neutral-200 px-3 text-sm text-neutral-800"
+                className="min-h-tap rounded-xl border border-line px-3 text-sm text-ink"
               />
             </label>
-            <label className="flex items-center gap-2 text-xs text-neutral-500">
+            <label className="flex items-center gap-2 text-xs text-muted">
               <input
                 type="checkbox"
                 checked={includeInactive}
                 onChange={(event) => setIncludeInactive(event.target.checked)}
-                className="h-4 w-4 rounded border-neutral-300"
+                className="h-4 w-4 rounded border-line accent-accent"
               />
               Include resigned staff
             </label>
@@ -854,7 +859,7 @@ export function PayrollPage() {
                 type="button"
                 onClick={handleSaveAll}
                 disabled={savingAll || bulkFinalizing || rows.every((r) => r.status !== 'draft')}
-                className="min-h-tap rounded-2xl bg-brand-600 px-4 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-50"
+                className="min-h-tap rounded-xl bg-accent px-4 font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-50"
               >
                 {savingAll ? 'Saving all…' : 'Save all drafts'}
               </button>
@@ -862,7 +867,7 @@ export function PayrollPage() {
                 type="button"
                 onClick={() => setBulkFinalizeConfirmOpen(true)}
                 disabled={savingAll || bulkFinalizing || rows.every((r) => r.status !== 'draft')}
-                className="min-h-tap rounded-2xl border border-sage-200 px-4 font-display text-sm text-sage-700 hover:bg-sage-50 disabled:opacity-50"
+                className="min-h-tap rounded-xl border border-success/30 px-4 font-semibold text-sm text-success hover:bg-success-soft disabled:opacity-50"
               >
                 {bulkFinalizing ? 'Finalizing…' : 'Finalize all drafts'}
               </button>
@@ -881,20 +886,20 @@ export function PayrollPage() {
       </div>
 
       {loadState === 'ready' && rows.length > 0 && (
-        <div className="mx-auto mt-4 max-w-[calc(100vw-3rem)] overflow-x-auto rounded-2xl bg-white shadow-card">
+        <div className="mx-auto mt-4 max-w-[calc(100vw-3rem)] overflow-x-auto rounded-xl bg-white shadow-card">
           <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
               <tr>
-                <th className="sticky left-0 z-10 min-w-[140px] bg-white px-3 py-2 text-left font-display text-xs text-neutral-500">Name</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">Base</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">EPF (emp)</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">SOCSO (emp)</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">EIS (emp)</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">PCB</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">Net</th>
-                <th className="px-2 py-2 text-center font-display text-xs text-neutral-500"></th>
-                <th className="px-2 py-2 text-center font-display text-xs text-neutral-500">Status</th>
-                <th className="px-2 py-2 text-left font-display text-xs text-neutral-500">Actions</th>
+                <th className="sticky left-0 z-10 min-w-[140px] bg-white px-3 py-2 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Name</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">Base</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">EPF (emp)</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">SOCSO (emp)</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">EIS (emp)</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">PCB</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">Net</th>
+                <th className="px-2 py-2 text-center font-semibold text-2xs uppercase tracking-wider text-muted"></th>
+                <th className="px-2 py-2 text-center font-semibold text-2xs uppercase tracking-wider text-muted">Status</th>
+                <th className="px-2 py-2 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Actions</th>
               </tr>
             </thead>
             <tbody>

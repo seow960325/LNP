@@ -48,16 +48,16 @@ export function TempPasswordModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4">
-      <div className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-6 shadow-card-lg">
-        <h2 className="font-display text-lg text-neutral-800">Temporary password</h2>
-        <p className="text-sm text-neutral-600">{description}</p>
-        <div className="flex items-center justify-between gap-2 rounded-2xl bg-neutral-50 px-4 py-3">
-          <span className="font-display text-lg tracking-wide text-neutral-800">{password}</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+      <div className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-card-lg">
+        <h2 className="font-semibold text-lg text-ink">Temporary password</h2>
+        <p className="text-sm text-muted">{description}</p>
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-cream px-4 py-3">
+          <span className="font-semibold text-lg tracking-wide text-ink">{password}</span>
           <button
             type="button"
             onClick={handleCopy}
-            className="min-h-tap shrink-0 rounded-2xl border border-neutral-200 px-3 text-sm text-neutral-600 hover:bg-neutral-50"
+            className="min-h-tap shrink-0 rounded-xl border border-line px-3 text-sm text-muted hover:bg-cream"
           >
             Copy
           </button>
@@ -65,7 +65,7 @@ export function TempPasswordModal({
         <button
           type="button"
           onClick={onClose}
-          className="min-h-tap w-full rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700"
+          className="min-h-tap w-full rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover"
         >
           Done
         </button>
@@ -132,41 +132,41 @@ export function RegisterStaffForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-3xl bg-white p-4 shadow-card">
-      <p className="font-display text-sm text-neutral-700">Register new staff</p>
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-5 shadow-card">
+      <p className="font-semibold text-sm text-ink">Register new staff</p>
 
       <div>
-        <label className="text-xs text-neutral-500">Full name</label>
+        <label className="text-xs text-muted">Full name</label>
         <input
           type="text"
           value={fullName}
           onChange={(event) => setFullName(event.target.value)}
           disabled={submitting}
           required
-          className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+          className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
         />
       </div>
 
       <div>
-        <label className="text-xs text-neutral-500">Email</label>
+        <label className="text-xs text-muted">Email</label>
         <input
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           disabled={submitting}
           required
-          className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+          className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-neutral-500">Role</label>
+          <label className="text-xs text-muted">Role</label>
           <select
             value={role}
             onChange={(event) => setRole(event.target.value as UserRole)}
             disabled={submitting}
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           >
             {roleOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -176,33 +176,33 @@ export function RegisterStaffForm({
           </select>
         </div>
         <div>
-          <label className="text-xs text-neutral-500">Title</label>
+          <label className="text-xs text-muted">Title</label>
           <input
             type="text"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             disabled={submitting}
             placeholder="e.g. Lead Teacher"
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           />
         </div>
       </div>
 
       <div>
-        <label className="text-xs text-neutral-500">Phone (optional)</label>
+        <label className="text-xs text-muted">Phone (optional)</label>
         <input
           type="tel"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
           disabled={submitting}
-          className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+          className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
         />
       </div>
 
       <button
         type="submit"
         disabled={submitting || !fullName.trim() || !email.trim()}
-        className="min-h-tap w-full rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+        className="min-h-tap w-full rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
       >
         {submitting ? 'Registering…' : 'Register staff member'}
       </button>

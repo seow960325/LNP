@@ -25,9 +25,9 @@ const STATUS_LABELS: Record<RequestStatus, string> = {
 }
 
 const STATUS_COLOR: Record<RequestStatus, string> = {
-  pending: 'text-brand-600',
-  approved: 'text-sage-600',
-  rejected: 'text-coral-600',
+  pending: 'text-accent',
+  approved: 'text-success',
+  rejected: 'text-danger',
 }
 
 interface FormValues {
@@ -80,12 +80,12 @@ function RequestFormFields({
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs text-neutral-500">Type</label>
+        <label className="text-xs text-muted">Type</label>
         <select
           value={values.type}
           onChange={(event) => onChange({ ...values, type: event.target.value as RequestType })}
           disabled={disabled}
-          className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+          className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
         >
           {TYPE_OPTIONS.map((type) => (
             <option key={type} value={type}>
@@ -97,30 +97,30 @@ function RequestFormFields({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-neutral-500">{isLeave ? 'Start date' : 'Date'}</label>
+          <label className="text-xs text-muted">{isLeave ? 'Start date' : 'Date'}</label>
           <input
             type="date"
             value={values.startDate}
             onChange={(event) => onChange({ ...values, startDate: event.target.value })}
             disabled={disabled}
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           />
         </div>
         {isLeave && (
           <div>
-            <label className="text-xs text-neutral-500">End date</label>
+            <label className="text-xs text-muted">End date</label>
             <input
               type="date"
               value={values.endDate}
               onChange={(event) => onChange({ ...values, endDate: event.target.value })}
               disabled={disabled}
-              className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+              className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
             />
           </div>
         )}
         {values.type === 'ot' && (
           <div>
-            <label className="text-xs text-neutral-500">Hours</label>
+            <label className="text-xs text-muted">Hours</label>
             <input
               type="number"
               min="0"
@@ -128,13 +128,13 @@ function RequestFormFields({
               value={values.hours}
               onChange={(event) => onChange({ ...values, hours: event.target.value })}
               disabled={disabled}
-              className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+              className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
             />
           </div>
         )}
         {values.type === 'claim' && (
           <div>
-            <label className="text-xs text-neutral-500">Amount</label>
+            <label className="text-xs text-muted">Amount</label>
             <input
               type="number"
               min="0"
@@ -142,20 +142,20 @@ function RequestFormFields({
               value={values.amount}
               onChange={(event) => onChange({ ...values, amount: event.target.value })}
               disabled={disabled}
-              className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+              className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
             />
           </div>
         )}
       </div>
 
       <div>
-        <label className="text-xs text-neutral-500">Reason (optional)</label>
+        <label className="text-xs text-muted">Reason (optional)</label>
         <input
           type="text"
           value={values.reason}
           onChange={(event) => onChange({ ...values, reason: event.target.value })}
           disabled={disabled}
-          className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+          className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
         />
       </div>
     </div>
@@ -280,12 +280,12 @@ export function RequestsPanel() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-neutral-500">Your requests</p>
+        <p className="text-sm text-muted">Your requests</p>
         {!showCreate && (
           <button
             type="button"
             onClick={openCreate}
-            className="flex min-h-tap items-center rounded-2xl bg-brand-600 px-4 font-display text-sm text-white shadow-card hover:bg-brand-700"
+            className="flex min-h-tap items-center rounded-xl bg-accent px-4 font-semibold text-sm text-white shadow-card hover:bg-accent-hover"
           >
             New Request
           </button>
@@ -293,7 +293,7 @@ export function RequestsPanel() {
       </div>
 
       {showCreate && (
-        <div className="space-y-3 rounded-2xl bg-white p-4 shadow-card-md">
+        <div className="space-y-3 rounded-xl bg-white p-4 shadow-card-md">
           <RequestFormFields values={createValues} onChange={setCreateValues} disabled={createSaving} />
 
           <div className="flex gap-2">
@@ -301,7 +301,7 @@ export function RequestsPanel() {
               type="button"
               onClick={closeCreate}
               disabled={createSaving}
-              className="min-h-tap flex-1 rounded-2xl border border-neutral-200 font-display text-sm text-neutral-600 disabled:opacity-50"
+              className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-50"
             >
               Cancel
             </button>
@@ -309,7 +309,7 @@ export function RequestsPanel() {
               type="button"
               onClick={handleCreate}
               disabled={createSaving}
-              className="min-h-tap flex-1 rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+              className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
             >
               {createSaving ? 'Submitting…' : 'Submit'}
             </button>
@@ -327,24 +327,24 @@ export function RequestsPanel() {
       {loadState === 'ready' && rows.length > 0 && (
         <ul className="space-y-3">
           {rows.map((row) => (
-            <li key={row.id} className="space-y-3 rounded-2xl bg-white p-4 shadow-card">
+            <li key={row.id} className="space-y-3 rounded-xl bg-white p-4 shadow-card">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-display text-neutral-800">{TYPE_LABELS[row.type]}</p>
-                  <p className="text-xs text-neutral-500">{requestDetails(row)}</p>
-                  {row.reason && <p className="mt-1 text-sm text-neutral-600">{row.reason}</p>}
+                  <p className="font-semibold text-ink">{TYPE_LABELS[row.type]}</p>
+                  <p className="text-xs text-muted">{requestDetails(row)}</p>
+                  {row.reason && <p className="mt-1 text-sm text-muted">{row.reason}</p>}
                 </div>
-                <span className={`text-xs font-display ${STATUS_COLOR[row.status]}`}>
+                <span className={`text-xs font-semibold ${STATUS_COLOR[row.status]}`}>
                   {STATUS_LABELS[row.status]}
                 </span>
               </div>
 
               {row.status === 'pending' && editingId !== row.id && (
-                <div className="flex gap-2 border-t border-neutral-100 pt-3">
+                <div className="flex gap-2 border-t border-line pt-3">
                   <button
                     type="button"
                     onClick={() => openEdit(row)}
-                    className="min-h-tap flex-1 rounded-2xl border border-neutral-200 font-display text-sm text-neutral-600"
+                    className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted"
                   >
                     Edit
                   </button>
@@ -352,7 +352,7 @@ export function RequestsPanel() {
                     type="button"
                     onClick={() => handleCancel(row)}
                     disabled={cancellingId === row.id}
-                    className="min-h-tap flex-1 rounded-2xl border border-coral-200 font-display text-sm text-coral-600 disabled:opacity-60"
+                    className="min-h-tap flex-1 rounded-xl border border-danger/20 font-semibold text-sm text-danger disabled:opacity-60"
                   >
                     {cancellingId === row.id ? 'Cancelling…' : 'Cancel'}
                   </button>
@@ -360,7 +360,7 @@ export function RequestsPanel() {
               )}
 
               {editingId === row.id && (
-                <div className="space-y-3 border-t border-neutral-100 pt-3">
+                <div className="space-y-3 border-t border-line pt-3">
                   <RequestFormFields values={editValues} onChange={setEditValues} disabled={editSaving} />
 
                   <div className="flex gap-2">
@@ -368,7 +368,7 @@ export function RequestsPanel() {
                       type="button"
                       onClick={closeEdit}
                       disabled={editSaving}
-                      className="min-h-tap flex-1 rounded-2xl border border-neutral-200 font-display text-sm text-neutral-600 disabled:opacity-50"
+                      className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -376,7 +376,7 @@ export function RequestsPanel() {
                       type="button"
                       onClick={() => handleEditSave(row)}
                       disabled={editSaving}
-                      className="min-h-tap flex-1 rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+                      className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
                     >
                       {editSaving ? 'Saving…' : 'Save'}
                     </button>
@@ -396,11 +396,11 @@ export function RequestsPanel() {
 // directly instead of this wrapper.
 export function RequestsPage() {
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Requests</h1>
+          <h1 className="font-bold text-2xl text-ink">Requests</h1>
         </div>
         <RequestsPanel />
       </div>

@@ -5,8 +5,8 @@ import { AccountDeactivatedPage } from '../pages/AccountDeactivatedPage'
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-cream-100 flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
+    <div className="min-h-screen bg-cream flex items-center justify-center">
+      <div className="w-10 h-10 border-4 border-accent/40 border-t-accent rounded-full animate-spin" />
     </div>
   )
 }

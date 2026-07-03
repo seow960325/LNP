@@ -66,42 +66,42 @@ function UploadForm({
   }
 
   return (
-    <div className="space-y-3 rounded-2xl bg-white p-4 shadow-card-md">
-      <p className="font-display text-sm text-neutral-700">Upload a document</p>
+    <div className="space-y-3 rounded-xl bg-white p-4 shadow-card-md">
+      <p className="font-semibold text-sm text-ink">Upload a document</p>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-neutral-500">Type</label>
+          <label className="text-xs text-muted">Type</label>
           <select
             value={docType}
             onChange={(event) => setDocType(event.target.value as StaffDocType)}
             disabled={uploading}
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           >
             <option value="payslip">Payslip</option>
             <option value="ea">EA Form</option>
           </select>
         </div>
         <div>
-          <label className="text-xs text-neutral-500">Year</label>
+          <label className="text-xs text-muted">Year</label>
           <input
             type="number"
             value={year}
             onChange={(event) => setYear(Number(event.target.value))}
             disabled={uploading}
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           />
         </div>
       </div>
 
       {docType === 'payslip' && (
         <div>
-          <label className="text-xs text-neutral-500">Month</label>
+          <label className="text-xs text-muted">Month</label>
           <select
             value={month}
             onChange={(event) => setMonth(Number(event.target.value))}
             disabled={uploading}
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           >
             {MONTH_NAMES.map((name, index) => (
               <option key={name} value={index + 1}>
@@ -113,7 +113,7 @@ function UploadForm({
       )}
 
       <div>
-        <label className="text-xs text-neutral-500">PDF file (max 5MB)</label>
+        <label className="text-xs text-muted">PDF file (max 5MB)</label>
         <input
           type="file"
           accept="application/pdf"
@@ -129,7 +129,7 @@ function UploadForm({
         type="button"
         onClick={handleSubmit}
         disabled={uploading || !file || Boolean(validationError)}
-        className="min-h-tap w-full rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+        className="min-h-tap w-full rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
       >
         {uploading ? 'Uploading…' : 'Upload'}
       </button>
@@ -237,17 +237,17 @@ export function StaffDocPanel({ ownerId, canManage }: { ownerId: string; canMana
       {docsState === 'ready' && documents.length > 0 && (
         <ul className="space-y-3">
           {documents.map((doc) => (
-            <li key={doc.id} className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card">
+            <li key={doc.id} className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-card">
               <div className="min-w-0 flex-1">
-                <p className="font-display text-sm text-neutral-800">
+                <p className="font-semibold text-sm text-ink">
                   {DOC_TYPE_LABELS[doc.doc_type]} — {docLabel(doc)}
                 </p>
-                <p className="truncate text-xs text-neutral-400">{doc.file_name}</p>
+                <p className="truncate text-xs text-muted/70">{doc.file_name}</p>
               </div>
               <button
                 type="button"
                 onClick={() => handleView(doc)}
-                className="min-h-tap shrink-0 rounded-2xl border border-neutral-200 px-3 text-sm text-neutral-600 hover:bg-neutral-50"
+                className="min-h-tap shrink-0 rounded-xl border border-line px-3 text-sm text-muted hover:bg-cream"
               >
                 View
               </button>
@@ -255,7 +255,7 @@ export function StaffDocPanel({ ownerId, canManage }: { ownerId: string; canMana
                 <button
                   type="button"
                   onClick={() => setDeleteTarget(doc)}
-                  className="min-h-tap shrink-0 rounded-2xl border border-coral-200 px-3 text-sm text-coral-600 hover:bg-coral-50"
+                  className="min-h-tap shrink-0 rounded-xl border border-danger/20 px-3 text-sm text-danger hover:bg-danger/10"
                 >
                   Delete
                 </button>

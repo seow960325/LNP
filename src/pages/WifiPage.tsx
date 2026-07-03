@@ -15,11 +15,11 @@ type LoadState = 'loading' | 'ready' | 'error'
 function WifiGlow() {
   return (
     <div className="relative flex h-20 w-20 items-center justify-center">
-      <span className="absolute h-20 w-20 rounded-full bg-brand-400/10 blur-xl" />
-      <span className="absolute h-14 w-14 rounded-full bg-brand-300/20 blur-lg" />
-      <span className="absolute h-8 w-8 rounded-full bg-brand-200/30 blur-md" />
+      <span className="absolute h-20 w-20 rounded-full bg-accent/10 blur-xl" />
+      <span className="absolute h-14 w-14 rounded-full bg-accent/15 blur-lg" />
+      <span className="absolute h-8 w-8 rounded-full bg-accent-soft/50 blur-md" />
       <Wifi
-        className="relative h-9 w-9 text-brand-100 drop-shadow-[0_0_14px_rgba(255,217,168,0.85)]"
+        className="relative h-9 w-9 text-accent-soft drop-shadow-[0_0_14px_rgba(255,217,168,0.85)]"
         aria-hidden="true"
       />
     </div>
@@ -98,11 +98,11 @@ export function WifiPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">WiFi Password</h1>
+          <h1 className="font-bold text-2xl text-ink">WiFi Password</h1>
         </div>
 
         {loadState === 'loading' && <LoadingState label="Loading WiFi details…" />}
@@ -110,9 +110,9 @@ export function WifiPage() {
 
         {loadState === 'ready' && (
           <>
-            <div className="relative overflow-hidden rounded-4xl bg-gradient-to-br from-brand-900 via-brand-800 to-neutral-900 p-8 text-center shadow-card-lg">
-              <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-brand-400/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-14 -right-10 h-48 w-48 rounded-full bg-brand-300/10 blur-3xl" />
+            <div className="relative overflow-hidden rounded-2xl bg-ink p-8 text-center shadow-card-lg">
+              <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-accent/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-14 -right-10 h-48 w-48 rounded-full bg-accent/10 blur-3xl" />
 
               <div className="relative flex flex-col items-center gap-6">
                 <WifiGlow />
@@ -120,15 +120,15 @@ export function WifiPage() {
                 {hasWifi ? (
                   <>
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-brand-100/70">Wifi name</p>
-                      <p className="mt-1 break-words font-display text-2xl text-white">{wifi.ssid || '—'}</p>
+                      <p className="text-xs uppercase tracking-wide text-accent-soft/70">Wifi name</p>
+                      <p className="mt-1 break-words font-bold text-2xl text-white">{wifi.ssid || '—'}</p>
                     </div>
 
                     <div className="h-px w-16 bg-white/15" />
 
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-brand-100/70">Password</p>
-                      <p className="mt-1 break-words font-display text-2xl tracking-wide text-white">
+                      <p className="text-xs uppercase tracking-wide text-accent-soft/70">Password</p>
+                      <p className="mt-1 break-words font-bold text-2xl tracking-wide text-white">
                         {wifi.password || '—'}
                       </p>
                     </div>
@@ -137,36 +137,36 @@ export function WifiPage() {
 
                     <div className="flex flex-col items-center gap-2">
                       {canShowQr ? (
-                        <div className="rounded-2xl bg-white p-3 shadow-card">
+                        <div className="rounded-xl bg-white p-3 shadow-card">
                           <QRCodeSVG
                             value={buildWifiQrValue(wifi.ssid, wifi.password)}
                             size={140}
                             bgColor="#ffffff"
-                            fgColor="#783110"
+                            fgColor="#1E293B"
                             level="M"
                             marginSize={0}
                           />
                         </div>
                       ) : (
-                        <div className="flex h-[164px] w-[164px] items-center justify-center rounded-2xl bg-white/10 p-4 text-center text-xs text-brand-100/70">
+                        <div className="flex h-[164px] w-[164px] items-center justify-center rounded-xl bg-white/10 p-4 text-center text-xs text-accent-soft/70">
                           Add both a network name and password to generate a QR code.
                         </div>
                       )}
-                      <p className="text-xs text-brand-100/70">Scan to join WiFi</p>
+                      <p className="text-xs text-accent-soft/70">Scan to join WiFi</p>
                     </div>
 
                     {wifi.password && (
                       <button
                         type="button"
                         onClick={handleCopy}
-                        className="min-h-tap-lg w-full rounded-2xl bg-white/10 font-display text-white shadow-card backdrop-blur hover:bg-white/20"
+                        className="min-h-tap-lg w-full rounded-xl bg-white/10 font-semibold text-white shadow-card backdrop-blur hover:bg-white/20"
                       >
                         Copy Password
                       </button>
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-brand-100/80">WiFi not set up yet — ask your admin.</p>
+                  <p className="text-sm text-accent-soft/80">WiFi not set up yet — ask your admin.</p>
                 )}
               </div>
             </div>
@@ -175,30 +175,30 @@ export function WifiPage() {
               <button
                 type="button"
                 onClick={openEdit}
-                className="min-h-tap w-full rounded-2xl border border-neutral-200 bg-white font-display text-sm text-neutral-600 shadow-card hover:bg-neutral-50"
+                className="min-h-tap w-full rounded-xl border border-line bg-white font-semibold text-sm text-muted shadow-card hover:bg-cream"
               >
                 Edit WiFi details
               </button>
             )}
 
             {isAdmin && isEditing && (
-              <div className="space-y-3 rounded-2xl bg-white p-4 shadow-card-md">
+              <div className="space-y-3 rounded-xl bg-white p-4 shadow-card-md">
                 <div>
-                  <label className="text-xs text-neutral-500">WiFi name</label>
+                  <label className="text-xs text-muted">WiFi name</label>
                   <input
                     value={formValues.ssid}
                     onChange={(event) => setFormValues((v) => ({ ...v, ssid: event.target.value }))}
                     disabled={saving}
-                    className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm focus:border-brand-600 focus:outline-none disabled:opacity-60"
+                    className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-neutral-500">Password</label>
+                  <label className="text-xs text-muted">Password</label>
                   <input
                     value={formValues.password}
                     onChange={(event) => setFormValues((v) => ({ ...v, password: event.target.value }))}
                     disabled={saving}
-                    className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm focus:border-brand-600 focus:outline-none disabled:opacity-60"
+                    className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
                   />
                 </div>
 
@@ -207,7 +207,7 @@ export function WifiPage() {
                     type="button"
                     onClick={closeEdit}
                     disabled={saving}
-                    className="min-h-tap flex-1 rounded-2xl border border-neutral-200 font-display text-sm text-neutral-600 disabled:opacity-50"
+                    className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -215,7 +215,7 @@ export function WifiPage() {
                     type="button"
                     onClick={handleSave}
                     disabled={saving}
-                    className="min-h-tap flex-1 rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+                    className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
                   >
                     {saving ? 'Saving…' : 'Save'}
                   </button>

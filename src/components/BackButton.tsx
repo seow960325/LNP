@@ -21,7 +21,7 @@ export function BackButton({ fallback = '/' }: { fallback?: string }) {
       type="button"
       onClick={handleBack}
       aria-label="Back"
-      className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-neutral-500 hover:text-neutral-700"
+      className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted hover:bg-accent-soft/60 hover:text-ink"
     >
       <ChevronLeft className="h-6 w-6" aria-hidden="true" />
     </button>

@@ -27,6 +27,9 @@ import { PayrollPage } from './pages/PayrollPage'
 import { OpeningBalancePage } from './pages/OpeningBalancePage'
 import { PackagesPage } from './pages/PackagesPage'
 import { StudentsPage } from './pages/StudentsPage'
+import { InvoicesPage } from './pages/InvoicesPage'
+import { NewInvoicePage } from './pages/NewInvoicePage'
+import { InvoiceDetailPage } from './pages/InvoiceDetailPage'
 import { HomePage } from './pages/HomePage'
 
 // Gate: a user whose password was admin-reset is locked out of every route
@@ -56,9 +59,9 @@ export function App() {
         duration={3000}
         toastOptions={{
           classNames: {
-            toast: 'rounded-2xl shadow-card-lg border border-neutral-200 font-sans',
-            title: 'font-display text-sm',
-            description: 'text-neutral-600',
+            toast: 'rounded-xl shadow-card-lg border border-line font-sans',
+            title: 'font-semibold text-sm',
+            description: 'text-muted',
           },
         }}
       />
@@ -97,6 +100,10 @@ export function App() {
             {/* Profile — any authenticated active user, edits own row only */}
             <Route path="/profile" element={<ProfilePage />} />
 
+            {/* Directory group — redirects to its default tab. The tabbed pages
+                themselves keep their own routes/guards below. */}
+            <Route path="/directory" element={<Navigate to="/staff" replace />} />
+
             {/* Staff Directory — any authenticated active user, all roles, read-only */}
             <Route path="/staff" element={<StaffDirectoryPage />} />
 
@@ -116,8 +123,13 @@ export function App() {
               <Route path="/requests/admin" element={<RequestsAdminPage />} />
               <Route path="/payroll" element={<PayrollPage />} />
               <Route path="/payroll/opening" element={<OpeningBalancePage />} />
+              {/* Billing group — redirects to its default tab (admin-gated like its children) */}
+              <Route path="/billing" element={<Navigate to="/invoices" replace />} />
               <Route path="/packages" element={<PackagesPage />} />
               <Route path="/students" element={<StudentsPage />} />
+              <Route path="/invoices" element={<InvoicesPage />} />
+              <Route path="/invoices/new" element={<NewInvoicePage />} />
+              <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             </Route>
 
             {/* Parent — Phase 2 stub */}

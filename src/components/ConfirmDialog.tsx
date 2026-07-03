@@ -44,7 +44,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
       onClick={() => !loading && onCancel()}
     >
       <div
@@ -55,12 +55,12 @@ export function ConfirmDialog({
         aria-describedby="confirm-dialog-message"
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-6 shadow-card-lg outline-none animate-fade-in"
+        className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-card-lg outline-none animate-fade-in"
       >
-        <h2 id="confirm-dialog-title" className="font-display text-lg text-neutral-800">
+        <h2 id="confirm-dialog-title" className="font-semibold text-lg text-ink">
           {title}
         </h2>
-        <p id="confirm-dialog-message" className="text-sm text-neutral-600">
+        <p id="confirm-dialog-message" className="text-sm text-muted">
           {message}
         </p>
         <div className="flex gap-2 pt-1">
@@ -68,7 +68,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="min-h-tap flex-1 rounded-2xl border border-neutral-200 font-display text-sm text-neutral-600 disabled:opacity-50"
+            className="min-h-tap flex-1 rounded-xl border border-line bg-white font-semibold text-sm text-muted hover:bg-cream hover:text-ink disabled:opacity-50"
           >
             Cancel
           </button>
@@ -76,7 +76,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="min-h-tap flex-1 rounded-2xl bg-coral-600 font-display text-sm text-white shadow-card hover:bg-coral-700 disabled:opacity-60"
+            className="min-h-tap flex-1 rounded-xl bg-danger font-semibold text-sm text-white shadow-card hover:bg-danger/90 disabled:opacity-60"
           >
             {loading ? 'Deleting…' : confirmLabel}
           </button>

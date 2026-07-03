@@ -78,17 +78,17 @@ export function AttendanceClockPanel() {
       {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
 
       {loadState === 'ready' && (
-        <div className="space-y-4 rounded-3xl bg-white p-8 text-center shadow-card">
-          <p className="font-display text-lg text-neutral-800">{formatDate(toKLDateISO(new Date()))}</p>
+        <div className="space-y-4 rounded-xl bg-white p-8 text-center shadow-card">
+          <p className="font-semibold text-lg text-ink">{formatDate(toKLDateISO(new Date()))}</p>
 
           {!row && (
             <div className="space-y-4">
-              <p className="text-sm text-neutral-500">You haven't clocked in yet.</p>
+              <p className="text-sm text-muted">You haven't clocked in yet.</p>
               <button
                 type="button"
                 onClick={handleClockIn}
                 disabled={submitting}
-                className="w-full min-h-tap-lg rounded-2xl bg-brand-600 font-display text-lg text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+                className="w-full min-h-tap-lg rounded-xl bg-accent font-semibold text-lg text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
               >
                 {submitting ? 'Clocking in…' : 'Clock In'}
               </button>
@@ -97,12 +97,12 @@ export function AttendanceClockPanel() {
 
           {row && row.clock_in && !row.clock_out && (
             <div className="space-y-4">
-              <p className="text-sm text-neutral-600">Clocked in at {formatTimeKL(row.clock_in)}</p>
+              <p className="text-sm text-muted">Clocked in at {formatTimeKL(row.clock_in)}</p>
               <button
                 type="button"
                 onClick={handleClockOut}
                 disabled={submitting}
-                className="w-full min-h-tap-lg rounded-2xl bg-brand-600 font-display text-lg text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+                className="w-full min-h-tap-lg rounded-xl bg-accent font-semibold text-lg text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
               >
                 {submitting ? 'Clocking out…' : 'Clock Out'}
               </button>
@@ -111,9 +111,9 @@ export function AttendanceClockPanel() {
 
           {row && row.clock_in && row.clock_out && (
             <div className="space-y-1">
-              <p className="text-sm text-neutral-600">Clocked in at {formatTimeKL(row.clock_in)}</p>
-              <p className="text-sm text-neutral-600">Clocked out at {formatTimeKL(row.clock_out)}</p>
-              <p className="pt-2 font-display text-sage-600">Done for today</p>
+              <p className="text-sm text-muted">Clocked in at {formatTimeKL(row.clock_in)}</p>
+              <p className="text-sm text-muted">Clocked out at {formatTimeKL(row.clock_out)}</p>
+              <p className="pt-2 font-semibold text-success">Done for today</p>
             </div>
           )}
         </div>
@@ -148,21 +148,21 @@ export function AttendancePage() {
   const tabs = isAdmin ? [...EMPLOYEE_TABS, ...ADMIN_TABS] : EMPLOYEE_TABS
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Attendance</h1>
+          <h1 className="font-bold text-2xl text-ink">Attendance</h1>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-1.5 shadow-card">
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-1.5 shadow-card">
           {tabs.map(({ key, label }) => (
             <button
               key={key}
               type="button"
               onClick={() => setTab(key)}
-              className={`min-h-tap rounded-xl font-display text-sm transition-colors ${
-                tab === key ? 'bg-brand-600 text-white shadow-card' : 'text-neutral-600 hover:bg-neutral-50'
+              className={`min-h-tap rounded-lg font-semibold text-sm transition-colors ${
+                tab === key ? 'bg-accent-soft text-accent-hover shadow-card' : 'text-muted hover:bg-cream'
               }`}
             >
               {label}

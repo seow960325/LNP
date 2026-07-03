@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
+import { TabNav, directoryTabs } from '../components/TabNav'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
   fetchStudents,
@@ -35,6 +36,7 @@ export function StudentsPage() {
   const [formPackageId, setFormPackageId] = useState('')
   const [formEnrolledAt, setFormEnrolledAt] = useState('')
   const [formDob, setFormDob] = useState('')
+  const [formAddress, setFormAddress] = useState('')
   const [formNotes, setFormNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -87,6 +89,7 @@ export function StudentsPage() {
         package_id: formPackageId || undefined,
         enrolled_at: formEnrolledAt || undefined,
         dob: formDob || undefined,
+        address: formAddress.trim() || undefined,
         notes: formNotes.trim() || undefined,
       }
 
@@ -114,6 +117,7 @@ export function StudentsPage() {
         setFormPackageId('')
         setFormEnrolledAt('')
         setFormDob('')
+        setFormAddress('')
         setFormNotes('')
       }
 
@@ -132,6 +136,7 @@ export function StudentsPage() {
     setFormPackageId(student.package_id || '')
     setFormEnrolledAt(student.enrolled_at || '')
     setFormDob(student.dob || '')
+    setFormAddress(student.address || '')
     setFormNotes(student.notes || '')
     setShowForm(true)
   }
@@ -144,6 +149,7 @@ export function StudentsPage() {
     setFormPackageId('')
     setFormEnrolledAt('')
     setFormDob('')
+    setFormAddress('')
     setFormNotes('')
     setEditingId(null)
     setShowForm(false)
@@ -194,12 +200,14 @@ export function StudentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Students</h1>
+          <h1 className="font-bold text-2xl text-ink">Students</h1>
         </div>
+
+        <TabNav tabs={directoryTabs(isAdmin)} />
 
         {isAdmin && (
           <button
@@ -211,20 +219,20 @@ export function StudentsPage() {
                 setShowForm(true)
               }
             }}
-            className="min-h-tap w-full rounded-2xl border border-brand-200 bg-white font-display text-sm text-brand-700 shadow-card hover:bg-brand-50"
+            className="min-h-tap w-full rounded-xl border border-accent/30 bg-white font-semibold text-sm text-accent-hover shadow-card hover:bg-accent-soft"
           >
             {showForm ? 'Cancel' : '+ Add student'}
           </button>
         )}
 
         {showForm && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-3xl bg-white p-4 shadow-card">
-            <p className="font-display text-sm text-neutral-700">
+          <form onSubmit={handleSubmit} className="space-y-3 rounded-xl bg-white p-5 shadow-card">
+            <p className="font-semibold text-sm text-ink">
               {editingId ? 'Edit student' : 'Add new student'}
             </p>
 
             <div>
-              <label className="text-xs text-neutral-500">Student name *</label>
+              <label className="text-xs text-muted">Student name *</label>
               <input
                 type="text"
                 value={formName}
@@ -232,53 +240,53 @@ export function StudentsPage() {
                 disabled={submitting}
                 required
                 placeholder="e.g. Tan Chi Ming"
-                className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm placeholder:text-neutral-400 disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="text-xs text-neutral-500">Parent/Guardian name</label>
+              <label className="text-xs text-muted">Parent/Guardian name</label>
               <input
                 type="text"
                 value={formParentName}
                 onChange={(e) => setFormParentName(e.target.value)}
                 disabled={submitting}
                 placeholder="e.g. Tan Kok Keong"
-                className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm placeholder:text-neutral-400 disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="text-xs text-neutral-500">Parent phone</label>
+              <label className="text-xs text-muted">Parent phone</label>
               <input
                 type="tel"
                 value={formParentPhone}
                 onChange={(e) => setFormParentPhone(e.target.value)}
                 disabled={submitting}
                 placeholder="e.g. 012-3456789"
-                className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm placeholder:text-neutral-400 disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="text-xs text-neutral-500">Parent email</label>
+              <label className="text-xs text-muted">Parent email</label>
               <input
                 type="email"
                 value={formParentEmail}
                 onChange={(e) => setFormParentEmail(e.target.value)}
                 disabled={submitting}
                 placeholder="e.g. siti@example.com"
-                className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm placeholder:text-neutral-400 disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="text-xs text-neutral-500">Fee package</label>
+              <label className="text-xs text-muted">Fee package</label>
               <select
                 value={formPackageId}
                 onChange={(e) => setFormPackageId(e.target.value)}
                 disabled={submitting}
-                className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
               >
                 <option value="">Select a package</option>
                 {packages.map((pkg) => (
@@ -290,35 +298,46 @@ export function StudentsPage() {
             </div>
 
             <div>
-              <label className="text-xs text-neutral-500">Enrollment date</label>
+              <label className="text-xs text-muted">Enrollment date</label>
               <input
                 type="date"
                 value={formEnrolledAt}
                 onChange={(e) => setFormEnrolledAt(e.target.value)}
                 disabled={submitting}
-                className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="text-xs text-neutral-500">Date of birth</label>
+              <label className="text-xs text-muted">Date of birth</label>
               <input
                 type="date"
                 value={formDob}
                 onChange={(e) => setFormDob(e.target.value)}
                 disabled={submitting}
-                className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="text-xs text-neutral-500">Notes</label>
+              <label className="text-xs text-muted">Address</label>
+              <textarea
+                value={formAddress}
+                onChange={(e) => setFormAddress(e.target.value)}
+                disabled={submitting}
+                placeholder="Street address, unit, city, postal code"
+                className="mt-1 min-h-16 w-full rounded-xl border border-line px-3 py-2 text-sm placeholder:text-muted/70 disabled:opacity-60"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted">Notes</label>
               <textarea
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
                 disabled={submitting}
                 placeholder="e.g. Dietary restrictions, allergies, etc."
-                className="mt-1 min-h-20 w-full rounded-2xl border border-neutral-200 px-3 py-2 text-sm placeholder:text-neutral-400 disabled:opacity-60"
+                className="mt-1 min-h-20 w-full rounded-xl border border-line px-3 py-2 text-sm placeholder:text-muted/70 disabled:opacity-60"
               />
             </div>
 
@@ -326,7 +345,7 @@ export function StudentsPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="min-h-tap flex-1 rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+                className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
               >
                 {editingId ? 'Update' : 'Add'}
               </button>
@@ -335,7 +354,7 @@ export function StudentsPage() {
                   type="button"
                   onClick={cancelEdit}
                   disabled={submitting}
-                  className="min-h-tap flex-1 rounded-2xl border border-neutral-200 font-display text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
+                  className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -354,26 +373,26 @@ export function StudentsPage() {
         {loadState === 'ready' && students.length > 0 && (
           <ul className="space-y-3">
             {students.map((student) => (
-              <li key={student.id} className="rounded-3xl bg-white p-4 shadow-card">
+              <li key={student.id} className="rounded-xl bg-white p-5 shadow-card">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-display font-bold text-neutral-800">{student.name}</h3>
+                      <h3 className="font-bold text-ink">{student.name}</h3>
                       {student.parent_name && (
-                        <p className="text-sm text-neutral-600">Guardian: {student.parent_name}</p>
+                        <p className="text-sm text-muted">Guardian: {student.parent_name}</p>
                       )}
                       {student.parent_phone && (
-                        <p className="text-xs text-neutral-500">Phone: {student.parent_phone}</p>
+                        <p className="text-xs text-muted">Phone: {student.parent_phone}</p>
                       )}
                       {student.dob && (
-                        <p className="text-xs text-neutral-500">DOB: {new Date(student.dob).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                        <p className="text-xs text-muted">DOB: {new Date(student.dob).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
                       )}
-                      <p className="text-xs text-neutral-500">Package: {getPackageName(student.package_id)}</p>
+                      <p className="text-xs text-muted">Package: {getPackageName(student.package_id)}</p>
                     </div>
                     <div className="flex flex-col gap-2">
                       <span
-                        className={`whitespace-nowrap rounded-full px-2 py-1 text-2xs font-medium ${
-                          student.active ? 'bg-sage-100 text-sage-700' : 'bg-neutral-100 text-neutral-600'
+                        className={`whitespace-nowrap rounded-full px-2 py-1 text-2xs font-semibold ${
+                          student.active ? 'bg-success-soft text-success' : 'bg-line/60 text-muted'
                         }`}
                       >
                         {student.active ? 'Active' : 'Inactive'}
@@ -387,7 +406,7 @@ export function StudentsPage() {
                         type="button"
                         onClick={() => startEdit(student)}
                         disabled={submitting || deleting}
-                        className="min-h-tap flex-1 rounded-2xl border border-neutral-200 text-2xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
+                        className="min-h-tap flex-1 rounded-xl border border-line text-2xs text-muted hover:bg-cream disabled:opacity-60"
                       >
                         Edit
                       </button>
@@ -395,7 +414,7 @@ export function StudentsPage() {
                         type="button"
                         onClick={() => handleToggleActive(student.id, student.active)}
                         disabled={submitting || deleting}
-                        className="min-h-tap flex-1 rounded-2xl border border-neutral-200 text-2xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
+                        className="min-h-tap flex-1 rounded-xl border border-line text-2xs text-muted hover:bg-cream disabled:opacity-60"
                       >
                         {student.active ? 'Deactivate' : 'Activate'}
                       </button>
@@ -403,7 +422,7 @@ export function StudentsPage() {
                         type="button"
                         onClick={() => setDeleteTarget(student)}
                         disabled={submitting || deleting}
-                        className="min-h-tap flex-1 rounded-2xl border border-coral-200 text-2xs text-coral-600 hover:bg-coral-50 disabled:opacity-60"
+                        className="min-h-tap flex-1 rounded-xl border border-danger/20 text-2xs text-danger hover:bg-danger/10 disabled:opacity-60"
                       >
                         Delete
                       </button>

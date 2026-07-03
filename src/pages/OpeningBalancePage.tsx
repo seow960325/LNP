@@ -53,7 +53,7 @@ function NumberCell({
       value={value}
       onChange={(event) => onChange(parseFloat(event.target.value) || 0)}
       disabled={disabled}
-      className="w-24 rounded-xl border border-neutral-200 px-2 py-1 text-right text-sm disabled:opacity-60"
+      className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm disabled:opacity-60"
     />
   )
 }
@@ -141,27 +141,27 @@ export function OpeningBalancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/payroll" />
-          <h1 className="font-display text-2xl text-neutral-800">Opening Balances</h1>
+          <h1 className="font-bold text-2xl text-ink">Opening Balances</h1>
         </div>
 
-        <p className="rounded-2xl bg-neutral-50 px-4 py-3 text-xs text-neutral-500">
+        <p className="rounded-xl bg-accent-soft/60 px-4 py-3 text-xs text-ink/80">
           Enter accumulated Jan–[month before go-live] totals per employee. Used only for
           cumulative PCB calculation. Resets each year.
         </p>
 
-        <div className="flex items-center justify-between rounded-2xl bg-white p-3 shadow-card">
-          <label className="flex items-center gap-2 text-xs text-neutral-500">
+        <div className="flex items-center justify-between rounded-xl bg-white p-3 shadow-card">
+          <label className="flex items-center gap-2 text-xs text-muted">
             Year
             <input
               type="number"
               step="1"
               value={year}
               onChange={(event) => setYear(Number(event.target.value) || year)}
-              className="min-h-tap w-24 rounded-2xl border border-neutral-200 px-3 text-sm text-neutral-800"
+              className="min-h-tap w-24 rounded-xl border border-line px-3 text-sm text-ink"
             />
           </label>
         </div>
@@ -175,24 +175,24 @@ export function OpeningBalancePage() {
       </div>
 
       {loadState === 'ready' && rows.length > 0 && (
-        <div className="mx-auto mt-4 max-w-[calc(100vw-3rem)] overflow-x-auto rounded-2xl bg-white shadow-card">
+        <div className="mx-auto mt-4 max-w-[calc(100vw-3rem)] overflow-x-auto rounded-xl bg-white shadow-card">
           <table className="w-full min-w-[820px] border-collapse text-sm">
             <thead>
               <tr>
-                <th className="sticky left-0 z-10 min-w-[140px] bg-white px-3 py-2 text-left font-display text-xs text-neutral-500">Staff Name</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">Opening Gross</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">Opening PCB</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">Opening EPF (Emp)</th>
-                <th className="px-2 py-2 text-right font-display text-xs text-neutral-500">Opening SOCSO (Emp)</th>
-                <th className="px-2 py-2 text-left font-display text-xs text-neutral-500">Save</th>
+                <th className="sticky left-0 z-10 min-w-[140px] bg-white px-3 py-2 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Staff Name</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">Opening Gross</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">Opening PCB</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">Opening EPF (Emp)</th>
+                <th className="px-2 py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">Opening SOCSO (Emp)</th>
+                <th className="px-2 py-2 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Save</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.employeeId} className="border-t border-neutral-100">
-                  <td className="sticky left-0 z-10 min-w-[140px] bg-white px-3 py-2">
-                    <p className="font-display text-sm text-neutral-800">{row.fullName}</p>
-                    {row.title && <p className="text-2xs text-neutral-400">{row.title}</p>}
+                <tr key={row.employeeId} className="group border-t border-line transition-colors hover:bg-cream/70">
+                  <td className="sticky left-0 z-10 min-w-[140px] bg-white px-3 py-2 transition-colors group-hover:bg-cream">
+                    <p className="font-semibold text-sm text-ink">{row.fullName}</p>
+                    {row.title && <p className="text-2xs text-muted/70">{row.title}</p>}
                   </td>
                   <td className="px-2 py-2 text-right">
                     <NumberCell
@@ -227,7 +227,7 @@ export function OpeningBalancePage() {
                       type="button"
                       onClick={() => handleSave(row)}
                       disabled={row.saving}
-                      className="min-h-tap rounded-xl bg-brand-600 px-3 text-xs text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+                      className="min-h-tap rounded-xl bg-accent px-3 text-xs text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
                     >
                       {row.saving ? 'Saving…' : 'Save'}
                     </button>

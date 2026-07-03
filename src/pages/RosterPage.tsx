@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
@@ -158,31 +159,31 @@ export function RosterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Duty Roster</h1>
+          <h1 className="font-bold text-2xl text-ink">Duty Roster</h1>
         </div>
 
-        <div className="flex items-center justify-between rounded-2xl bg-white p-3 shadow-card">
+        <div className="flex items-center justify-between rounded-xl bg-white p-3 shadow-card">
           <button
             type="button"
             onClick={() => setWeekStart((w) => shiftDateISO(w, -7))}
             aria-label="Previous week"
-            className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-neutral-500 hover:text-neutral-700"
+            className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted hover:bg-accent-soft/60 hover:text-ink"
           >
-            ←
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
           <div className="text-center">
-            <p className="font-display text-neutral-800">
+            <p className="font-semibold text-ink">
               {formatDateShort(weekStart)} - {formatDateShort(shiftDateISO(weekStart, 5))}
             </p>
             {!isCurrentWeek && (
               <button
                 type="button"
                 onClick={() => setWeekStart(currentWeekStart)}
-                className="text-xs text-brand-600 hover:underline"
+                className="text-xs text-accent hover:underline"
               >
                 Back to this week
               </button>
@@ -192,9 +193,9 @@ export function RosterPage() {
             type="button"
             onClick={() => setWeekStart((w) => shiftDateISO(w, 7))}
             aria-label="Next week"
-            className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-neutral-500 hover:text-neutral-700"
+            className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted hover:bg-accent-soft/60 hover:text-ink"
           >
-            →
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -211,22 +212,22 @@ export function RosterPage() {
         )}
 
         {membersState === 'ready' && shiftsState === 'ready' && members.length > 0 && (
-          <div className="rounded-2xl bg-white shadow-card">
+          <div className="rounded-xl bg-white shadow-card">
             <table className="w-full table-fixed border-collapse text-sm">
               <thead>
                 <tr>
-                  <th className="w-16 px-1 py-2 text-left font-display text-2xs text-neutral-500">Member</th>
+                  <th className="w-16 px-1 py-2 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Member</th>
                   {days.map((day, i) => {
                     const isToday = isCurrentWeek && day === today
                     return (
                       <th
                         key={day}
-                        className={`px-0.5 py-2 text-center font-display text-2xs text-neutral-500 ${
-                          isToday ? 'bg-brand-50' : ''
+                        className={`px-0.5 py-2 text-center font-semibold text-2xs text-muted ${
+                          isToday ? 'bg-accent-soft' : ''
                         }`}
                       >
-                        <div className={isToday ? 'font-bold text-brand-700' : ''}>{WEEKDAY_LABELS[i]}</div>
-                        <div className="text-2xs font-normal text-neutral-400">{formatDateShort(day)}</div>
+                        <div className={isToday ? 'font-bold text-accent-hover' : ''}>{WEEKDAY_LABELS[i]}</div>
+                        <div className="text-2xs font-normal text-muted/70">{formatDateShort(day)}</div>
                       </th>
                     )
                   })}
@@ -234,9 +235,9 @@ export function RosterPage() {
               </thead>
               <tbody>
                 {members.map((member) => (
-                  <tr key={member.id} className="border-t border-neutral-100">
+                  <tr key={member.id} className="border-t border-line transition-colors hover:bg-cream/70">
                     <td
-                      className="w-16 truncate px-1 py-2 font-display text-2xs text-neutral-800"
+                      className="w-16 truncate px-1 py-2 font-semibold text-2xs text-ink"
                       title={member.full_name}
                     >
                       {member.full_name}
@@ -247,13 +248,13 @@ export function RosterPage() {
                       const label = `${member.full_name}, ${formatDateShort(day)}`
                       const isToday = isCurrentWeek && day === today
                       const leaveRow = leaveOnDay(member.id, day)
-                      const cellTint = isToday ? 'bg-brand-50' : ''
+                      const cellTint = isToday ? 'bg-accent-soft' : ''
 
                       if (leaveRow) {
                         return (
                           <td key={day} className={`px-0.5 py-2 text-center ${cellTint}`}>
                             <span
-                              className="mx-auto inline-block rounded-full bg-neutral-100 px-1 py-0.5 text-2xs font-medium text-neutral-500"
+                              className="mx-auto inline-block rounded-full bg-line/60 px-1 py-0.5 text-2xs font-semibold text-muted"
                               title={`${label}: ${LEAVE_TITLES[leaveRow.type]} (approved)`}
                             >
                               {LEAVE_LABELS[leaveRow.type]}
@@ -269,7 +270,7 @@ export function RosterPage() {
                               role="img"
                               aria-label={isOn ? `${label}: on duty` : `${label}: off`}
                               className={`mx-auto h-2.5 w-2.5 rounded-full ${
-                                isOn ? 'bg-brand-600' : 'border border-neutral-200'
+                                isOn ? 'bg-accent' : 'border border-line'
                               }`}
                             />
                           </td>
@@ -287,7 +288,7 @@ export function RosterPage() {
                             className="mx-auto flex min-h-tap min-w-tap items-center justify-center rounded-full disabled:opacity-50"
                           >
                             <span
-                              className={`h-2.5 w-2.5 rounded-full ${isOn ? 'bg-brand-600' : 'border border-neutral-200'}`}
+                              className={`h-2.5 w-2.5 rounded-full ${isOn ? 'bg-accent' : 'border border-line'}`}
                             />
                           </button>
                         </td>

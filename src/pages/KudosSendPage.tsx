@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,9 +21,10 @@ function BackButton({ onClick, disabled }: { onClick: () => void; disabled?: boo
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="text-sm text-neutral-500 hover:text-neutral-700 disabled:opacity-50"
+      className="inline-flex items-center gap-0.5 text-sm text-muted hover:text-ink disabled:opacity-50"
     >
-      ← Back
+      <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+      Back
     </button>
   )
 }
@@ -58,7 +60,7 @@ function WhoStep({
 
   return (
     <div className="space-y-3">
-      <h1 className="font-display text-xl text-neutral-800">Who do you want to praise?</h1>
+      <h1 className="font-semibold text-xl text-ink">Who do you want to praise?</h1>
       {error && <ErrorState message={error} />}
       {!error && members === null && <LoadingState label="Loading people…" />}
       {!error && members !== null && members.length === 0 && (
@@ -71,14 +73,14 @@ function WhoStep({
               <button
                 type="button"
                 onClick={() => onPick(member)}
-                className={`w-full min-h-tap-lg flex flex-col items-start justify-center rounded-2xl border px-4 py-2 text-left transition-colors ${
+                className={`w-full min-h-tap-lg flex flex-col items-start justify-center rounded-xl border px-4 py-2 text-left transition-colors ${
                   selected?.id === member.id
-                    ? 'border-brand-600 bg-cream-50'
-                    : 'border-neutral-200 bg-white shadow-card'
+                    ? 'border-accent bg-cream'
+                    : 'border-line bg-white shadow-card'
                 }`}
               >
-                <span className="font-display text-neutral-800">{member.full_name}</span>
-                {member.title && <span className="text-xs text-neutral-500">{member.title}</span>}
+                <span className="font-semibold text-ink">{member.full_name}</span>
+                {member.title && <span className="text-xs text-muted">{member.title}</span>}
               </button>
             </li>
           ))}
@@ -120,7 +122,7 @@ function WhatStep({
   return (
     <div className="space-y-3">
       <BackButton onClick={onBack} />
-      <h1 className="font-display text-xl text-neutral-800">What are you recognizing?</h1>
+      <h1 className="font-semibold text-xl text-ink">What are you recognizing?</h1>
       {error && <ErrorState message={error} />}
       {!error && values === null && <LoadingState label="Loading kudos values…" />}
       {!error && values !== null && values.length === 0 && (
@@ -168,13 +170,13 @@ function MessageStep({
   return (
     <div className="space-y-3">
       <BackButton onClick={onBack} disabled={sending} />
-      <h1 className="font-display text-xl text-neutral-800">Add a message</h1>
+      <h1 className="font-semibold text-xl text-ink">Add a message</h1>
 
-      <div className="flex flex-col items-center gap-3 rounded-3xl bg-white p-6 text-center shadow-card">
+      <div className="flex flex-col items-center gap-3 rounded-xl bg-white p-6 text-center shadow-card">
         <KudosValueBadge iconKey={value.icon_key} size="lg" />
-        <p className="text-sm text-neutral-500">
-          <span className="font-display text-neutral-800">{value.name}</span> for{' '}
-          <span className="font-medium text-neutral-700">{recipient.full_name}</span>
+        <p className="text-sm text-muted">
+          <span className="font-semibold text-ink">{value.name}</span> for{' '}
+          <span className="font-semibold text-ink">{recipient.full_name}</span>
         </p>
       </div>
 
@@ -185,16 +187,16 @@ function MessageStep({
         rows={4}
         placeholder="Say something nice (optional)…"
         disabled={sending}
-        className="w-full rounded-2xl border border-neutral-200 bg-white p-4 text-sm shadow-card focus:border-brand-600 focus:outline-none disabled:opacity-60"
+        className="w-full rounded-xl border border-line bg-white p-4 text-sm shadow-card focus:border-accent focus:outline-none disabled:opacity-60"
       />
-      <p className="text-right text-xs text-neutral-400">
+      <p className="text-right text-xs text-muted/70">
         {message.length}/{MAX_MESSAGE_LENGTH}
       </p>
       <button
         type="button"
         onClick={onSend}
         disabled={sending}
-        className="w-full min-h-tap-lg rounded-2xl bg-brand-600 font-display text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+        className="w-full min-h-tap-lg rounded-xl bg-accent font-semibold text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
       >
         {sending ? 'Sending…' : 'Send kudos'}
       </button>
@@ -220,15 +222,15 @@ function SentConfirmation({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex flex-col items-center gap-3 rounded-3xl bg-gradient-to-br from-brand-50 via-cream-100 to-sky-50 p-8 text-center shadow-card-lg">
+      <div className="flex flex-col items-center gap-3 rounded-2xl bg-gradient-to-br from-accent-soft/60 via-cream to-cream p-8 text-center shadow-card-lg">
         <KudosValueBadge iconKey={summary.iconKey} size="lg" />
-        <p className="font-handwriting text-4xl text-brand-700">Kudos sent!</p>
-        <p className="text-sm text-neutral-600">
-          <span className="font-display text-neutral-800">{summary.valueName}</span> for{' '}
-          <span className="font-medium text-neutral-700">{summary.recipientName}</span>
+        <p className="text-3xl font-bold text-accent-hover">Kudos sent!</p>
+        <p className="text-sm text-muted">
+          <span className="font-semibold text-ink">{summary.valueName}</span> for{' '}
+          <span className="font-semibold text-ink">{summary.recipientName}</span>
         </p>
         {summary.message && (
-          <p className="rounded-2xl bg-white/70 px-4 py-3 text-sm italic text-neutral-600">
+          <p className="rounded-xl bg-white/70 px-4 py-3 text-sm italic text-muted">
             &ldquo;{summary.message}&rdquo;
           </p>
         )}
@@ -238,14 +240,14 @@ function SentConfirmation({
         <button
           type="button"
           onClick={onSendAnother}
-          className="min-h-tap flex-1 rounded-2xl border border-neutral-200 bg-white font-display text-sm text-neutral-600 shadow-card hover:bg-neutral-50"
+          className="min-h-tap flex-1 rounded-xl border border-line bg-white font-semibold text-sm text-muted shadow-card hover:bg-cream"
         >
           Send another
         </button>
         <button
           type="button"
           onClick={onViewWall}
-          className="min-h-tap flex-1 rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700"
+          className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover"
         >
           View kudos wall
         </button>
@@ -310,7 +312,7 @@ export function KudosSendPanel({ onViewWall }: { onViewWall: () => void }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Step {step} of 3</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted/70">Step {step} of 3</p>
 
       {step === 1 && (
         <WhoStep
@@ -358,7 +360,7 @@ export function KudosSendPage() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="max-w-lg mx-auto space-y-4">
         <NavBackButton fallback="/kudos" />
         <KudosSendPanel onViewWall={() => navigate('/kudos')} />

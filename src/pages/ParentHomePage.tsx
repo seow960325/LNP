@@ -4,15 +4,15 @@ export function ParentHomePage() {
   const { signOut } = useAuth()
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
-      <div className="max-w-lg mx-auto bg-white rounded-3xl shadow-card p-8 space-y-4">
-        <h1 className="font-display text-2xl text-neutral-800">Parent View</h1>
-        <p className="text-xs text-neutral-400 bg-neutral-50 rounded-xl px-4 py-3">
+    <div className="min-h-screen bg-cream p-6">
+      <div className="max-w-lg mx-auto bg-white rounded-xl shadow-card p-8 space-y-4">
+        <h1 className="font-bold text-2xl text-ink">Parent View</h1>
+        <p className="text-xs text-muted/70 bg-cream rounded-xl px-4 py-3">
           Phase 2 stub — coming soon.
         </p>
         <button
           onClick={signOut}
-          className="text-sm text-neutral-500 hover:text-neutral-700 underline"
+          className="text-sm text-muted hover:text-ink underline"
         >
           Sign out
         </button>

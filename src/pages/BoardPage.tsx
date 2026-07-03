@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
@@ -25,9 +26,9 @@ const PRIORITY_LABELS: Record<BoardPriority, string> = {
 }
 
 const PRIORITY_STYLES: Record<BoardPriority, string> = {
-  high: 'bg-coral-100 text-coral-700',
-  normal: 'bg-neutral-100 text-neutral-700',
-  low: 'bg-neutral-50 text-neutral-400',
+  high: 'bg-danger/10 text-danger',
+  normal: 'bg-cream text-ink',
+  low: 'bg-line/60 text-muted',
 }
 
 interface BoardItemFormValues {
@@ -57,25 +58,25 @@ function BoardItemForm({
   const [values, setValues] = useState(initial)
 
   return (
-    <div className="space-y-3 rounded-2xl bg-white p-4 shadow-card-md">
+    <div className="space-y-3 rounded-xl bg-white p-4 shadow-card-md">
       <div>
-        <label className="text-xs text-neutral-500">Title</label>
+        <label className="text-xs text-muted">Title</label>
         <input
           value={values.title}
           onChange={(event) => setValues((v) => ({ ...v, title: event.target.value }))}
           disabled={submitting}
-          className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm focus:border-brand-600 focus:outline-none disabled:opacity-60"
+          className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-neutral-500">Type</label>
+          <label className="text-xs text-muted">Type</label>
           <select
             value={values.type}
             onChange={(event) => setValues((v) => ({ ...v, type: event.target.value as BoardItemType }))}
             disabled={submitting}
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           >
             <option value="task">Task</option>
             <option value="heads_up">Heads Up</option>
@@ -83,12 +84,12 @@ function BoardItemForm({
           </select>
         </div>
         <div>
-          <label className="text-xs text-neutral-500">Priority</label>
+          <label className="text-xs text-muted">Priority</label>
           <select
             value={values.priority}
             onChange={(event) => setValues((v) => ({ ...v, priority: event.target.value as BoardPriority }))}
             disabled={submitting}
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           >
             <option value="low">Low</option>
             <option value="normal">Normal</option>
@@ -98,18 +99,18 @@ function BoardItemForm({
       </div>
 
       <div>
-        <label className="text-xs text-neutral-500">Details (optional)</label>
+        <label className="text-xs text-muted">Details (optional)</label>
         <textarea
           value={values.body}
           onChange={(event) => setValues((v) => ({ ...v, body: event.target.value }))}
           rows={3}
           disabled={submitting}
-          className="mt-1 w-full rounded-2xl border border-neutral-200 p-3 text-sm focus:border-brand-600 focus:outline-none disabled:opacity-60"
+          className="mt-1 w-full rounded-xl border border-line p-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
         />
       </div>
 
       <div>
-        <label className="text-xs text-neutral-500">Assign to (optional)</label>
+        <label className="text-xs text-muted">Assign to (optional)</label>
         {membersError ? (
           <ErrorState message={membersError} />
         ) : (
@@ -117,7 +118,7 @@ function BoardItemForm({
             value={values.assignedTo}
             onChange={(event) => setValues((v) => ({ ...v, assignedTo: event.target.value }))}
             disabled={submitting || members === null}
-            className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
           >
             <option value="">Unassigned</option>
             {(members ?? []).map((member) => (
@@ -134,7 +135,7 @@ function BoardItemForm({
           type="button"
           onClick={onCancel}
           disabled={submitting}
-          className="min-h-tap flex-1 rounded-2xl border border-neutral-200 font-display text-sm text-neutral-600 disabled:opacity-50"
+          className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-50"
         >
           Cancel
         </button>
@@ -142,7 +143,7 @@ function BoardItemForm({
           type="button"
           onClick={() => onSubmit(values)}
           disabled={submitting || values.title.trim().length === 0}
-          className="min-h-tap flex-1 rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+          className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
         >
           {submitting ? 'Saving…' : 'Save'}
         </button>
@@ -175,22 +176,22 @@ function BoardItemCard({
   const isDone = item.status === 'done'
 
   return (
-    <li className={`space-y-2 rounded-2xl bg-white p-4 shadow-card ${isDone ? 'opacity-60' : ''}`}>
+    <li className={`space-y-2 rounded-xl bg-white p-4 shadow-card ${isDone ? 'opacity-60' : ''}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-2xs text-neutral-600">
+        <span className="rounded-full border border-line bg-cream px-2 py-0.5 text-2xs text-muted">
           {TYPE_LABELS[item.type]}
         </span>
         <span className={`rounded-full px-2 py-0.5 text-2xs ${PRIORITY_STYLES[item.priority]}`}>
           {PRIORITY_LABELS[item.priority]}
         </span>
-        {isDone && <span className="rounded-full bg-sage-100 px-2 py-0.5 text-2xs text-sage-700">Done</span>}
+        {isDone && <span className="rounded-full bg-success-soft px-2 py-0.5 text-2xs text-success">Done</span>}
       </div>
 
-      <h3 className={`font-display text-neutral-800 ${isDone ? 'line-through' : ''}`}>{item.title}</h3>
+      <h3 className={`font-semibold text-ink ${isDone ? 'line-through' : ''}`}>{item.title}</h3>
 
-      {item.body && <p className="text-sm text-neutral-600">{item.body}</p>}
+      {item.body && <p className="text-sm text-muted">{item.body}</p>}
 
-      <p className="text-xs text-neutral-400">
+      <p className="text-xs text-muted/70">
         Added by {authorName}
         {assignedName && <> · Assigned to {assignedName}</>}
       </p>
@@ -200,7 +201,7 @@ function BoardItemCard({
           <button
             type="button"
             onClick={onEdit}
-            className="min-h-tap rounded-2xl border border-neutral-200 px-3 text-sm text-neutral-600"
+            className="min-h-tap rounded-xl border border-line px-3 text-sm text-muted"
           >
             Edit
           </button>
@@ -210,7 +211,7 @@ function BoardItemCard({
             type="button"
             onClick={onMarkDone}
             disabled={marking}
-            className="min-h-tap rounded-2xl bg-brand-600 px-3 text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+            className="min-h-tap rounded-xl bg-accent px-3 text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
           >
             {marking ? 'Marking…' : 'Mark done'}
           </button>
@@ -219,7 +220,7 @@ function BoardItemCard({
           <button
             type="button"
             onClick={onDelete}
-            className="min-h-tap rounded-2xl border border-coral-200 px-3 text-sm text-coral-600 hover:bg-coral-50"
+            className="min-h-tap rounded-xl border border-danger/20 px-3 text-sm text-danger hover:bg-danger/10"
           >
             Delete
           </button>
@@ -398,29 +399,29 @@ export function BoardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Daily Ops Board</h1>
+          <h1 className="font-bold text-2xl text-ink">Daily Ops Board</h1>
         </div>
 
-        <div className="flex items-center justify-between rounded-2xl bg-white p-3 shadow-card">
+        <div className="flex items-center justify-between rounded-xl bg-white p-3 shadow-card">
           <button
             type="button"
             onClick={() => setSelectedDate((d) => shiftDateISO(d, -1))}
             aria-label="Previous day"
-            className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-neutral-500 hover:text-neutral-700"
+            className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted hover:bg-accent-soft/60 hover:text-ink"
           >
-            ←
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
           <div className="text-center">
-            <p className="font-display text-neutral-800">{formatDate(selectedDate)}</p>
+            <p className="font-semibold text-ink">{formatDate(selectedDate)}</p>
             {!isToday && (
               <button
                 type="button"
                 onClick={() => setSelectedDate(toKLDateISO(new Date()))}
-                className="text-xs text-brand-600 hover:underline"
+                className="text-xs text-accent hover:underline"
               >
                 Today
               </button>
@@ -430,9 +431,9 @@ export function BoardPage() {
             type="button"
             onClick={() => setSelectedDate((d) => shiftDateISO(d, 1))}
             aria-label="Next day"
-            className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-neutral-500 hover:text-neutral-700"
+            className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted hover:bg-accent-soft/60 hover:text-ink"
           >
-            →
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -440,7 +441,7 @@ export function BoardPage() {
           <button
             type="button"
             onClick={() => setFormMode({ kind: 'create' })}
-            className="w-full min-h-tap-lg rounded-2xl bg-brand-600 font-display text-white shadow-card hover:bg-brand-700"
+            className="w-full min-h-tap-lg rounded-xl bg-accent font-semibold text-white shadow-card hover:bg-accent-hover"
           >
             + Add item
           </button>

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
+import { TabNav, directoryTabs } from '../components/TabNav'
 import { RegisterStaffForm, TempPasswordModal } from '../components/RegisterStaffForm'
 import { fetchStaffDirectory } from '../lib/profileApi'
 import type { StaffDirectoryEntry } from '../lib/profileApi'
@@ -12,12 +13,12 @@ import type { UserRole } from '../types'
 type LoadState = 'loading' | 'ready' | 'error'
 
 const ROLE_STYLES: Record<UserRole, string> = {
-  super_admin: 'bg-brand-100 text-brand-700',
-  admin: 'bg-brand-50 text-brand-600',
-  teacher: 'bg-sage-100 text-sage-700',
-  staff: 'bg-sky-100 text-sky-700',
-  parent: 'bg-cream-200 text-neutral-700',
-  shareholder: 'bg-neutral-100 text-neutral-600',
+  super_admin: 'bg-accent-soft text-accent-hover',
+  admin: 'bg-accent-soft text-accent-hover',
+  teacher: 'bg-success-soft text-success',
+  staff: 'bg-line/60 text-muted',
+  parent: 'bg-line/60 text-muted',
+  shareholder: 'bg-line/60 text-muted',
 }
 
 export function StaffDirectoryPage() {
@@ -52,18 +53,20 @@ export function StaffDirectoryPage() {
   if (!profile) return null
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Staff Directory</h1>
+          <h1 className="font-bold text-2xl text-ink">Staff Directory</h1>
         </div>
+
+        <TabNav tabs={directoryTabs(isAdmin)} />
 
         {isAdmin && (
           <button
             type="button"
             onClick={() => setShowRegisterForm((open) => !open)}
-            className="min-h-tap w-full rounded-2xl border border-brand-200 bg-white font-display text-sm text-brand-700 shadow-card hover:bg-brand-50"
+            className="min-h-tap w-full rounded-xl border border-accent/30 bg-white font-semibold text-sm text-accent-hover shadow-card hover:bg-accent-soft"
           >
             {showRegisterForm ? 'Cancel' : '+ Add staff'}
           </button>
@@ -93,19 +96,19 @@ export function StaffDirectoryPage() {
               <li key={member.id}>
                 <Link
                   to={`/staff/${member.id}`}
-                  className="flex cursor-pointer items-center gap-4 rounded-3xl bg-white p-4 shadow-card transition-shadow hover:shadow-card-md"
+                  className="flex cursor-pointer items-center gap-4 rounded-xl bg-white p-4 shadow-card hover:shadow-card-md motion-safe:hover:-translate-y-0.5"
                 >
                   <Avatar fullName={member.full_name} avatarUrl={member.avatar_url} size="lg" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-base font-bold text-neutral-800">
+                    <p className="truncate text-base font-bold text-ink">
                       {member.full_name}
                     </p>
                     <span
-                      className={`mt-1 inline-block rounded-full px-2 py-0.5 text-2xs font-medium ${ROLE_STYLES[member.role]}`}
+                      className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-2xs font-semibold ${ROLE_STYLES[member.role]}`}
                     >
                       {member.title || 'Staff'}
                     </span>
-                    {member.phone && <p className="mt-1 text-xs text-neutral-500">{member.phone}</p>}
+                    {member.phone && <p className="mt-1 text-xs text-muted">{member.phone}</p>}
                   </div>
                 </Link>
               </li>

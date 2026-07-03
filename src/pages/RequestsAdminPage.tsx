@@ -24,9 +24,9 @@ const STATUS_LABELS: Record<RequestStatus, string> = {
 }
 
 const STATUS_COLOR: Record<RequestStatus, string> = {
-  pending: 'text-brand-600',
-  approved: 'text-sage-600',
-  rejected: 'text-coral-600',
+  pending: 'text-accent',
+  approved: 'text-success',
+  rejected: 'text-danger',
 }
 
 function requestDetails(row: AdminRequestRow): string {
@@ -96,12 +96,12 @@ export function RequestsAdminPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 rounded-2xl bg-white p-1 shadow-card">
+      <div className="flex gap-2 rounded-xl bg-white p-1 shadow-card">
         <button
           type="button"
           onClick={() => setFilter('pending')}
-          className={`min-h-tap flex-1 rounded-2xl font-display text-sm ${
-            filter === 'pending' ? 'bg-brand-600 text-white' : 'text-neutral-600'
+          className={`min-h-tap flex-1 rounded-xl font-semibold text-sm ${
+            filter === 'pending' ? 'bg-accent text-white' : 'text-muted'
           }`}
         >
           Pending ({pendingCount})
@@ -109,8 +109,8 @@ export function RequestsAdminPanel() {
         <button
           type="button"
           onClick={() => setFilter('all')}
-          className={`min-h-tap flex-1 rounded-2xl font-display text-sm ${
-            filter === 'all' ? 'bg-brand-600 text-white' : 'text-neutral-600'
+          className={`min-h-tap flex-1 rounded-xl font-semibold text-sm ${
+            filter === 'all' ? 'bg-accent text-white' : 'text-muted'
           }`}
         >
           All
@@ -127,27 +127,27 @@ export function RequestsAdminPanel() {
       {loadState === 'ready' && visibleRows.length > 0 && (
         <ul className="space-y-3">
           {visibleRows.map((row) => (
-            <li key={row.id} className="space-y-3 rounded-2xl bg-white p-4 shadow-card">
+            <li key={row.id} className="space-y-3 rounded-xl bg-white p-4 shadow-card">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-display text-neutral-800">{row.full_name}</p>
-                  <p className="text-xs text-neutral-500">
+                  <p className="font-semibold text-ink">{row.full_name}</p>
+                  <p className="text-xs text-muted">
                     {TYPE_LABELS[row.type]} · {requestDetails(row)}
                   </p>
-                  {row.reason && <p className="mt-1 text-sm text-neutral-600">{row.reason}</p>}
+                  {row.reason && <p className="mt-1 text-sm text-muted">{row.reason}</p>}
                 </div>
-                <span className={`text-xs font-display ${STATUS_COLOR[row.status]}`}>
+                <span className={`text-xs font-semibold ${STATUS_COLOR[row.status]}`}>
                   {STATUS_LABELS[row.status]}
                 </span>
               </div>
 
               {row.status === 'pending' && (
-                <div className="flex gap-2 border-t border-neutral-100 pt-3">
+                <div className="flex gap-2 border-t border-line pt-3">
                   <button
                     type="button"
                     onClick={() => handleReview(row, 'rejected')}
                     disabled={reviewingId === row.id}
-                    className="min-h-tap flex-1 rounded-2xl border border-coral-200 font-display text-sm text-coral-600 disabled:opacity-60"
+                    className="min-h-tap flex-1 rounded-xl border border-danger/20 font-semibold text-sm text-danger disabled:opacity-60"
                   >
                     Reject
                   </button>
@@ -155,7 +155,7 @@ export function RequestsAdminPanel() {
                     type="button"
                     onClick={() => handleReview(row, 'approved')}
                     disabled={reviewingId === row.id}
-                    className="min-h-tap flex-1 rounded-2xl bg-sage-600 font-display text-sm text-white shadow-card hover:bg-sage-700 disabled:opacity-60"
+                    className="min-h-tap flex-1 rounded-xl bg-success font-semibold text-sm text-white shadow-card hover:bg-success disabled:opacity-60"
                   >
                     Approve
                   </button>
@@ -174,11 +174,11 @@ export function RequestsAdminPanel() {
 // RequestsAdminPanel directly instead of this wrapper.
 export function RequestsAdminPage() {
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Requests (Admin)</h1>
+          <h1 className="font-bold text-2xl text-ink">Requests (Admin)</h1>
         </div>
         <RequestsAdminPanel />
       </div>

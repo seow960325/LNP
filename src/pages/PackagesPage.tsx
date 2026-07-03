@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { BackButton } from '../components/BackButton'
+import { TabNav, BILLING_TABS } from '../components/TabNav'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { fetchFeePackages, createFeePackage, updateFeePackage, toggleFeePackageActive, deleteFeePackage, fetchStudents } from '../lib/billingApi'
 import type { FeePackage, StudentWithPackage } from '../lib/billingApi'
@@ -161,12 +162,14 @@ export function PackagesPage() {
   if (!profile) return null
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Fee Packages</h1>
+          <h1 className="font-bold text-2xl text-ink">Fee Packages</h1>
         </div>
+
+        <TabNav tabs={BILLING_TABS} />
 
         {isAdmin && (
           <button
@@ -178,32 +181,32 @@ export function PackagesPage() {
                 setShowForm(true)
               }
             }}
-            className="min-h-tap w-full rounded-2xl border border-brand-200 bg-white font-display text-sm text-brand-700 shadow-card hover:bg-brand-50"
+            className="min-h-tap w-full rounded-xl border border-accent/30 bg-white font-semibold text-sm text-accent-hover shadow-card hover:bg-accent-soft"
           >
             {showForm ? 'Cancel' : '+ Add package'}
           </button>
         )}
 
         {showForm && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-3xl bg-white p-4 shadow-card">
-            <p className="font-display text-sm text-neutral-700">
+          <form onSubmit={handleSubmit} className="space-y-3 rounded-xl bg-white p-5 shadow-card">
+            <p className="font-semibold text-sm text-ink">
               {editingId ? 'Edit package' : 'Add new package'}
             </p>
 
             <div>
-              <label className="text-xs text-neutral-500">Name *</label>
+              <label className="text-xs text-muted">Name *</label>
               <input
                 type="text"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 disabled={submitting}
                 required
-                className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="text-xs text-neutral-500">Price (RM) *</label>
+              <label className="text-xs text-muted">Price (RM) *</label>
               <input
                 type="number"
                 step="0.01"
@@ -212,17 +215,17 @@ export function PackagesPage() {
                 onChange={(e) => setFormPrice(e.target.value)}
                 disabled={submitting}
                 required
-                className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="text-xs text-neutral-500">Description</label>
+              <label className="text-xs text-muted">Description</label>
               <textarea
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 disabled={submitting}
-                className="mt-1 min-h-24 w-full rounded-2xl border border-neutral-200 px-3 py-2 text-sm disabled:opacity-60"
+                className="mt-1 min-h-24 w-full rounded-xl border border-line px-3 py-2 text-sm disabled:opacity-60"
               />
             </div>
 
@@ -230,7 +233,7 @@ export function PackagesPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="min-h-tap flex-1 rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+                className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
               >
                 {editingId ? 'Update' : 'Add'}
               </button>
@@ -238,7 +241,7 @@ export function PackagesPage() {
                 type="button"
                 onClick={cancelEdit}
                 disabled={submitting}
-                className="min-h-tap flex-1 rounded-2xl border border-neutral-200 font-display text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
+                className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -256,18 +259,18 @@ export function PackagesPage() {
         {loadState === 'ready' && packages.length > 0 && (
           <ul className="space-y-3">
             {packages.map((pkg) => (
-              <li key={pkg.id} className="rounded-3xl bg-white p-4 shadow-card">
+              <li key={pkg.id} className="rounded-xl bg-white p-5 shadow-card">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-display font-bold text-neutral-800">{pkg.name}</h3>
-                      <p className="text-sm text-neutral-600">RM {pkg.default_price.toFixed(2)}</p>
-                      {pkg.description && <p className="mt-2 text-xs text-neutral-500">{pkg.description}</p>}
+                      <h3 className="font-bold text-ink">{pkg.name}</h3>
+                      <p className="text-sm text-muted">RM {pkg.default_price.toFixed(2)}</p>
+                      {pkg.description && <p className="mt-2 text-xs text-muted">{pkg.description}</p>}
                     </div>
                     <div className="flex flex-col gap-2">
                       <span
-                        className={`whitespace-nowrap rounded-full px-2 py-1 text-2xs font-medium ${
-                          pkg.active ? 'bg-sage-100 text-sage-700' : 'bg-neutral-100 text-neutral-600'
+                        className={`whitespace-nowrap rounded-full px-2 py-1 text-2xs font-semibold ${
+                          pkg.active ? 'bg-success-soft text-success' : 'bg-line/60 text-muted'
                         }`}
                       >
                         {pkg.active ? 'Active' : 'Inactive'}
@@ -281,7 +284,7 @@ export function PackagesPage() {
                         type="button"
                         onClick={() => startEdit(pkg)}
                         disabled={submitting || deleting}
-                        className="min-h-tap flex-1 rounded-2xl border border-neutral-200 text-2xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
+                        className="min-h-tap flex-1 rounded-xl border border-line text-2xs text-muted hover:bg-cream disabled:opacity-60"
                       >
                         Edit
                       </button>
@@ -289,7 +292,7 @@ export function PackagesPage() {
                         type="button"
                         onClick={() => handleToggleActive(pkg.id, pkg.active)}
                         disabled={submitting || deleting}
-                        className="min-h-tap flex-1 rounded-2xl border border-neutral-200 text-2xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
+                        className="min-h-tap flex-1 rounded-xl border border-line text-2xs text-muted hover:bg-cream disabled:opacity-60"
                       >
                         {pkg.active ? 'Deactivate' : 'Activate'}
                       </button>
@@ -297,7 +300,7 @@ export function PackagesPage() {
                         type="button"
                         onClick={() => setDeleteTarget(pkg)}
                         disabled={submitting || deleting}
-                        className="min-h-tap flex-1 rounded-2xl border border-coral-200 text-2xs text-coral-600 hover:bg-coral-50 disabled:opacity-60"
+                        className="min-h-tap flex-1 rounded-xl border border-danger/20 text-2xs text-danger hover:bg-danger/10 disabled:opacity-60"
                       >
                         Delete
                       </button>

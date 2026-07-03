@@ -38,7 +38,7 @@ export function Avatar({
 
   return (
     <span
-      className={`inline-flex ${sizeClasses} shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-200 to-sky-200 font-display font-bold text-brand-800 shadow-card`}
+      className={`inline-flex ${sizeClasses} shrink-0 items-center justify-center rounded-full bg-accent-soft font-bold text-accent-hover shadow-card`}
       aria-label={fullName}
     >
       {initials(fullName)}

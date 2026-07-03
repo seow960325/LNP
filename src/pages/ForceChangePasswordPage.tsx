@@ -59,22 +59,22 @@ export function ForceChangePasswordPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-brand-50 via-cream-100 to-sky-100 flex items-center justify-center px-4">
-      <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-sky-200/50 blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 top-1/3 h-72 w-72 rounded-full bg-brand-200/40 blur-3xl" />
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-accent-soft/60 via-cream to-accent-soft/40 flex items-center justify-center px-4">
+      <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-accent-soft/80 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 top-1/3 h-72 w-72 rounded-full bg-accent/15 blur-3xl" />
 
       <div className="relative w-full max-w-sm">
         <div className="text-center mb-6">
-          <h1 className="font-display text-2xl text-neutral-800">Set a new password</h1>
-          <p className="mt-1 text-sm text-neutral-600">
+          <h1 className="font-bold text-2xl text-ink">Set a new password</h1>
+          <p className="mt-1 text-sm text-muted">
             Your password was reset by an admin. Choose a new password to continue.
           </p>
         </div>
 
-        <div className="rounded-3xl border border-white/40 bg-white/60 p-8 shadow-card-lg backdrop-blur-xl">
+        <div className="rounded-2xl border border-white/50 bg-white/80 p-8 shadow-card-lg backdrop-blur-xl">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">New password</label>
+              <label className="block text-sm font-semibold text-ink mb-1">New password</label>
               <input
                 type="password"
                 required
@@ -82,12 +82,12 @@ export function ForceChangePasswordPage() {
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
                 disabled={saving}
-                className="w-full px-4 py-3 rounded-2xl border border-neutral-200 bg-white/90 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 min-h-tap disabled:opacity-60"
+                className="w-full px-4 py-3 rounded-xl border border-line bg-white/90 text-ink placeholder-muted/60 focus:outline-none focus:ring-2 focus:ring-accent min-h-tap disabled:opacity-60"
                 placeholder="••••••••"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Confirm new password</label>
+              <label className="block text-sm font-semibold text-ink mb-1">Confirm new password</label>
               <input
                 type="password"
                 required
@@ -95,7 +95,7 @@ export function ForceChangePasswordPage() {
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 disabled={saving}
-                className="w-full px-4 py-3 rounded-2xl border border-neutral-200 bg-white/90 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 min-h-tap disabled:opacity-60"
+                className="w-full px-4 py-3 rounded-xl border border-line bg-white/90 text-ink placeholder-muted/60 focus:outline-none focus:ring-2 focus:ring-accent min-h-tap disabled:opacity-60"
                 placeholder="••••••••"
               />
             </div>
@@ -103,7 +103,7 @@ export function ForceChangePasswordPage() {
             <button
               type="submit"
               disabled={saving}
-              className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold py-3 rounded-2xl shadow-card transition-colors min-h-tap"
+              className="w-full bg-accent hover:bg-accent-hover disabled:opacity-60 text-white font-semibold py-3 rounded-xl shadow-card transition-colors min-h-tap"
             >
               {saving ? 'Saving…' : 'Set password'}
             </button>
@@ -113,7 +113,7 @@ export function ForceChangePasswordPage() {
             type="button"
             onClick={signOut}
             disabled={saving}
-            className="mt-4 w-full text-center text-sm text-neutral-500 hover:text-neutral-700 disabled:opacity-60"
+            className="mt-4 w-full text-center text-sm text-muted hover:text-ink disabled:opacity-60"
           >
             Sign out
           </button>

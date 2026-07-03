@@ -3,6 +3,7 @@ import { Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from '../components/Avatar'
+import { AvatarCropModal } from '../components/AvatarCropModal'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabaseClient'
 import { validateAvatarFile, uploadAvatar, updateOwnProfile } from '../lib/profileApi'
@@ -20,6 +21,7 @@ export function ProfilePage() {
 
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
 
   useEffect(() => {
     if (profile && !initialized.current) {
@@ -43,7 +45,7 @@ export function ProfilePage() {
 
   if (!profile) return null
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file || !profile) return
@@ -54,9 +56,20 @@ export function ProfilePage() {
       return
     }
 
+    // Opens the reposition/zoom modal instead of uploading immediately —
+    // the cropped canvas export is what actually gets uploaded, so the
+    // stored image is pre-framed and object-cover never crops a head.
+    setCropFile(file)
+  }
+
+  async function handleCropConfirm(blob: Blob) {
+    setCropFile(null)
+    if (!profile) return
+
     setUploading(true)
 
-    const { publicUrl, error } = await uploadAvatar(profile.id, file)
+    const croppedFile = new File([blob], 'avatar.jpg', { type: blob.type })
+    const { publicUrl, error } = await uploadAvatar(profile.id, croppedFile)
     if (error || !publicUrl) {
       setUploading(false)
       toast.error('Could not upload the photo. Please try again.')
@@ -93,14 +106,14 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">My Profile</h1>
+          <h1 className="font-bold text-2xl text-ink">My Profile</h1>
         </div>
 
-        <div className="flex flex-col items-center gap-3 rounded-3xl bg-white p-8 text-center shadow-card">
+        <div className="flex flex-col items-center gap-3 rounded-xl bg-white p-8 text-center shadow-card">
           <div className="relative inline-block">
             <Avatar fullName={fullName || profile.full_name} avatarUrl={avatarUrl} size="xl" />
             <button
@@ -108,7 +121,7 @@ export function ProfilePage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
               aria-label="Change photo"
-              className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+              className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
             >
               <Camera className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -120,35 +133,35 @@ export function ProfilePage() {
               onChange={handleFileChange}
             />
           </div>
-          <p className="text-xs text-neutral-500">{uploading ? 'Uploading…' : 'Tap the camera to change your photo'}</p>
+          <p className="text-xs text-muted">{uploading ? 'Uploading…' : 'Tap the camera to change your photo'}</p>
         </div>
 
-        <div className="space-y-3 rounded-2xl bg-white p-4 shadow-card-md">
+        <div className="space-y-3 rounded-xl bg-white p-4 shadow-card-md">
           <div>
-            <label className="text-xs text-neutral-500">Full name</label>
+            <label className="text-xs text-muted">Full name</label>
             <input
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
               disabled={saving}
-              className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm focus:border-brand-600 focus:outline-none disabled:opacity-60"
+              className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
             />
           </div>
 
           <div>
-            <label className="text-xs text-neutral-500">Phone</label>
+            <label className="text-xs text-muted">Phone</label>
             <input
               type="tel"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
               disabled={saving}
               placeholder="e.g. 012-345 6789"
-              className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm focus:border-brand-600 focus:outline-none disabled:opacity-60"
+              className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
             />
           </div>
 
           <div>
-            <label className="text-xs text-neutral-500">Email</label>
-            <p className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm text-neutral-500">
+            <label className="text-xs text-muted">Email</label>
+            <p className="mt-1 min-h-tap w-full rounded-xl border border-line bg-cream px-3 py-2 text-sm text-muted">
               {email ?? '—'}
             </p>
           </div>
@@ -157,12 +170,20 @@ export function ProfilePage() {
             type="button"
             onClick={handleSaveDetails}
             disabled={saving || fullName.trim().length === 0}
-            className="min-h-tap w-full rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+            className="min-h-tap w-full rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>
+
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onConfirm={handleCropConfirm}
+        />
+      )}
     </div>
   )
 }

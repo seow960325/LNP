@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { KudosValueBadge } from '../components/KudosValueCard'
@@ -172,19 +172,20 @@ export function KudosWallPanel() {
   return (
     <div className="space-y-4">
       {topRecipient && (
-        <div className="flex items-center gap-2 rounded-2xl border border-cream-300 bg-cream-100 px-4 py-3 text-sm text-neutral-700">
-          <span>🌟</span> Most appreciated: <span className="font-display">{topRecipient.full_name}</span>
+        <div className="flex items-center gap-2 rounded-xl bg-accent-soft/60 px-4 py-3 text-sm text-ink">
+          <Star className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+          Most appreciated: <span className="font-semibold">{topRecipient.full_name}</span>
         </div>
       )}
 
-      <div className="rounded-3xl bg-gradient-to-br from-brand-50 via-cream-100 to-sky-50 p-5 shadow-card">
-        <p className="text-xs text-neutral-500">Kudos you received this month</p>
+      <div className="rounded-2xl bg-gradient-to-br from-accent-soft/60 via-cream to-cream p-5 shadow-card">
+        <p className="text-xs text-muted">Kudos you received this month</p>
         {monthlyError ? (
-          <p className="text-sm text-coral-600">{monthlyError}</p>
+          <p className="text-sm text-danger">{monthlyError}</p>
         ) : monthlyCount === null ? (
-          <p className="font-handwriting text-4xl text-neutral-300">…</p>
+          <p className="text-4xl font-bold text-line">…</p>
         ) : (
-          <p className="font-handwriting text-5xl text-brand-700">{monthlyCount}</p>
+          <p className="text-5xl font-bold text-accent-hover">{monthlyCount}</p>
         )}
       </div>
 
@@ -192,8 +193,8 @@ export function KudosWallPanel() {
       {feedState === 'error' && <ErrorState message={feedError ?? 'Something went wrong.'} />}
 
       {feedState === 'ready' && feedItems.length === 0 && (
-        <div className="space-y-3 rounded-3xl bg-white p-8 text-center shadow-card">
-          <p className="text-neutral-500">No kudos yet — be the first!</p>
+        <div className="space-y-3 rounded-xl bg-white p-8 text-center shadow-card">
+          <p className="text-muted">No kudos yet — be the first!</p>
         </div>
       )}
 
@@ -202,26 +203,26 @@ export function KudosWallPanel() {
           {feedItems.map((item) => (
             <li
               key={item.id}
-              className="flex gap-4 rounded-3xl bg-white p-4 shadow-card transition-shadow hover:shadow-card-md"
+              className="flex gap-4 rounded-xl bg-white p-5 shadow-card transition-shadow hover:shadow-card-md"
             >
               <Avatar fullName={item.recipientName} avatarUrl={item.recipientAvatarUrl} size="xl" />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="min-w-0 truncate font-display text-lg font-bold text-neutral-800">
+                  <p className="min-w-0 truncate text-lg font-bold text-ink">
                     {item.recipientName}
                   </p>
-                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-cream-100 py-0.5 pl-0.5 pr-2 text-2xs font-medium text-brand-600">
+                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent-soft/70 py-0.5 pl-0.5 pr-2 text-2xs font-semibold text-accent-hover">
                     <KudosValueBadge iconKey={item.iconKey} size="xs" />
                     {item.valueName}
                   </span>
                 </div>
 
                 {item.message && (
-                  <p className="text-sm italic text-neutral-600">&ldquo;{item.message}&rdquo;</p>
+                  <p className="text-sm italic text-muted">&ldquo;{item.message}&rdquo;</p>
                 )}
 
                 <div className="flex items-center justify-between gap-2 pt-1">
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-muted/70">
                     by {item.senderName} · {formatDate(item.createdAt)}
                   </p>
                   {profile?.role === 'super_admin' && (
@@ -229,7 +230,7 @@ export function KudosWallPanel() {
                       type="button"
                       onClick={() => setDeleteTarget(item)}
                       aria-label="Delete this kudos"
-                      className="flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-full text-neutral-300 hover:text-coral-600"
+                      className="flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-full text-line hover:text-danger"
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </button>
@@ -261,19 +262,19 @@ export function KudosWallPage() {
   const [tab, setTab] = useState<Tab>('wall')
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="max-w-lg mx-auto space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Kudos</h1>
+          <h1 className="font-bold text-2xl text-ink">Kudos</h1>
         </div>
 
-        <div className="flex gap-2 rounded-2xl bg-white p-1.5 shadow-card">
+        <div className="flex gap-2 rounded-xl bg-white p-1.5 shadow-card">
           <button
             type="button"
             onClick={() => setTab('wall')}
-            className={`min-h-tap flex-1 rounded-xl font-display text-sm transition-colors ${
-              tab === 'wall' ? 'bg-brand-600 text-white shadow-card' : 'text-neutral-600 hover:bg-neutral-50'
+            className={`min-h-tap flex-1 rounded-xl font-semibold text-sm transition-colors ${
+              tab === 'wall' ? 'bg-accent text-white shadow-card' : 'text-muted hover:bg-cream'
             }`}
           >
             Wall
@@ -281,8 +282,8 @@ export function KudosWallPage() {
           <button
             type="button"
             onClick={() => setTab('send')}
-            className={`min-h-tap flex-1 rounded-xl font-display text-sm transition-colors ${
-              tab === 'send' ? 'bg-brand-600 text-white shadow-card' : 'text-neutral-600 hover:bg-neutral-50'
+            className={`min-h-tap flex-1 rounded-xl font-semibold text-sm transition-colors ${
+              tab === 'send' ? 'bg-accent text-white shadow-card' : 'text-muted hover:bg-cream'
             }`}
           >
             Send Kudos

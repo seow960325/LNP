@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, CalendarDays, ClipboardList, Clock, FileText, Trophy, Users, Wallet, Wifi, Package, Users2 } from 'lucide-react'
+import { Bell, CalendarDays, ClipboardList, Clock, FileText, Trophy, Users, Wallet, Wifi, Receipt } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { firstName, toKLDateISO } from '../lib/helpers'
@@ -15,7 +15,8 @@ const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'Kudos', to: '/kudos', Icon: Trophy },
   { label: 'WiFi Password', to: '/wifi', Icon: Wifi },
   { label: 'Daily Ops Board', to: '/board', Icon: ClipboardList },
-  { label: 'Staff Directory', to: '/staff', Icon: Users },
+  // Directory groups Staff + Students (Students tab is admin-only, hidden in TabNav)
+  { label: 'Directory', to: '/directory', Icon: Users },
   { label: 'Documents', to: '/documents', Icon: FileText },
 ]
 
@@ -23,8 +24,8 @@ const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
 // shared grid layout logic stays untouched for every other role.
 const ADMIN_TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'Payroll', to: '/payroll', Icon: Wallet },
-  { label: 'Fee Packages', to: '/packages', Icon: Package },
-  { label: 'Students', to: '/students', Icon: Users2 },
+  // Billing groups Invoices + Fee Packages under one tabbed area
+  { label: 'Billing', to: '/billing', Icon: Receipt },
 ]
 
 function NotificationBell() {
@@ -53,11 +54,11 @@ function NotificationBell() {
       type="button"
       onClick={() => navigate('/board')}
       aria-label="Notifications"
-      className="relative flex min-h-tap min-w-tap items-center justify-center rounded-full text-neutral-600 hover:text-neutral-800"
+      className="relative flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted hover:bg-accent-soft/60 hover:text-ink"
     >
       <Bell className="h-6 w-6" aria-hidden="true" />
       {openCount !== null && openCount > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-coral-600 px-1 text-2xs font-medium text-white">
+        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-2xs font-semibold text-white">
           {openCount}
         </span>
       )}
@@ -67,6 +68,10 @@ function NotificationBell() {
 
 export function HomePage() {
   const { profile } = useAuth()
+  // Tracks which tile is currently pressed so its icon circle can bloom —
+  // pointer-driven rather than :active so it fires reliably on touch even
+  // though the tile also navigates on click.
+  const [pressedTo, setPressedTo] = useState<string | null>(null)
 
   if (!profile) return null
 
@@ -74,10 +79,10 @@ export function HomePage() {
   const tiles = isAdmin ? [...TILES, ...ADMIN_TILES] : TILES
 
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl text-neutral-800">Hi {firstName(profile.full_name)}</h1>
+          <h1 className="font-bold text-2xl text-ink">Hi {firstName(profile.full_name)}</h1>
           <NotificationBell />
         </div>
 
@@ -86,10 +91,18 @@ export function HomePage() {
             <Link
               key={to}
               to={to}
-              className="flex min-h-tap-lg flex-col items-center justify-center gap-2 rounded-2xl bg-white p-4 text-center shadow-card hover:shadow-card-md"
+              onPointerDown={() => setPressedTo(to)}
+              onPointerUp={() => setPressedTo(null)}
+              onPointerLeave={() => setPressedTo(null)}
+              onPointerCancel={() => setPressedTo(null)}
+              className={`flex min-h-tap-lg flex-col items-center justify-center gap-3 rounded-xl bg-white p-5 text-center shadow-card hover:shadow-card-md motion-safe:hover:-translate-y-0.5 ${
+                pressedTo === to ? 'tile-pressed' : ''
+              }`}
             >
-              <Icon className="h-7 w-7 text-brand-600" aria-hidden="true" />
-              <span className="font-display text-sm text-neutral-800">{label}</span>
+              <span className="tile-icon-circle flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft">
+                <Icon className="h-6 w-6 text-accent" aria-hidden="true" />
+              </span>
+              <span className="font-semibold text-sm text-ink">{label}</span>
             </Link>
           ))}
         </div>

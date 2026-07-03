@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
@@ -102,22 +103,22 @@ export function AttendanceAdminPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-2xl bg-white p-3 shadow-card">
+      <div className="flex items-center justify-between rounded-xl bg-white p-3 shadow-card">
         <button
           type="button"
           onClick={() => setSelectedDate((d) => shiftDateISO(d, -1))}
           aria-label="Previous day"
-          className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-neutral-500 hover:text-neutral-700"
+          className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted hover:bg-accent-soft/60 hover:text-ink"
         >
-          ←
+          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
         </button>
         <div className="text-center">
-          <p className="font-display text-neutral-800">{formatDate(selectedDate)}</p>
+          <p className="font-semibold text-ink">{formatDate(selectedDate)}</p>
           {!isToday && (
             <button
               type="button"
               onClick={() => setSelectedDate(toKLDateISO(new Date()))}
-              className="text-xs text-brand-600 hover:underline"
+              className="text-xs text-accent hover:underline"
             >
               Today
             </button>
@@ -127,9 +128,9 @@ export function AttendanceAdminPanel() {
           type="button"
           onClick={() => setSelectedDate((d) => shiftDateISO(d, 1))}
           aria-label="Next day"
-          className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-neutral-500 hover:text-neutral-700"
+          className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted hover:bg-accent-soft/60 hover:text-ink"
         >
-          →
+          <ChevronRight className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 
@@ -143,11 +144,11 @@ export function AttendanceAdminPanel() {
       {loadState === 'ready' && rows.length > 0 && (
         <ul className="space-y-3">
           {rows.map((row) => (
-            <li key={row.user_id} className="space-y-3 rounded-2xl bg-white p-4 shadow-card">
+            <li key={row.user_id} className="space-y-3 rounded-xl bg-white p-4 shadow-card">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="font-display text-neutral-800">{row.full_name}</p>
-                  <p className="text-xs text-neutral-500">
+                  <p className="font-semibold text-ink">{row.full_name}</p>
+                  <p className="text-xs text-muted">
                     In: {row.clock_in ? formatTimeKL(row.clock_in) : '—'} · Out:{' '}
                     {row.clock_out ? formatTimeKL(row.clock_out) : '—'}
                   </p>
@@ -156,7 +157,7 @@ export function AttendanceAdminPanel() {
                   <button
                     type="button"
                     onClick={() => openEdit(row)}
-                    className="min-h-tap rounded-2xl border border-neutral-200 px-3 text-sm text-neutral-600"
+                    className="min-h-tap rounded-xl border border-line px-3 text-sm text-muted"
                   >
                     Edit
                   </button>
@@ -164,38 +165,38 @@ export function AttendanceAdminPanel() {
               </div>
 
               {editingUserId === row.user_id && (
-                <div className="space-y-3 border-t border-neutral-100 pt-3">
+                <div className="space-y-3 border-t border-line pt-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-neutral-500">Clock in</label>
+                      <label className="text-xs text-muted">Clock in</label>
                       <input
                         type="time"
                         value={formValues.clockIn}
                         onChange={(event) => setFormValues((v) => ({ ...v, clockIn: event.target.value }))}
                         disabled={saving}
-                        className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+                        className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-neutral-500">Clock out</label>
+                      <label className="text-xs text-muted">Clock out</label>
                       <input
                         type="time"
                         value={formValues.clockOut}
                         onChange={(event) => setFormValues((v) => ({ ...v, clockOut: event.target.value }))}
                         disabled={saving}
-                        className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+                        className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs text-neutral-500">Note (optional)</label>
+                    <label className="text-xs text-muted">Note (optional)</label>
                     <input
                       type="text"
                       value={formValues.note}
                       onChange={(event) => setFormValues((v) => ({ ...v, note: event.target.value }))}
                       disabled={saving}
-                      className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm disabled:opacity-60"
+                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
                     />
                   </div>
 
@@ -204,7 +205,7 @@ export function AttendanceAdminPanel() {
                       type="button"
                       onClick={closeEdit}
                       disabled={saving}
-                      className="min-h-tap flex-1 rounded-2xl border border-neutral-200 font-display text-sm text-neutral-600 disabled:opacity-50"
+                      className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -212,7 +213,7 @@ export function AttendanceAdminPanel() {
                       type="button"
                       onClick={() => handleSave(row)}
                       disabled={saving}
-                      className="min-h-tap flex-1 rounded-2xl bg-brand-600 font-display text-sm text-white shadow-card hover:bg-brand-700 disabled:opacity-60"
+                      className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
                     >
                       {saving ? 'Saving…' : 'Save'}
                     </button>
@@ -232,11 +233,11 @@ export function AttendanceAdminPanel() {
 // AttendanceAdminPanel directly instead of this wrapper.
 export function AttendanceAdminPage() {
   return (
-    <div className="min-h-screen bg-cream-100 p-6">
+    <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
         <div className="flex items-center gap-2">
           <BackButton fallback="/" />
-          <h1 className="font-display text-2xl text-neutral-800">Attendance (Admin)</h1>
+          <h1 className="font-bold text-2xl text-ink">Attendance (Admin)</h1>
         </div>
         <AttendanceAdminPanel />
       </div>
