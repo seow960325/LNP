@@ -231,7 +231,7 @@ export function StudentsPage() {
                 onChange={(e) => setFormName(e.target.value)}
                 disabled={submitting}
                 required
-                placeholder="e.g. Muhammad Hafiz bin Osman"
+                placeholder="e.g. Tan Chi Ming"
                 className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm placeholder:text-neutral-400 disabled:opacity-60"
               />
             </div>
@@ -243,7 +243,7 @@ export function StudentsPage() {
                 value={formParentName}
                 onChange={(e) => setFormParentName(e.target.value)}
                 disabled={submitting}
-                placeholder="e.g. Osman bin Abdullah"
+                placeholder="e.g. Tan Kok Keong"
                 className="mt-1 min-h-tap w-full rounded-2xl border border-neutral-200 px-3 text-sm placeholder:text-neutral-400 disabled:opacity-60"
               />
             </div>
