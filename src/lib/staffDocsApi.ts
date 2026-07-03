@@ -97,6 +97,72 @@ export async function uploadStaffDocument({
   return { error: null }
 }
 
+export interface UploadPayslipDocumentParams {
+  ownerId: string
+  uploadedBy: string
+  centerId: string
+  year: number
+  month: number
+  fileName: string
+  pdfBlob: Blob
+}
+
+// Auto-upload path for generated payslip PDFs (see payrollApi.ts finalize
+// flow). Unlike uploadStaffDocument's manual-upload path, the storage path
+// here is deterministic (no Date.now() suffix) and the object is written
+// with upsert:true, so re-finalizing a payslip (after reopen + edit)
+// overwrites the same object instead of orphaning old copies. The
+// staff_documents row shape below mirrors uploadStaffDocument's insert
+// exactly; it's upserted on (owner_id, doc_type, year, month) since that
+// tuple already uniquely determines the deterministic storage_path.
+export async function uploadPayslipDocument({
+  ownerId,
+  uploadedBy,
+  centerId,
+  year,
+  month,
+  fileName,
+  pdfBlob,
+}: UploadPayslipDocumentParams) {
+  const storagePath = `${ownerId}/payslip-${year}-${String(month).padStart(2, '0')}.pdf`
+
+  const { error: uploadError } = await supabase.storage
+    .from('staff-docs')
+    .upload(storagePath, pdfBlob, { upsert: true, contentType: 'application/pdf' })
+
+  if (uploadError) return { error: uploadError }
+
+  const { data: existing, error: findError } = await supabase
+    .from('staff_documents')
+    .select('id')
+    .eq('owner_id', ownerId)
+    .eq('doc_type', 'payslip')
+    .eq('year', year)
+    .eq('month', month)
+    .maybeSingle()
+
+  if (findError) return { error: findError }
+
+  const patch = {
+    owner_id: ownerId,
+    doc_type: 'payslip' as const,
+    year,
+    month,
+    file_name: fileName,
+    storage_path: storagePath,
+    uploaded_by: uploadedBy,
+    center_id: centerId,
+  }
+
+  if (existing) {
+    const { error } = await supabase.from('staff_documents').update(patch).eq('id', existing.id)
+    return { error }
+  }
+
+  const { error } = await supabase.from('staff_documents').insert(patch)
+  return { error }
+}
+
 export async function deleteStaffDocument(doc: StaffDocumentRow) {
   const { error: storageError } = await supabase.storage.from('staff-docs').remove([doc.storage_path])
   if (storageError) {
