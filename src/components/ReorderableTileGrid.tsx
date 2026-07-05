@@ -125,12 +125,20 @@ export function ReorderableTileGrid({
   const [editing, setEditing] = useState(false)
   const [pressedTo, setPressedTo] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    fetchTileOrder(menuKey).then((order) => {
-      if (!cancelled) setSavedOrder(order)
-    })
+    fetchTileOrder(menuKey)
+      .then((order) => {
+        if (!cancelled) {
+          setSavedOrder(order)
+          setLoaded(true)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded(true)
+      })
     return () => {
       cancelled = true
     }
@@ -185,7 +193,7 @@ export function ReorderableTileGrid({
 
   return (
     <div className="space-y-3">
-      {canEdit && !editing && (
+      {canEdit && loaded && !editing && (
         <button
           type="button"
           onClick={() => setEditing(true)}
@@ -196,7 +204,13 @@ export function ReorderableTileGrid({
         </button>
       )}
 
-      {editing ? (
+      {!loaded ? (
+        <div className="grid grid-cols-2 gap-4" aria-hidden="true">
+          {tiles.map((tile) => (
+            <div key={tile.key} className="min-h-tap-lg invisible rounded-xl p-5" />
+          ))}
+        </div>
+      ) : editing ? (
         <>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={orderedTiles.map((tile) => tile.key)} strategy={rectSortingStrategy}>
