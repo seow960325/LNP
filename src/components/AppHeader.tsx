@@ -8,7 +8,7 @@ export function AppHeader() {
   const { profile, signOut } = useAuth()
 
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-white px-4 py-2 shadow-card">
+    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-white px-4 py-2 shadow-card">
       <Link to="/" className="flex items-center gap-2">
         <img src="/LNP-Logo.png" alt="Learn N' Play" className="h-8 w-auto" />
         <span className="hidden font-semibold text-sm text-ink sm:inline">Learn N&apos; Play</span>

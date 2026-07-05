@@ -24,6 +24,7 @@ export interface Student {
   notes: string | null
   active: boolean
   photo_url: string | null
+  class_id: string | null
   created_at: string
 }
 
@@ -32,7 +33,7 @@ export interface StudentWithPackage extends Student {
 }
 
 const PACKAGE_COLUMNS = 'id, center_id, name, default_price, description, active, created_at'
-const STUDENT_COLUMNS = 'id, center_id, name, parent_name, parent_phone, parent_email, package_id, enrolled_at, dob, address, notes, active, photo_url, created_at'
+const STUDENT_COLUMNS = 'id, center_id, name, parent_name, parent_phone, parent_email, package_id, enrolled_at, dob, address, notes, active, photo_url, class_id, created_at'
 
 // Fixed path per student (no extension, contentType carries the real MIME
 // type) so re-uploading always overwrites the same object via upsert,
@@ -117,6 +118,7 @@ export interface CreateStudentPayload {
   address?: string
   notes?: string
   photo_url?: string | null
+  class_id?: string | null
 }
 
 export function createStudent(centerId: string, payload: CreateStudentPayload) {
@@ -138,6 +140,7 @@ export interface UpdateStudentPatch {
   notes?: string
   active?: boolean
   photo_url?: string | null
+  class_id?: string | null
 }
 
 export function updateStudent(id: string, patch: UpdateStudentPatch) {

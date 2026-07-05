@@ -67,6 +67,16 @@ export function formatLeaveDays(days: number): string {
   return days === 1 ? '1 day' : `${days} days`;
 }
 
+export function formatTimeKL(input: string | Date): string {
+  if (Number.isNaN(new Date(input).getTime())) return '';
+  return new Intl.DateTimeFormat('en-MY', {
+    timeZone: 'Asia/Kuala_Lumpur',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(new Date(input));
+}
+
 export function firstName(fullName: string): string {
   const trimmed = fullName.trim();
   const spaceIndex = trimmed.indexOf(' ');

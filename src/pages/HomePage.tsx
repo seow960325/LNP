@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Bell, CalendarDays, ClipboardList, FileText, HandCoins, Palmtree, Trophy, Users, Wallet, Wifi, Receipt } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, Briefcase, CalendarDays, ClipboardList, DoorOpen, Trophy, Users, Wifi, Receipt } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { firstName, toKLDateISO } from '../lib/helpers'
 import { fetchOpenTodayCount } from '../lib/boardApi'
+import { ReorderableTileGrid } from '../components/ReorderableTileGrid'
 
 // Exactly 4 main functions per the Phase 1B nav restructure, plus Daily Ops
 // Board. Sub-features (Send/Wall Kudos, admin views) live INSIDE their parent
@@ -12,21 +13,28 @@ import { fetchOpenTodayCount } from '../lib/boardApi'
 const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'Duty Roster', to: '/roster', Icon: CalendarDays },
   { label: 'Kudos', to: '/kudos', Icon: Trophy },
-  { label: 'Claims', to: '/claims', Icon: HandCoins },
-  { label: 'Leave', to: '/leave', Icon: Palmtree },
+  // HR & Claims is a landing menu (HrPage) that groups Leave + Claims + Documents
+  { label: 'HR & Claims', to: '/hr', Icon: Briefcase },
   { label: 'WiFi Password', to: '/wifi', Icon: Wifi },
   { label: 'Daily Ops Board', to: '/board', Icon: ClipboardList },
   // Directory groups Staff + Students (Students tab is read-only for non-admins)
   { label: 'Directory', to: '/directory', Icon: Users },
-  { label: 'Documents', to: '/documents', Icon: FileText },
 ]
+
+// Teacher + admin + super_admin only — matches the /entrance RequireRole
+// gate, so staff/parent/shareholder never see a tile that would just bounce
+// them back out.
+const ENTRANCE_TILE: { label: string; to: string; Icon: LucideIcon } = {
+  label: 'Entrance',
+  to: '/entrance',
+  Icon: DoorOpen,
+}
 
 // Admin/super_admin only — appended to TILES rather than gated inline so the
 // shared grid layout logic stays untouched for every other role.
 const ADMIN_TILES: { label: string; to: string; Icon: LucideIcon }[] = [
-  { label: 'Payroll', to: '/payroll', Icon: Wallet },
   // Billing groups Invoices + Fee Packages under one tabbed area
-  { label: 'Billing', to: '/billing', Icon: Receipt },
+  { label: 'Invoice', to: '/billing', Icon: Receipt },
 ]
 
 function NotificationBell() {
@@ -69,15 +77,16 @@ function NotificationBell() {
 
 export function HomePage() {
   const { profile } = useAuth()
-  // Tracks which tile is currently pressed so the whole card can bloom —
-  // pointer-driven rather than :active so it fires reliably on touch even
-  // though the tile also navigates on click.
-  const [pressedTo, setPressedTo] = useState<string | null>(null)
 
   if (!profile) return null
 
   const isAdmin = profile.role === 'admin' || profile.role === 'super_admin'
-  const tiles = isAdmin ? [...TILES, ...ADMIN_TILES] : TILES
+  const isSuperAdmin = profile.role === 'super_admin'
+  const canCheckIn = profile.role === 'teacher' || isAdmin
+  const tiles = [...TILES, ...(canCheckIn ? [ENTRANCE_TILE] : []), ...(isAdmin ? ADMIN_TILES : [])].map((tile) => ({
+    ...tile,
+    key: tile.to,
+  }))
 
   return (
     <div className="min-h-screen bg-cream p-6">
@@ -87,26 +96,7 @@ export function HomePage() {
           <NotificationBell />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          {tiles.map(({ label, to, Icon }) => (
-            <Link
-              key={to}
-              to={to}
-              onPointerDown={() => setPressedTo(to)}
-              onPointerUp={() => setPressedTo(null)}
-              onPointerLeave={() => setPressedTo(null)}
-              onPointerCancel={() => setPressedTo(null)}
-              className={`home-tile flex min-h-tap-lg flex-col items-center justify-center gap-3 rounded-xl bg-white p-5 text-center shadow-card hover:shadow-card-md motion-safe:hover:-translate-y-0.5 ${
-                pressedTo === to ? 'tile-pressed' : ''
-              }`}
-            >
-              <span className="tile-icon-circle flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft">
-                <Icon className="h-6 w-6 text-accent" aria-hidden="true" />
-              </span>
-              <span className="font-semibold text-sm text-ink">{label}</span>
-            </Link>
-          ))}
-        </div>
+        <ReorderableTileGrid menuKey="home" tiles={tiles} canEdit={isSuperAdmin} />
       </div>
     </div>
   )

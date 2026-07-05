@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Camera, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
@@ -19,8 +20,12 @@ import {
   uploadStudentPhoto,
 } from '../lib/billingApi'
 import type { StudentWithPackage, FeePackage } from '../lib/billingApi'
+import { fetchActiveClasses } from '../lib/attendanceApi'
+import type { ClassRow } from '../lib/attendanceApi'
 
 type LoadState = 'loading' | 'ready' | 'error'
+
+const PRESET_EMAIL_DOMAINS = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com']
 
 export function StudentsPage() {
   const { profile } = useAuth()
@@ -30,6 +35,7 @@ export function StudentsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [students, setStudents] = useState<StudentWithPackage[]>([])
   const [packages, setPackages] = useState<FeePackage[]>([])
+  const [classes, setClasses] = useState<ClassRow[]>([])
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -38,7 +44,11 @@ export function StudentsPage() {
   const [formParentName, setFormParentName] = useState('')
   const [formParentPhone, setFormParentPhone] = useState('')
   const [formParentEmail, setFormParentEmail] = useState('')
+  const [emailUser, setEmailUser] = useState('')
+  const [emailDomain, setEmailDomain] = useState('gmail.com')
+  const [emailCustomDomain, setEmailCustomDomain] = useState('')
   const [formPackageId, setFormPackageId] = useState('')
+  const [formClassId, setFormClassId] = useState('')
   const [formEnrolledAt, setFormEnrolledAt] = useState('')
   const [formDob, setFormDob] = useState('')
   const [formAddress, setFormAddress] = useState('')
@@ -53,6 +63,11 @@ export function StudentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<StudentWithPackage | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  useEffect(() => {
+    const domain = emailDomain === 'custom' ? emailCustomDomain.trim() : emailDomain
+    setFormParentEmail(emailUser.trim() && domain ? `${emailUser.trim()}@${domain}` : '')
+  }, [emailUser, emailDomain, emailCustomDomain])
+
   function loadData() {
     if (!profile) return
     setLoadState('loading')
@@ -60,7 +75,8 @@ export function StudentsPage() {
     Promise.all([
       fetchStudents(profile.center_id),
       fetchActiveFeePackages(profile.center_id),
-    ]).then(([studentsRes, packagesRes]) => {
+      fetchActiveClasses(),
+    ]).then(([studentsRes, packagesRes, classesRes]) => {
       if (studentsRes.error || !studentsRes.data) {
         setLoadError('Could not load students. Please try again.')
         setLoadState('error')
@@ -70,6 +86,9 @@ export function StudentsPage() {
       setStudents(studentsRes.data)
       if (!packagesRes.error && packagesRes.data) {
         setPackages(packagesRes.data)
+      }
+      if (!classesRes.error && classesRes.data) {
+        setClasses(classesRes.data)
       }
       setLoadState('ready')
     })
@@ -97,6 +116,7 @@ export function StudentsPage() {
         parent_phone: formParentPhone.trim() || undefined,
         parent_email: formParentEmail.trim() || undefined,
         package_id: formPackageId || undefined,
+        class_id: formClassId || null,
         enrolled_at: formEnrolledAt || undefined,
         dob: formDob || undefined,
         address: formAddress.trim() || undefined,
@@ -124,7 +144,11 @@ export function StudentsPage() {
         setFormParentName('')
         setFormParentPhone('')
         setFormParentEmail('')
+        setEmailUser('')
+        setEmailDomain('gmail.com')
+        setEmailCustomDomain('')
         setFormPackageId('')
+        setFormClassId('')
         setFormEnrolledAt('')
         setFormDob('')
         setFormAddress('')
@@ -143,7 +167,26 @@ export function StudentsPage() {
     setFormParentName(student.parent_name || '')
     setFormParentPhone(student.parent_phone || '')
     setFormParentEmail(student.parent_email || '')
+    const email = student.parent_email || ''
+    const atIndex = email.indexOf('@')
+    if (atIndex === -1) {
+      setEmailUser('')
+      setEmailDomain('gmail.com')
+      setEmailCustomDomain('')
+    } else {
+      const user = email.slice(0, atIndex)
+      const domain = email.slice(atIndex + 1)
+      setEmailUser(user)
+      if (PRESET_EMAIL_DOMAINS.includes(domain)) {
+        setEmailDomain(domain)
+        setEmailCustomDomain('')
+      } else {
+        setEmailDomain('custom')
+        setEmailCustomDomain(domain)
+      }
+    }
     setFormPackageId(student.package_id || '')
+    setFormClassId(student.class_id || '')
     setFormEnrolledAt(student.enrolled_at || '')
     setFormDob(student.dob || '')
     setFormAddress(student.address || '')
@@ -157,7 +200,11 @@ export function StudentsPage() {
     setFormParentName('')
     setFormParentPhone('')
     setFormParentEmail('')
+    setEmailUser('')
+    setEmailDomain('gmail.com')
+    setEmailCustomDomain('')
     setFormPackageId('')
+    setFormClassId('')
     setFormEnrolledAt('')
     setFormDob('')
     setFormAddress('')
@@ -253,10 +300,26 @@ export function StudentsPage() {
     return pkg?.name || '—'
   }
 
+  const getClassName = (classId: string | null): string => {
+    if (!classId) return '—'
+    const cls = classes.find((c) => c.id === classId)
+    return cls?.name || '—'
+  }
+
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Students" fallback="/" />
+        <PageHeader title="Students" fallback="/">
+          {isAdmin && (
+            <Link
+              to="/classes"
+              className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+            >
+              <Settings className="h-3 w-3" aria-hidden="true" />
+              Manage classes
+            </Link>
+          )}
+        </PageHeader>
 
         <TabNav tabs={directoryTabs(isAdmin)} />
 
@@ -348,14 +411,40 @@ export function StudentsPage() {
 
             <div>
               <label className="text-xs text-muted">Parent email</label>
-              <input
-                type="email"
-                value={formParentEmail}
-                onChange={(e) => setFormParentEmail(e.target.value)}
-                disabled={submitting}
-                placeholder="e.g. siti@example.com"
-                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
-              />
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={emailUser}
+                  onChange={(e) => setEmailUser(e.target.value)}
+                  disabled={submitting}
+                  placeholder="e.g. siti"
+                  className="min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+                />
+                <span className="text-sm text-muted">@</span>
+                <select
+                  value={emailDomain}
+                  onChange={(e) => setEmailDomain(e.target.value)}
+                  disabled={submitting}
+                  className="min-h-tap rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                >
+                  {PRESET_EMAIL_DOMAINS.map((domain) => (
+                    <option key={domain} value={domain}>
+                      {domain}
+                    </option>
+                  ))}
+                  <option value="custom">Custom…</option>
+                </select>
+              </div>
+              {emailDomain === 'custom' && (
+                <input
+                  type="text"
+                  value={emailCustomDomain}
+                  onChange={(e) => setEmailCustomDomain(e.target.value)}
+                  disabled={submitting}
+                  placeholder="e.g. example.com"
+                  className="mt-2 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+                />
+              )}
             </div>
 
             <div>
@@ -370,6 +459,23 @@ export function StudentsPage() {
                 {packages.map((pkg) => (
                   <option key={pkg.id} value={pkg.id}>
                     {pkg.name} (RM {pkg.default_price.toFixed(2)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted">Class</label>
+              <select
+                value={formClassId}
+                onChange={(e) => setFormClassId(e.target.value)}
+                disabled={submitting}
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+              >
+                <option value="">No class</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name}
                   </option>
                 ))}
               </select>
@@ -474,6 +580,7 @@ export function StudentsPage() {
                           <p className="text-xs text-muted">Enrolled: {new Date(student.enrolled_at).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
                         )}
                         <p className="text-xs text-muted">Package: {getPackageName(student.package_id)}</p>
+                        <p className="text-xs text-muted">Class: {getClassName(student.class_id)}</p>
                         {student.address && (
                           <p className="text-xs text-muted">Address: {student.address}</p>
                         )}

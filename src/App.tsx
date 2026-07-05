@@ -29,9 +29,13 @@ import { InvoiceDetailPage } from './pages/InvoiceDetailPage'
 import { ClaimsPage } from './pages/ClaimsPage'
 import { ClaimCategoriesPage } from './pages/ClaimCategoriesPage'
 import { LeavePage } from './pages/LeavePage'
+import { HrPage } from './pages/HrPage'
 import { LeaveBalancesPage } from './pages/LeaveBalancesPage'
 import { RosterSettingsPage } from './pages/RosterSettingsPage'
 import { HomePage } from './pages/HomePage'
+import { EntrancePage } from './pages/EntrancePage'
+import { ClassesPage } from './pages/ClassesPage'
+import { AttendanceConditionsPage } from './pages/AttendanceConditionsPage'
 
 // Gate: a user whose password was admin-reset is locked out of every route
 // under here until they set a new password — see ForceChangePasswordPage,
@@ -105,6 +109,10 @@ export function App() {
                 admin review view (RLS enforces the actual row visibility) */}
             <Route path="/leave" element={<LeavePage />} />
 
+            {/* HR & Claims — landing menu grouping Leave, Claims, and Documents
+                behind one home tile; any authenticated active user, all roles */}
+            <Route path="/hr" element={<HrPage />} />
+
             {/* Directory group — redirects to its default tab. The tabbed pages
                 themselves keep their own routes/guards below. */}
             <Route path="/directory" element={<Navigate to="/staff" replace />} />
@@ -125,6 +133,12 @@ export function App() {
                 everyone except admin/super_admin (gated inline via profile.role) */}
             <Route path="/students" element={<StudentsPage />} />
 
+            {/* Entrance — student arrival/departure check-in. Teacher +
+                admin + super_admin only; staff/parent/shareholder excluded. */}
+            <Route element={<RequireRole allow={['teacher', 'admin', 'super_admin']} />}>
+              <Route path="/entrance" element={<EntrancePage />} />
+            </Route>
+
             {/* Admin routes: super_admin + admin */}
             <Route element={<RequireRole allow={['super_admin', 'admin']} />}>
               <Route path="/admin" element={<AdminHomePage />} />
@@ -139,6 +153,8 @@ export function App() {
               <Route path="/claims/categories" element={<ClaimCategoriesPage />} />
               <Route path="/roster/settings" element={<RosterSettingsPage />} />
               <Route path="/leave/balances" element={<LeaveBalancesPage />} />
+              <Route path="/classes" element={<ClassesPage />} />
+              <Route path="/attendance/conditions" element={<AttendanceConditionsPage />} />
             </Route>
 
             {/* Parent — Phase 2 stub */}
