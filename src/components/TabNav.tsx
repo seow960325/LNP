@@ -24,6 +24,7 @@ export function directoryTabs(_isAdmin: boolean): TabNavItem[] {
 export const BILLING_TABS: TabNavItem[] = [
   { label: 'Invoices', to: '/invoices' },
   { label: 'Packages', to: '/packages' },
+  { label: 'Terms', to: '/invoices/terms' },
 ]
 
 // Categories management is admin/super_admin-only: hide the tab (not just

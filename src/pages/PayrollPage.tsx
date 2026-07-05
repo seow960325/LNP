@@ -29,6 +29,7 @@ import type {
 } from '../lib/payrollApi'
 import type { PayslipPdfData } from '../lib/payslipPdf'
 import { uploadPayslipDocument } from '../lib/staffDocsApi'
+import { regenerateYearPayslips } from '../lib/payslipRegen'
 
 type LoadState = 'loading' | 'ready' | 'error'
 type EditableField = 'base' | 'allowance' | 'overtime' | 'bonus' | 'unpaid'
@@ -516,6 +517,9 @@ export function PayrollPage() {
   const [bulkFinalizeConfirmOpen, setBulkFinalizeConfirmOpen] = useState(false)
   const [bulkFinalizing, setBulkFinalizing] = useState(false)
 
+  const [regenConfirmOpen, setRegenConfirmOpen] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+
   useEffect(() => {
     if (!profile) return
     let cancelled = false
@@ -791,6 +795,23 @@ export function PayrollPage() {
     }
   }
 
+  async function confirmRegenerate() {
+    if (!profile) return
+    setRegenerating(true)
+
+    const { ok, failed, errors } = await regenerateYearPayslips(profile.center_id, year, profile.id)
+
+    setRegenerating(false)
+    setRegenConfirmOpen(false)
+
+    if (failed === 0) {
+      toast.success(`Regenerated ${ok} payslip PDF(s)`)
+    } else {
+      toast.warning(`${ok} done, ${failed} failed`)
+      console.error('Payslip regeneration failures:', errors)
+    }
+  }
+
   async function confirmReopen() {
     if (!reopenTarget) return
     const row = rows.find((r) => r.employeeId === reopenTarget)
@@ -871,6 +892,16 @@ export function PayrollPage() {
               >
                 {bulkFinalizing ? 'Finalizing…' : 'Finalize all drafts'}
               </button>
+              {isAdminOrSuper && (
+                <button
+                  type="button"
+                  onClick={() => setRegenConfirmOpen(true)}
+                  disabled={regenerating}
+                  className="min-h-tap rounded-xl border border-line bg-white px-4 font-semibold text-sm text-muted hover:bg-cream disabled:opacity-50"
+                >
+                  {regenerating ? 'Regenerating…' : 'Regenerate PDFs'}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -944,6 +975,16 @@ export function PayrollPage() {
         onConfirm={confirmBulkFinalize}
         onCancel={() => setBulkFinalizeConfirmOpen(false)}
         loading={bulkFinalizing}
+      />
+
+      <ConfirmDialog
+        open={regenConfirmOpen}
+        title={`Regenerate all payslip PDFs for ${year}?`}
+        message={`Every finalized or sent payslip for ${year} will have its PDF rebuilt with current company branding, overwriting the existing file.`}
+        confirmLabel="Regenerate"
+        onConfirm={confirmRegenerate}
+        onCancel={() => setRegenConfirmOpen(false)}
+        loading={regenerating}
       />
 
       <ConfirmDialog

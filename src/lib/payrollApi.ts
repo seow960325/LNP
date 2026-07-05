@@ -146,6 +146,19 @@ export function fetchPayslips(centerId: string, year: number, month: number) {
     .returns<Payslip[]>()
 }
 
+// All finalized/sent payslips for a whole year — the set eligible for PDF
+// regeneration (drafts have no payslip PDF to regenerate).
+export function fetchFinalizedPayslipsForYear(centerId: string, year: number) {
+  return supabase
+    .from('payslips')
+    .select('*')
+    .eq('center_id', centerId)
+    .eq('year', year)
+    .in('status', ['finalized', 'sent'])
+    .order('month')
+    .returns<Payslip[]>()
+}
+
 // Sums finalized/sent payslips for months BEFORE `beforeMonth` in `year`,
 // then adds the employee's opening balance for that year on top (0 if none
 // entered) — the "YTD so far" input the MTD/PCB formula needs. Falls back to

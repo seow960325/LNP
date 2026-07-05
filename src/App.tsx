@@ -26,6 +26,7 @@ import { StudentsPage } from './pages/StudentsPage'
 import { InvoicesPage } from './pages/InvoicesPage'
 import { NewInvoicePage } from './pages/NewInvoicePage'
 import { InvoiceDetailPage } from './pages/InvoiceDetailPage'
+import { TermsPage } from './pages/TermsPage'
 import { ClaimsPage } from './pages/ClaimsPage'
 import { ClaimCategoriesPage } from './pages/ClaimCategoriesPage'
 import { LeavePage } from './pages/LeavePage'
@@ -150,6 +151,7 @@ export function App() {
               <Route path="/invoices" element={<InvoicesPage />} />
               <Route path="/invoices/new" element={<NewInvoicePage />} />
               <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+              <Route path="/invoices/terms" element={<TermsPage />} />
               <Route path="/claims/categories" element={<ClaimCategoriesPage />} />
               <Route path="/roster/settings" element={<RosterSettingsPage />} />
               <Route path="/leave/balances" element={<LeaveBalancesPage />} />
