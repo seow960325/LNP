@@ -144,14 +144,11 @@ export function ReorderableTileGrid({
     }
   }, [menuKey])
 
-  // Keyed on the tile keys (not the `tiles` array reference, which is a new
-  // object every render) and skipped while editing, so an unrelated parent
-  // re-render mid-drag can't clobber the in-progress reorder.
-  const tileKeys = tiles.map((tile) => tile.key).join('|')
-  useEffect(() => {
-    if (editing) return
-    setOrderedTiles(applySavedOrder(tiles, savedOrder))
-  }, [tileKeys, savedOrder, editing])
+  // Non-editing order is derived directly at render time (not via a lagging
+  // effect) so the very first frame after `loaded` flips already shows the
+  // saved order — no default-order flash. `orderedTiles` state is only the
+  // source of truth while editing (drag reordering needs mutable state).
+  const displayTiles = editing ? orderedTiles : applySavedOrder(tiles, savedOrder)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -196,7 +193,10 @@ export function ReorderableTileGrid({
       {canEdit && loaded && !editing && (
         <button
           type="button"
-          onClick={() => setEditing(true)}
+          onClick={() => {
+            setOrderedTiles(applySavedOrder(tiles, savedOrder))
+            setEditing(true)
+          }}
           className="flex min-h-tap items-center gap-1.5 rounded-full border border-line bg-white px-3 text-sm font-semibold text-muted hover:bg-cream"
         >
           <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -213,9 +213,9 @@ export function ReorderableTileGrid({
       ) : editing ? (
         <>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={orderedTiles.map((tile) => tile.key)} strategy={rectSortingStrategy}>
+            <SortableContext items={displayTiles.map((tile) => tile.key)} strategy={rectSortingStrategy}>
               <div className="grid grid-cols-2 gap-4">
-                {orderedTiles.map((tile) => (
+                {displayTiles.map((tile) => (
                   <DraggableTile key={tile.key} tile={tile} />
                 ))}
               </div>
@@ -243,7 +243,7 @@ export function ReorderableTileGrid({
         </>
       ) : (
         <div className="grid grid-cols-2 gap-4">
-          {orderedTiles.map((tile) => (
+          {displayTiles.map((tile) => (
             <StaticTile
               key={tile.key}
               tile={tile}
