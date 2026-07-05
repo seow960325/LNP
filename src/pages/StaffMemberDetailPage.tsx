@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { LoadingState, ErrorState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { StaffDocPanel } from '../components/StaffDocPanel'
 import { EDITABLE_ROLES, TempPasswordModal } from '../components/RegisterStaffForm'
@@ -52,6 +52,7 @@ function ManagementSection({
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false)
 
   const [togglingPaid, setTogglingPaid] = useState(false)
+  const [togglingDutyRoster, setTogglingDutyRoster] = useState(false)
 
   const dirty = draftRole !== member.role || draftTitle !== (member.title ?? '')
 
@@ -120,6 +121,25 @@ function ManagementSection({
     toast.success(nextPaid ? 'Marked as paid employee' : 'Marked as non-paid employee')
   }
 
+  async function handleToggleDutyRoster(nextInRoster: boolean) {
+    setTogglingDutyRoster(true)
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ in_duty_roster: nextInRoster })
+      .eq('id', member.id)
+      .select()
+      .single()
+
+    setTogglingDutyRoster(false)
+    if (error || !data) {
+      toast.error('Could not update this member. Please try again.')
+      return
+    }
+    onChanged(data as Profile)
+    toast.success(nextInRoster ? 'Added to duty roster rotation' : 'Removed from duty roster rotation')
+  }
+
   return (
     <div className="space-y-3 rounded-xl bg-white p-5 shadow-card">
       <p className="font-semibold text-sm text-ink">Management</p>
@@ -164,6 +184,18 @@ function ManagementSection({
         />
         Paid employee
         {togglingPaid && <span className="text-2xs text-muted/70">Saving…</span>}
+      </label>
+
+      <label className="flex items-center gap-2 text-xs text-muted">
+        <input
+          type="checkbox"
+          checked={member.in_duty_roster}
+          onChange={(event) => handleToggleDutyRoster(event.target.checked)}
+          disabled={togglingDutyRoster}
+          className="h-4 w-4 rounded border-line disabled:opacity-60"
+        />
+        Assign duty roster
+        {togglingDutyRoster && <span className="text-2xs text-muted/70">Saving…</span>}
       </label>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -299,10 +331,7 @@ export function StaffMemberDetailPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/staff" />
-          <h1 className="font-bold text-2xl text-ink">Staff Member</h1>
-        </div>
+        <PageHeader title="Staff Member" fallback="/staff" />
 
         {loadState === 'loading' && <LoadingState label="Loading…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}

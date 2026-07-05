@@ -5,7 +5,7 @@ import { ChevronDown, ChevronUp, Lock, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { toKLDateISO } from '../lib/helpers'
 import { calcPayroll } from '../lib/payrollCalc'
@@ -826,13 +826,11 @@ export function PayrollPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">Payroll</h1>
-          <Link to="/payroll/opening" className="ml-auto text-xs text-accent hover:underline">
+        <PageHeader title="Payroll" fallback="/">
+          <Link to="/payroll/opening" className="text-xs text-accent hover:underline">
             Opening Balances
           </Link>
-        </div>
+        </PageHeader>
 
         <div className="flex items-center justify-between gap-2 rounded-xl bg-white p-3 shadow-card">
           <div className="flex items-center gap-4">

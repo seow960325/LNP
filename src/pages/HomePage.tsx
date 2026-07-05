@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, CalendarDays, ClipboardList, Clock, FileText, Trophy, Users, Wallet, Wifi, Receipt } from 'lucide-react'
+import { Bell, CalendarDays, ClipboardList, FileText, HandCoins, Palmtree, Trophy, Users, Wallet, Wifi, Receipt } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { firstName, toKLDateISO } from '../lib/helpers'
 import { fetchOpenTodayCount } from '../lib/boardApi'
 
 // Exactly 4 main functions per the Phase 1B nav restructure, plus Daily Ops
-// Board. Sub-features (Requests, Send/Wall Kudos, admin views) live INSIDE
-// their parent function's page now, gated by role there — not separate tiles.
+// Board. Sub-features (Send/Wall Kudos, admin views) live INSIDE their parent
+// function's page now, gated by role there — not separate tiles.
 const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'Duty Roster', to: '/roster', Icon: CalendarDays },
-  { label: 'Attendance', to: '/attendance', Icon: Clock },
   { label: 'Kudos', to: '/kudos', Icon: Trophy },
+  { label: 'Claims', to: '/claims', Icon: HandCoins },
+  { label: 'Leave', to: '/leave', Icon: Palmtree },
   { label: 'WiFi Password', to: '/wifi', Icon: Wifi },
   { label: 'Daily Ops Board', to: '/board', Icon: ClipboardList },
-  // Directory groups Staff + Students (Students tab is admin-only, hidden in TabNav)
+  // Directory groups Staff + Students (Students tab is read-only for non-admins)
   { label: 'Directory', to: '/directory', Icon: Users },
   { label: 'Documents', to: '/documents', Icon: FileText },
 ]
@@ -68,7 +69,7 @@ function NotificationBell() {
 
 export function HomePage() {
   const { profile } = useAuth()
-  // Tracks which tile is currently pressed so its icon circle can bloom —
+  // Tracks which tile is currently pressed so the whole card can bloom —
   // pointer-driven rather than :active so it fires reliably on touch even
   // though the tile also navigates on click.
   const [pressedTo, setPressedTo] = useState<string | null>(null)
@@ -95,7 +96,7 @@ export function HomePage() {
               onPointerUp={() => setPressedTo(null)}
               onPointerLeave={() => setPressedTo(null)}
               onPointerCancel={() => setPressedTo(null)}
-              className={`flex min-h-tap-lg flex-col items-center justify-center gap-3 rounded-xl bg-white p-5 text-center shadow-card hover:shadow-card-md motion-safe:hover:-translate-y-0.5 ${
+              className={`home-tile flex min-h-tap-lg flex-col items-center justify-center gap-3 rounded-xl bg-white p-5 text-center shadow-card hover:shadow-card-md motion-safe:hover:-translate-y-0.5 ${
                 pressedTo === to ? 'tile-pressed' : ''
               }`}
             >

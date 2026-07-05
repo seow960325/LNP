@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { TabNav, directoryTabs } from '../components/TabNav'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Avatar } from '../components/Avatar'
+import { AvatarCropModal } from '../components/AvatarCropModal'
+import { validateAvatarFile } from '../lib/profileApi'
 import {
   fetchStudents,
   fetchActiveFeePackages,
@@ -12,6 +16,7 @@ import {
   updateStudent,
   toggleStudentActive,
   deleteStudent,
+  uploadStudentPhoto,
 } from '../lib/billingApi'
 import type { StudentWithPackage, FeePackage } from '../lib/billingApi'
 
@@ -39,6 +44,11 @@ export function StudentsPage() {
   const [formAddress, setFormAddress] = useState('')
   const [formNotes, setFormNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const [editingPhotoUrl, setEditingPhotoUrl] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const [deleteTarget, setDeleteTarget] = useState<StudentWithPackage | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -138,6 +148,7 @@ export function StudentsPage() {
     setFormDob(student.dob || '')
     setFormAddress(student.address || '')
     setFormNotes(student.notes || '')
+    setEditingPhotoUrl(student.photo_url)
     setShowForm(true)
   }
 
@@ -151,8 +162,51 @@ export function StudentsPage() {
     setFormDob('')
     setFormAddress('')
     setFormNotes('')
+    setEditingPhotoUrl(null)
     setEditingId(null)
     setShowForm(false)
+  }
+
+  function handlePhotoFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    const validationError = validateAvatarFile(file)
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
+
+    setCropFile(file)
+  }
+
+  async function handlePhotoCropConfirm(blob: Blob) {
+    setCropFile(null)
+    if (!editingId) return
+
+    setUploadingPhoto(true)
+
+    const croppedFile = new File([blob], 'photo.jpg', { type: blob.type })
+    const { publicUrl, error } = await uploadStudentPhoto(editingId, croppedFile)
+    if (error || !publicUrl) {
+      setUploadingPhoto(false)
+      toast.error('Could not upload the photo. Please try again.')
+      return
+    }
+
+    const { error: saveError } = await updateStudent(editingId, { photo_url: publicUrl })
+    setUploadingPhoto(false)
+    if (saveError) {
+      toast.error('Photo uploaded but could not be saved. Please try again.')
+      return
+    }
+
+    setEditingPhotoUrl(publicUrl)
+    setStudents((current) =>
+      current.map((student) => (student.id === editingId ? { ...student, photo_url: publicUrl } : student))
+    )
+    toast.success('Photo updated')
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
@@ -202,10 +256,7 @@ export function StudentsPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">Students</h1>
-        </div>
+        <PageHeader title="Students" fallback="/" />
 
         <TabNav tabs={directoryTabs(isAdmin)} />
 
@@ -230,6 +281,33 @@ export function StudentsPage() {
             <p className="font-semibold text-sm text-ink">
               {editingId ? 'Edit student' : 'Add new student'}
             </p>
+
+            {editingId ? (
+              <div className="flex flex-col items-center gap-2 pb-1">
+                <div className="relative inline-block">
+                  <Avatar fullName={formName || 'Student'} avatarUrl={editingPhotoUrl} size="xl" />
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    aria-label="Change photo"
+                    className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
+                  >
+                    <Camera className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoFileChange}
+                  />
+                </div>
+                <p className="text-xs text-muted">{uploadingPhoto ? 'Uploading…' : 'Tap the camera to change photo'}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted">You can add a photo after saving this student.</p>
+            )}
 
             <div>
               <label className="text-xs text-muted">Student name *</label>
@@ -376,18 +454,33 @@ export function StudentsPage() {
               <li key={student.id} className="rounded-xl bg-white p-5 shadow-card">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-ink">{student.name}</h3>
-                      {student.parent_name && (
-                        <p className="text-sm text-muted">Guardian: {student.parent_name}</p>
-                      )}
-                      {student.parent_phone && (
-                        <p className="text-xs text-muted">Phone: {student.parent_phone}</p>
-                      )}
-                      {student.dob && (
-                        <p className="text-xs text-muted">DOB: {new Date(student.dob).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
-                      )}
-                      <p className="text-xs text-muted">Package: {getPackageName(student.package_id)}</p>
+                    <div className="flex min-w-0 flex-1 gap-3">
+                      <Avatar fullName={student.name} avatarUrl={student.photo_url} size="lg" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-bold text-ink">{student.name}</h3>
+                        {student.parent_name && (
+                          <p className="text-sm text-muted">Guardian: {student.parent_name}</p>
+                        )}
+                        {student.parent_phone && (
+                          <p className="text-xs text-muted">Phone: {student.parent_phone}</p>
+                        )}
+                        {student.parent_email && (
+                          <p className="text-xs text-muted">Email: {student.parent_email}</p>
+                        )}
+                        {student.dob && (
+                          <p className="text-xs text-muted">DOB: {new Date(student.dob).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                        )}
+                        {student.enrolled_at && (
+                          <p className="text-xs text-muted">Enrolled: {new Date(student.enrolled_at).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                        )}
+                        <p className="text-xs text-muted">Package: {getPackageName(student.package_id)}</p>
+                        {student.address && (
+                          <p className="text-xs text-muted">Address: {student.address}</p>
+                        )}
+                        {student.notes && (
+                          <p className="text-xs text-muted">Notes: {student.notes}</p>
+                        )}
+                      </div>
                     </div>
                     <div className="flex flex-col gap-2">
                       <span
@@ -446,6 +539,14 @@ export function StudentsPage() {
           />
         )}
       </div>
+
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onConfirm={handlePhotoCropConfirm}
+        />
+      )}
     </div>
   )
 }

@@ -14,11 +14,7 @@ import { KudosWallPage } from './pages/KudosWallPage'
 import { KudosSendPage } from './pages/KudosSendPage'
 import { BoardPage } from './pages/BoardPage'
 import { RosterPage } from './pages/RosterPage'
-import { AttendancePage } from './pages/AttendancePage'
-import { AttendanceAdminPage } from './pages/AttendanceAdminPage'
 import { WifiPage } from './pages/WifiPage'
-import { RequestsPage } from './pages/RequestsPage'
-import { RequestsAdminPage } from './pages/RequestsAdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { StaffDirectoryPage } from './pages/StaffDirectoryPage'
 import { StaffMemberDetailPage } from './pages/StaffMemberDetailPage'
@@ -30,6 +26,11 @@ import { StudentsPage } from './pages/StudentsPage'
 import { InvoicesPage } from './pages/InvoicesPage'
 import { NewInvoicePage } from './pages/NewInvoicePage'
 import { InvoiceDetailPage } from './pages/InvoiceDetailPage'
+import { ClaimsPage } from './pages/ClaimsPage'
+import { ClaimCategoriesPage } from './pages/ClaimCategoriesPage'
+import { LeavePage } from './pages/LeavePage'
+import { LeaveBalancesPage } from './pages/LeaveBalancesPage'
+import { RosterSettingsPage } from './pages/RosterSettingsPage'
 import { HomePage } from './pages/HomePage'
 
 // Gate: a user whose password was admin-reset is locked out of every route
@@ -88,17 +89,21 @@ export function App() {
             {/* Duty Roster — any authenticated active user, all roles (admin/super_admin can edit) */}
             <Route path="/roster" element={<RosterPage />} />
 
-            {/* Attendance self clock-in/out — any authenticated active user, all roles */}
-            <Route path="/attendance" element={<AttendancePage />} />
-
             {/* WiFi Password — any authenticated active user, all roles (admin/super_admin can edit) */}
             <Route path="/wifi" element={<WifiPage />} />
 
-            {/* Requests — any authenticated active user, all roles */}
-            <Route path="/requests" element={<RequestsPage />} />
-
             {/* Profile — any authenticated active user, edits own row only */}
             <Route path="/profile" element={<ProfilePage />} />
+
+            {/* Claims — any authenticated active user, all roles; the page
+                branches inline into an own-claims view or the full
+                admin review view (RLS enforces the actual row visibility) */}
+            <Route path="/claims" element={<ClaimsPage />} />
+
+            {/* Leave — any authenticated active user, all roles; the page
+                branches inline into an own-requests view or the full
+                admin review view (RLS enforces the actual row visibility) */}
+            <Route path="/leave" element={<LeavePage />} />
 
             {/* Directory group — redirects to its default tab. The tabbed pages
                 themselves keep their own routes/guards below. */}
@@ -116,20 +121,24 @@ export function App() {
             {/* Staff Documents — self-only, view-only for every role (gated inline via profile.role) */}
             <Route path="/documents" element={<StaffDocumentsPage />} />
 
+            {/* Students — any authenticated active user, all roles; read-only for
+                everyone except admin/super_admin (gated inline via profile.role) */}
+            <Route path="/students" element={<StudentsPage />} />
+
             {/* Admin routes: super_admin + admin */}
             <Route element={<RequireRole allow={['super_admin', 'admin']} />}>
               <Route path="/admin" element={<AdminHomePage />} />
-              <Route path="/attendance/admin" element={<AttendanceAdminPage />} />
-              <Route path="/requests/admin" element={<RequestsAdminPage />} />
               <Route path="/payroll" element={<PayrollPage />} />
               <Route path="/payroll/opening" element={<OpeningBalancePage />} />
               {/* Billing group — redirects to its default tab (admin-gated like its children) */}
               <Route path="/billing" element={<Navigate to="/invoices" replace />} />
               <Route path="/packages" element={<PackagesPage />} />
-              <Route path="/students" element={<StudentsPage />} />
               <Route path="/invoices" element={<InvoicesPage />} />
               <Route path="/invoices/new" element={<NewInvoicePage />} />
               <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+              <Route path="/claims/categories" element={<ClaimCategoriesPage />} />
+              <Route path="/roster/settings" element={<RosterSettingsPage />} />
+              <Route path="/leave/balances" element={<LeaveBalancesPage />} />
             </Route>
 
             {/* Parent — Phase 2 stub */}

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { TabNav, directoryTabs } from '../components/TabNav'
 import { RegisterStaffForm, TempPasswordModal } from '../components/RegisterStaffForm'
 import { fetchStaffDirectory } from '../lib/profileApi'
@@ -55,10 +55,7 @@ export function StaffDirectoryPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">Staff Directory</h1>
-        </div>
+        <PageHeader title="Staff Directory" fallback="/" />
 
         <TabNav tabs={directoryTabs(isAdmin)} />
 

@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { supabase } from '../lib/supabaseClient'
 import { formatDate, toKLDateISO, shiftDateISO, sortBoardItems } from '../lib/helpers'
@@ -401,10 +401,7 @@ export function BoardPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">Daily Ops Board</h1>
-        </div>
+        <PageHeader title="Daily Ops Board" fallback="/" />
 
         <div className="flex items-center justify-between rounded-xl bg-white p-3 shadow-card">
           <button

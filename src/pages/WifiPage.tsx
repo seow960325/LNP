@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { buildWifiQrValue } from '../lib/helpers'
 import { copyToClipboard } from '../lib/clipboard'
 import { getWifi, updateWifi } from '../lib/settingsApi'
@@ -100,10 +100,7 @@ export function WifiPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">WiFi Password</h1>
-        </div>
+        <PageHeader title="WiFi Password" fallback="/" />
 
         {loadState === 'loading' && <LoadingState label="Loading WiFi details…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { toKLDateISO } from '../lib/helpers'
 import { fetchActiveStaff, fetchYtdOpening, upsertYtdOpening } from '../lib/payrollApi'
 import type { PayrollStaffMember, YtdOpeningBalance } from '../lib/payrollApi'
@@ -143,10 +143,7 @@ export function OpeningBalancePage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/payroll" />
-          <h1 className="font-bold text-2xl text-ink">Opening Balances</h1>
-        </div>
+        <PageHeader title="Opening Balances" fallback="/payroll" />
 
         <p className="rounded-xl bg-accent-soft/60 px-4 py-3 text-xs text-ink/80">
           Enter accumulated Jan–[month before go-live] totals per employee. Used only for

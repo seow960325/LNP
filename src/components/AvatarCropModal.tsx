@@ -109,13 +109,29 @@ export function AvatarCropModal({ file, onCancel, onConfirm }: AvatarCropModalPr
   }
 
   async function handleConfirm() {
-    const img = imgRef.current
-    if (!img || !naturalSize) return
+    if (!objectUrl || !naturalSize) return
     setExporting(true)
 
-    const sourceX = -transform.x / effectiveScale
-    const sourceY = -transform.y / effectiveScale
-    const sourceSize = FRAME_SIZE / effectiveScale
+    // Draw from a fresh decode of the original file in NATURAL pixel space,
+    // never from the rendered <img> element — the element's displayed box
+    // doesn't correspond to frame-space math, so sampling it drifts from
+    // the on-screen preview.
+    const source = new Image()
+    source.src = objectUrl
+    try {
+      await source.decode()
+    } catch {
+      setExporting(false)
+      return
+    }
+
+    // frame px -> natural px
+    const naturalPerFramePx = 1 / effectiveScale
+    // Clamp against natural bounds so rounding at max zoom / edges never
+    // samples outside the image.
+    const sSize = Math.min(FRAME_SIZE * naturalPerFramePx, naturalSize.w, naturalSize.h)
+    const sx = clamp(-transform.x * naturalPerFramePx, 0, naturalSize.w - sSize)
+    const sy = clamp(-transform.y * naturalPerFramePx, 0, naturalSize.h - sSize)
 
     const canvas = document.createElement('canvas')
     canvas.width = OUTPUT_SIZE
@@ -125,7 +141,7 @@ export function AvatarCropModal({ file, onCancel, onConfirm }: AvatarCropModalPr
       setExporting(false)
       return
     }
-    ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE)
+    ctx.drawImage(source, sx, sy, sSize, sSize, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE)
 
     canvas.toBlob(
       (blob) => {

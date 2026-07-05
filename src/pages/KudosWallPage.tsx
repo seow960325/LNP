@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { KudosValueBadge } from '../components/KudosValueCard'
 import { Avatar } from '../components/Avatar'
 import { LoadingState, ErrorState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { supabase } from '../lib/supabaseClient'
 import { formatDate, toKLDateISO } from '../lib/helpers'
@@ -264,10 +264,7 @@ export function KudosWallPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="max-w-lg mx-auto space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">Kudos</h1>
-        </div>
+        <PageHeader title="Kudos" fallback="/" />
 
         <div className="flex gap-2 rounded-xl bg-white p-1.5 shadow-card">
           <button

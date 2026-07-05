@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
   fetchInvoice,
@@ -221,10 +221,7 @@ export function InvoiceDetailPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-2xl space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/invoices" />
-          <h1 className="font-bold text-2xl text-ink">Invoice</h1>
-        </div>
+        <PageHeader title="Invoice" fallback="/invoices" />
 
         {loadState === 'loading' && <LoadingState label="Loading invoice…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}

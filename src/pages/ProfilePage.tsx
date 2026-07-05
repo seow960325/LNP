@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { AvatarCropModal } from '../components/AvatarCropModal'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { supabase } from '../lib/supabaseClient'
 import { validateAvatarFile, uploadAvatar, updateOwnProfile } from '../lib/profileApi'
 
@@ -108,10 +108,7 @@ export function ProfilePage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">My Profile</h1>
-        </div>
+        <PageHeader title="My Profile" fallback="/" />
 
         <div className="flex flex-col items-center gap-3 rounded-xl bg-white p-8 text-center shadow-card">
           <div className="relative inline-block">

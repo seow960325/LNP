@@ -1,5 +1,13 @@
 // src/lib/leaveDays.ts — pure helpers, no imports, no side effects
 
+// Parses a YYYY-MM-DD string (as produced by a <input type="date">) into a
+// local calendar Date, matching how countLeaveDays compares dates — avoids
+// the UTC-midnight shift `new Date(iso)` would introduce.
+export function parseISODateLocal(iso: string): Date {
+  const [year, month, day] = iso.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
 function toCalendarDate(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
@@ -24,9 +32,10 @@ export function countLeaveDays(
   let count = 0
   const cursor = new Date(start)
   while (cursor.getTime() <= end.getTime()) {
-    const isSunday = cursor.getDay() === 0
+    const day = cursor.getDay()
+    const isWeekend = day === 0 || day === 6
     const isHoliday = holidayDates.some((h) => h.getTime() === cursor.getTime())
-    if (!isSunday && !isHoliday) count++
+    if (!isWeekend && !isHoliday) count++
     cursor.setDate(cursor.getDate() + 1)
   }
 

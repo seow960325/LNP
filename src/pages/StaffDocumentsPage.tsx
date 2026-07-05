@@ -1,5 +1,5 @@
 import { useAuth } from '../contexts/AuthContext'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { StaffDocPanel } from '../components/StaffDocPanel'
 
 // Self-service view — every user sees only their own documents here, and
@@ -13,10 +13,7 @@ export function StaffDocumentsPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">Documents</h1>
-        </div>
+        <PageHeader title="Documents" fallback="/" />
 
         <StaffDocPanel ownerId={profile.id} canManage={false} />
       </div>

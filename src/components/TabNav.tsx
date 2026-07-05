@@ -10,21 +10,54 @@ export interface TabNavItem {
 // its own route, RequireRole guard, and data logic untouched. Deep routes
 // (/staff/:id, /invoices/new, /invoices/:id) bypass the tab bar entirely.
 
-// Students is admin/super_admin-only: hide the tab (not just disable) for
-// everyone else, mirroring the RequireRole guard on /students.
-export function directoryTabs(isAdmin: boolean): TabNavItem[] {
-  return isAdmin
-    ? [
-        { label: 'Staff', to: '/staff' },
-        { label: 'Students', to: '/students' },
-      ]
-    : [{ label: 'Staff', to: '/staff' }]
+// Both Staff and Students are visible to every role — Students is read-only
+// for non-admins (gated inline on StudentsPage), not hidden. `_isAdmin` is
+// kept unused so the signature still matches the other per-section tab
+// builders below, which do hide admin-only tabs.
+export function directoryTabs(_isAdmin: boolean): TabNavItem[] {
+  return [
+    { label: 'Staff', to: '/staff' },
+    { label: 'Students', to: '/students' },
+  ]
 }
 
 export const BILLING_TABS: TabNavItem[] = [
   { label: 'Invoices', to: '/invoices' },
   { label: 'Packages', to: '/packages' },
 ]
+
+// Categories management is admin/super_admin-only: hide the tab (not just
+// disable) for everyone else, mirroring directoryTabs above.
+export function claimsTabs(isAdmin: boolean): TabNavItem[] {
+  return isAdmin
+    ? [
+        { label: 'Claims', to: '/claims' },
+        { label: 'Categories', to: '/claims/categories' },
+      ]
+    : [{ label: 'Claims', to: '/claims' }]
+}
+
+// Duty Config is admin/super_admin-only: hide the tab (not just disable)
+// for everyone else, mirroring directoryTabs/claimsTabs above.
+export function rosterTabs(isAdmin: boolean): TabNavItem[] {
+  return isAdmin
+    ? [
+        { label: 'Roster', to: '/roster' },
+        { label: 'Duty Config', to: '/roster/settings' },
+      ]
+    : [{ label: 'Roster', to: '/roster' }]
+}
+
+// Balances management is admin/super_admin-only: hide the tab (not just
+// disable) for everyone else, mirroring directoryTabs/claimsTabs above.
+export function leaveTabs(isAdmin: boolean): TabNavItem[] {
+  return isAdmin
+    ? [
+        { label: 'Leave', to: '/leave' },
+        { label: 'Balances', to: '/leave/balances' },
+      ]
+    : [{ label: 'Leave', to: '/leave' }]
+}
 
 export function TabNav({ tabs }: { tabs: TabNavItem[] }) {
   return (

@@ -23,6 +23,7 @@ export interface Student {
   address: string | null
   notes: string | null
   active: boolean
+  photo_url: string | null
   created_at: string
 }
 
@@ -31,7 +32,23 @@ export interface StudentWithPackage extends Student {
 }
 
 const PACKAGE_COLUMNS = 'id, center_id, name, default_price, description, active, created_at'
-const STUDENT_COLUMNS = 'id, center_id, name, parent_name, parent_phone, parent_email, package_id, enrolled_at, dob, address, notes, active, created_at'
+const STUDENT_COLUMNS = 'id, center_id, name, parent_name, parent_phone, parent_email, package_id, enrolled_at, dob, address, notes, active, photo_url, created_at'
+
+// Fixed path per student (no extension, contentType carries the real MIME
+// type) so re-uploading always overwrites the same object via upsert,
+// instead of leaving old files orphaned in the bucket under a different
+// extension. Mirrors uploadAvatar in profileApi.ts.
+export async function uploadStudentPhoto(studentId: string, file: File) {
+  const path = `${studentId}/photo`
+  const { error: uploadError } = await supabase.storage
+    .from('student-photos')
+    .upload(path, file, { upsert: true, contentType: file.type })
+
+  if (uploadError) return { publicUrl: null, error: uploadError }
+
+  const { data } = supabase.storage.from('student-photos').getPublicUrl(path)
+  return { publicUrl: data.publicUrl, error: null }
+}
 
 export function fetchFeePackages(centerId: string) {
   return supabase
@@ -99,6 +116,7 @@ export interface CreateStudentPayload {
   dob?: string
   address?: string
   notes?: string
+  photo_url?: string | null
 }
 
 export function createStudent(centerId: string, payload: CreateStudentPayload) {
@@ -119,6 +137,7 @@ export interface UpdateStudentPatch {
   address?: string
   notes?: string
   active?: boolean
+  photo_url?: string | null
 }
 
 export function updateStudent(id: string, patch: UpdateStudentPatch) {

@@ -98,51 +98,68 @@
 }
 
 @layer components {
-  /* Home tile press effect: the amber icon circle blooms and scales on
-     press, the white card stays put. Driven by :active/pointer classes
-     (not click) so it plays even though the tile also navigates. */
-  .tile-icon-circle {
+  /* Home tile press effect: the WHOLE card blooms with a soft warm gradient
+     on press — a gentle white-to-amber wash plus a radial accent glow across
+     the full tile surface. Driven by pointer classes (not :active/click) so
+     it plays reliably on touch even though the tile also navigates. */
+  .home-tile {
     position: relative;
-    transition: transform 180ms cubic-bezier(0.34, 1.4, 0.64, 1),
-      background-color 180ms cubic-bezier(0.34, 1.4, 0.64, 1);
+    overflow: hidden;
+    transition: background-color 180ms ease, box-shadow 180ms ease;
   }
 
-  .tile-icon-circle::before {
+  /* Soft warm gradient wash over the whole card, faded in on press. Lives on
+     a pseudo-element (rather than swapping the background) so it can
+     cross-fade smoothly over the white card. */
+  .home-tile::before {
     content: '';
     position: absolute;
-    inset: -5%;
-    border-radius: 9999px;
-    background: radial-gradient(circle, rgba(217, 119, 6, 0.3) 0%, rgba(217, 119, 6, 0) 70%);
+    inset: 0;
+    background:
+      radial-gradient(circle at 50% 42%, rgba(217, 119, 6, 0.14) 0%, rgba(217, 119, 6, 0) 72%),
+      linear-gradient(160deg, #fffbeb 0%, #fef3c7 100%);
     opacity: 0;
-    transform: scale(0.8);
-    transition: opacity 180ms cubic-bezier(0.34, 1.4, 0.64, 1),
-      transform 180ms cubic-bezier(0.34, 1.4, 0.64, 1);
+    transition: opacity 180ms ease;
     pointer-events: none;
   }
 
+  /* Keep icon + label painted above the bloom layer. */
+  .home-tile > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .home-tile.tile-pressed {
+    box-shadow: 0 4px 14px rgba(217, 119, 6, 0.18);
+  }
+
+  .home-tile.tile-pressed::before {
+    opacity: 1;
+  }
+
+  /* Icon circle stays static on press — just a very slight brighten so it
+     doesn't read as a dead spot inside the glowing card. */
+  .tile-icon-circle {
+    transition: background-color 180ms ease;
+  }
+
   .tile-pressed .tile-icon-circle {
-    transform: scale(1.1);
     background-color: #fde9af;
   }
 
-  .tile-pressed .tile-icon-circle::before {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .tile-icon-circle,
-    .tile-icon-circle::before {
+    .home-tile,
+    .home-tile::before,
+    .tile-icon-circle {
       transition: none;
     }
 
-    .tile-pressed .tile-icon-circle {
-      transform: none;
+    .home-tile.tile-pressed {
+      box-shadow: none;
     }
 
-    .tile-pressed .tile-icon-circle::before {
+    .home-tile.tile-pressed::before {
       opacity: 0;
-      transform: scale(0.8);
     }
   }
 }

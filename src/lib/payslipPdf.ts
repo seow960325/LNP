@@ -3,6 +3,7 @@ import type { Payslip, PayrollSettings } from './payrollApi'
 import {
   COLORS,
   formatCurrency,
+  formatDate,
   pdfStyles,
   buildCompanyHeader,
   buildAccentLine,
@@ -34,17 +35,156 @@ export type PayslipPdfData = Payslip & {
   ytd_socso_employee: number
 }
 
-function amountRow(label: string, amount: number, opts?: { negative?: boolean; bold?: boolean }) {
-  const text = `${opts?.negative ? '- ' : ''}${formatMoney(amount)}`
-  return opts?.bold
-    ? [{ text: label, bold: true }, { text, bold: true, alignment: 'right' as const }]
-    : [label, { text, alignment: 'right' as const }]
+interface StatRow {
+  label: string
+  amount: number
+}
+
+// Builds the accent-headered EARNINGS/DEDUCTIONS tables — same visual
+// language as the invoice's line-items table (accent header row, zebra
+// stripes, accent-bordered total row), but the closing row is a bold
+// light-background subtotal rather than the invoice's filled accent total,
+// per the standard payslip convention of keeping Gross Pay/Total Deductions
+// visually distinct from the final Net Pay band.
+function buildStatTable(headerLabel: string, rows: StatRow[], subtotalLabel: string, subtotalAmount: number) {
+  const body = [
+    [
+      {
+        text: headerLabel,
+        fontSize: 8,
+        bold: true,
+        color: '#ffffff',
+        textCase: 'uppercase' as const,
+        letterSpacing: 0.5,
+      },
+      {
+        text: 'AMOUNT (RM)',
+        fontSize: 8,
+        bold: true,
+        color: '#ffffff',
+        textCase: 'uppercase' as const,
+        letterSpacing: 0.5,
+        alignment: 'right' as const,
+      },
+    ],
+    ...rows.map((row) => [
+      { text: row.label, fontSize: 10, color: COLORS.charcoal },
+      { text: formatMoney(row.amount), fontSize: 10, color: COLORS.charcoal, alignment: 'right' as const },
+    ]),
+    [
+      { text: subtotalLabel, fontSize: 10, bold: true, color: COLORS.charcoal },
+      { text: formatMoney(subtotalAmount), fontSize: 10, bold: true, color: COLORS.charcoal, alignment: 'right' as const },
+    ],
+  ]
+  const lastIndex = body.length - 1
+
+  return {
+    table: { widths: ['*', 120], headerRows: 1, body },
+    layout: {
+      hLineWidth: (i: number) => (i === 1 || i === lastIndex ? 0 : 0.5),
+      hLineColor: (i: number) => (i === 0 || i === lastIndex ? COLORS.accent : COLORS.lightGray),
+      vLineWidth: () => 0,
+      paddingLeft: () => 12,
+      paddingRight: () => 12,
+      paddingTop: () => 6,
+      paddingBottom: () => 6,
+      fillColor: (i: number) =>
+        i === 0 ? COLORS.accent : i === lastIndex ? COLORS.bgGray : i % 2 === 1 ? COLORS.bgGray : '#ffffff',
+    },
+    margin: [0, 0, 0, 10] as [number, number, number, number],
+  }
+}
+
+// Small muted boxed section — mirrors the invoice's "PAYMENT & NOTES"
+// bordered box (border on the cell, not the table layout).
+function buildBoxedSection(title: string, subtitle: string, rows: StatRow[]) {
+  return {
+    table: {
+      widths: ['*'],
+      dontBreakRows: true,
+      body: [
+        [
+          {
+            stack: [
+              {
+                text: title,
+                fontSize: 8,
+                bold: true,
+                color: COLORS.mutedGray,
+                textCase: 'uppercase' as const,
+                letterSpacing: 1,
+                margin: [0, 0, 0, 4] as [number, number, number, number],
+              },
+              {
+                text: subtitle,
+                fontSize: 8,
+                color: COLORS.mutedGray,
+                margin: [0, 0, 0, 8] as [number, number, number, number],
+              },
+              {
+                table: {
+                  widths: ['*', 120],
+                  body: rows.map((row) => [
+                    { text: row.label, fontSize: 9, color: COLORS.warmGray },
+                    { text: formatMoney(row.amount), fontSize: 9, color: COLORS.warmGray, alignment: 'right' as const },
+                  ]),
+                },
+                layout: {
+                  hLineWidth: () => 0,
+                  vLineWidth: () => 0,
+                  paddingLeft: () => 0,
+                  paddingRight: () => 0,
+                  paddingTop: () => 3,
+                  paddingBottom: () => 3,
+                },
+              },
+            ],
+          },
+        ],
+      ],
+    },
+    // A single-cell table, so the layout's own line functions (rather than
+    // the cell's `border` property, which a custom hLineWidth/vLineWidth
+    // silently overrides in this pdfmake version) draw the box outline.
+    layout: {
+      hLineWidth: () => 1,
+      vLineWidth: () => 1,
+      hLineColor: () => COLORS.lightGray,
+      vLineColor: () => COLORS.lightGray,
+      paddingLeft: () => 10,
+      paddingRight: () => 10,
+      paddingTop: () => 6,
+      paddingBottom: () => 8,
+    },
+    margin: [0, 0, 0, 10] as [number, number, number, number],
+  }
+}
+
+// Meta panel row — mirrors the invoice's ISSUE DATE/DUE DATE/STATUS cells.
+function buildMetaRow(label: string, value: string) {
+  return [
+    {
+      stack: [
+        {
+          text: label,
+          fontSize: 7,
+          bold: true,
+          color: COLORS.mutedGray,
+          textCase: 'uppercase' as const,
+          letterSpacing: 0.5,
+          margin: [0, 0, 0, 3] as [number, number, number, number],
+        },
+        { text: value, fontSize: 10, color: COLORS.charcoal },
+      ],
+      margin: [10, 8, 10, 8] as [number, number, number, number],
+    },
+  ]
 }
 
 export async function generatePayslipPdf(
   payslip: PayslipPdfData,
   employee: PayslipPdfEmployee,
-  _settings: PayrollSettings
+  settings: PayrollSettings
 ): Promise<Blob> {
   const logoUrl = await getLogoDataUrl()
   const periodLabel = `${MONTH_LABELS[payslip.month - 1]} ${payslip.year}`
@@ -54,66 +194,109 @@ export async function generatePayslipPdf(
     year: 'numeric',
   })
 
+  // Presentational sums for the standard payslip layout, where Unpaid Leave
+  // reads as a deduction rather than netted into Gross Pay. These are pure
+  // display totals of already-stored fields (never written back or used in
+  // place of payslip.net_pay), and are algebraically guaranteed to reconcile:
+  //   displayedGrossPay - displayedTotalDeductions
+  //     = (base + allowance + overtime + bonus) - (epf + socso + eis + pcb + unpaid)
+  //     = (base + allowance + overtime + bonus - unpaid) - (epf + socso + eis + pcb)
+  //     = payslip.gross_pay - payslip.total_deductions
+  //     = payslip.net_pay
+  const displayedGrossPay = payslip.base_salary + payslip.allowance + payslip.overtime + payslip.bonus
+  const displayedTotalDeductions =
+    payslip.epf_employee + payslip.socso_employee + payslip.eis_employee + payslip.pcb + payslip.unpaid_leave_deduction
+
+  const earningsRows: StatRow[] = [{ label: 'Basic Salary', amount: payslip.base_salary }]
+  if (payslip.allowance > 0) earningsRows.push({ label: 'Allowance', amount: payslip.allowance })
+  if (payslip.overtime > 0) earningsRows.push({ label: 'Overtime', amount: payslip.overtime })
+  if (payslip.bonus > 0) earningsRows.push({ label: 'Bonus', amount: payslip.bonus })
+
+  const deductionRows: StatRow[] = [
+    { label: `EPF (Employee ${settings.epf_rate_employee}%)`, amount: payslip.epf_employee },
+    { label: 'SOCSO (Employee)', amount: payslip.socso_employee },
+    { label: 'EIS (Employee)', amount: payslip.eis_employee },
+    { label: 'PCB (MTD Tax)', amount: payslip.pcb },
+  ]
+  if (payslip.unpaid_leave_deduction > 0) {
+    deductionRows.push({ label: 'Unpaid Leave', amount: payslip.unpaid_leave_deduction })
+  }
+
   const docDefinition = {
     pageSize: 'A4' as const,
     pageOrientation: 'portrait' as const,
-    pageMargins: [48, 48, 48, 48] as [number, number, number, number],
+    pageMargins: [40, 40, 40, 40] as [number, number, number, number],
     content: [
-      // Header: Company name + details with logo
+      // Header with logo and company info
       {
         ...buildCompanyHeader(logoUrl || undefined),
-        margin: [0, 0, 0, 24] as [number, number, number, number],
+        margin: [0, 0, 0, 12] as [number, number, number, number],
       },
 
-      // Horizontal accent line
-      buildAccentLine(20),
+      buildAccentLine(14),
 
-      // Payslip title + period in two columns
+      // Title + top-right meta panel
       {
         columns: [
           {
             stack: [
               { text: 'PAYSLIP', style: 'docTitle' },
-              { text: periodLabel, style: 'docSubtitle', margin: [0, 2, 0, 0] as [number, number, number, number] },
-            ],
-            width: '50%',
-          },
-          {
-            stack: [
               {
-                text: 'Employee',
-                style: 'metaLabel',
+                text: `For the month of ${periodLabel}`,
+                style: 'docSubtitle',
+                margin: [0, 4, 0, 0] as [number, number, number, number],
               },
-              { text: employee.full_name, style: 'metaValue', margin: [0, 1, 0, 0] as [number, number, number, number] },
-              {
-                text: 'Title',
-                style: 'metaLabel',
-                margin: [0, 8, 0, 0] as [number, number, number, number],
-              },
-              { text: employee.title || 'Staff', style: 'metaValue', margin: [0, 1, 0, 0] as [number, number, number, number] },
             ],
-            alignment: 'right' as const,
+            width: '55%',
           },
-        ],
-        margin: [0, 0, 0, 24] as [number, number, number, number],
-      },
-
-      // Earnings section
-      {
-        stack: [
-          { text: 'EARNINGS', style: 'sectionLabel' },
           {
             table: {
-              widths: ['*', 100],
+              widths: ['*'],
               body: [
-                amountRow('Base Salary', payslip.base_salary),
-                amountRow('Allowance', payslip.allowance),
-                amountRow('Overtime', payslip.overtime),
-                amountRow('Bonus', payslip.bonus),
-                amountRow('Unpaid Leave', payslip.unpaid_leave_deduction, { negative: true }),
+                buildMetaRow('PAY PERIOD', periodLabel),
+                buildMetaRow('PAY DATE', payslip.finalized_at ? formatDate(payslip.finalized_at) : '—'),
+                buildMetaRow('PAYMENT METHOD', '—'),
+              ],
+            },
+            layout: {
+              hLineWidth: () => 1,
+              hLineColor: () => COLORS.lightGray,
+              vLineWidth: () => 0,
+              paddingLeft: () => 0,
+              paddingRight: () => 0,
+              paddingTop: () => 0,
+              paddingBottom: () => 0,
+            },
+            fillColor: COLORS.bgGray,
+            width: '45%',
+          },
+        ],
+        margin: [0, 0, 0, 14] as [number, number, number, number],
+      },
+
+      // Employee particulars — aligned label:value, mirrors invoice BILL TO
+      {
+        stack: [
+          {
+            text: 'EMPLOYEE PARTICULARS',
+            fontSize: 8,
+            bold: true,
+            color: COLORS.mutedGray,
+            textCase: 'uppercase' as const,
+            letterSpacing: 1,
+            margin: [0, 0, 0, 8] as [number, number, number, number],
+          },
+          {
+            table: {
+              widths: [90, '*'],
+              body: [
                 [
-                  { text: 'Gross Pay', fontSize: 10, bold: true, color: COLORS.charcoal, border: [false, true, false, false], borderColor: COLORS.lightGray },
-                  { text: formatMoney(payslip.gross_pay), fontSize: 10, bold: true, alignment: 'right' as const, color: COLORS.charcoal, border: [false, true, false, false], borderColor: COLORS.lightGray },
+                  { text: 'Employee:', fontSize: 8, bold: true, color: COLORS.mutedGray },
+                  { text: employee.full_name, fontSize: 10, color: COLORS.charcoal },
+                ],
+                [
+                  { text: 'Designation:', fontSize: 8, bold: true, color: COLORS.mutedGray },
+                  { text: employee.title || 'Staff', fontSize: 10, color: COLORS.charcoal },
                 ],
               ],
             },
@@ -122,129 +305,59 @@ export async function generatePayslipPdf(
               vLineWidth: () => 0,
               paddingLeft: () => 0,
               paddingRight: () => 0,
-              paddingTop: () => 6,
-              paddingBottom: () => 6,
+              paddingTop: () => 4,
+              paddingBottom: () => 4,
             },
           },
         ],
-        margin: [0, 0, 0, 20] as [number, number, number, number],
+        margin: [0, 0, 0, 14] as [number, number, number, number],
       },
 
-      // Deductions section
-      {
-        stack: [
-          { text: 'DEDUCTIONS', style: 'sectionLabel' },
-          {
-            table: {
-              widths: ['*', 100],
-              body: [
-                amountRow('EPF (Employee)', payslip.epf_employee),
-                amountRow('SOCSO (Employee)', payslip.socso_employee),
-                amountRow('EIS (Employee)', payslip.eis_employee),
-                amountRow('PCB', payslip.pcb),
-                [
-                  { text: 'Total Deductions', fontSize: 10, bold: true, color: COLORS.charcoal, border: [false, true, false, false], borderColor: COLORS.lightGray },
-                  { text: formatMoney(payslip.total_deductions), fontSize: 10, bold: true, alignment: 'right' as const, color: COLORS.charcoal, border: [false, true, false, false], borderColor: COLORS.lightGray },
-                ],
-              ],
-            },
-            layout: {
-              hLineWidth: () => 0,
-              vLineWidth: () => 0,
-              paddingLeft: () => 0,
-              paddingRight: () => 0,
-              paddingTop: () => 6,
-              paddingBottom: () => 6,
-            },
-          },
-        ],
-        margin: [0, 0, 0, 20] as [number, number, number, number],
-      },
+      // Earnings
+      buildStatTable('EARNINGS', earningsRows, 'Gross Pay', displayedGrossPay),
 
-      // Net Pay - accent highlighted
+      // Deductions
+      buildStatTable('DEDUCTIONS', deductionRows, 'Total Deductions', displayedTotalDeductions),
+
+      // Net Pay — full-width accent band, exactly like the invoice TOTAL row
       {
         table: {
-          widths: ['*', 100],
+          widths: ['*', 120],
           body: [
             [
-              { text: 'NET PAY', fontSize: 11, bold: true, color: COLORS.accent, border: [false, false, false, false] },
-              { text: formatMoney(payslip.net_pay), fontSize: 11, bold: true, alignment: 'right' as const, color: COLORS.accent, border: [false, false, false, false] },
-            ],
-            [
-              { border: [false, true, false, false], borderColor: COLORS.accent, text: '' },
-              { border: [false, true, false, false], borderColor: COLORS.accent, text: '' },
+              { text: 'NET PAY', fontSize: 11, bold: true, color: '#ffffff' },
+              { text: formatMoney(payslip.net_pay), fontSize: 11, bold: true, color: '#ffffff', alignment: 'right' as const },
             ],
           ],
         },
         layout: {
           hLineWidth: () => 0,
           vLineWidth: () => 0,
-          paddingLeft: () => 0,
-          paddingRight: () => 0,
-          paddingTop: () => 6,
-          paddingBottom: () => 6,
+          paddingLeft: () => 12,
+          paddingRight: () => 12,
+          paddingTop: () => 10,
+          paddingBottom: () => 10,
+          fillColor: () => COLORS.accent,
         },
-        margin: [0, 0, 0, 24] as [number, number, number, number],
+        margin: [0, 0, 0, 14] as [number, number, number, number],
       },
 
-      // Employer contributions section
-      {
-        stack: [
-          { text: 'EMPLOYER CONTRIBUTIONS', style: 'sectionLabel' },
-          {
-            text: '(not deducted from salary)',
-            fontSize: 8,
-            color: COLORS.mutedGray,
-            margin: [0, 2, 0, 8] as [number, number, number, number],
-          },
-          {
-            table: {
-              widths: ['*', 100],
-              body: [
-                amountRow('EPF (Employer)', payslip.epf_employer),
-                amountRow('SOCSO (Employer)', payslip.socso_employer),
-                amountRow('EIS (Employer)', payslip.eis_employer),
-              ],
-            },
-            layout: {
-              hLineWidth: () => 0,
-              vLineWidth: () => 0,
-              paddingLeft: () => 0,
-              paddingRight: () => 0,
-              paddingTop: () => 6,
-              paddingBottom: () => 6,
-            },
-          },
-        ],
-        margin: [0, 0, 0, 20] as [number, number, number, number],
-      },
+      // Employer statutory contributions — informational, visually distinct
+      // from the employee deductions above so it's never mistaken for
+      // take-home math.
+      buildBoxedSection('Employer Contributions (not deducted from employee)', 'Paid by the company on top of net pay.', [
+        { label: `EPF (Employer ${settings.epf_rate_employer_high}%/${settings.epf_rate_employer}%)`, amount: payslip.epf_employer },
+        { label: 'SOCSO (Employer)', amount: payslip.socso_employer },
+        { label: 'EIS (Employer)', amount: payslip.eis_employer },
+      ]),
 
-      // Year-to-date section
-      {
-        stack: [
-          { text: 'YEAR-TO-DATE', style: 'sectionLabel' },
-          {
-            table: {
-              widths: ['*', 100],
-              body: [
-                amountRow('YTD Gross', payslip.ytd_gross),
-                amountRow('YTD PCB', payslip.ytd_pcb),
-                amountRow('YTD EPF (Employee)', payslip.ytd_epf_employee),
-                amountRow('YTD SOCSO (Employee)', payslip.ytd_socso_employee),
-              ],
-            },
-            layout: {
-              hLineWidth: () => 0,
-              vLineWidth: () => 0,
-              paddingLeft: () => 0,
-              paddingRight: () => 0,
-              paddingTop: () => 6,
-              paddingBottom: () => 6,
-            },
-          },
-        ],
-        margin: [0, 0, 0, 24] as [number, number, number, number],
-      },
+      // Year-to-date summary
+      buildBoxedSection('Year-to-Date Summary', `Cumulative for ${payslip.year}, including this payslip.`, [
+        { label: 'YTD Gross', amount: payslip.ytd_gross },
+        { label: 'YTD EPF (Employee)', amount: payslip.ytd_epf_employee },
+        { label: 'YTD SOCSO (Employee)', amount: payslip.ytd_socso_employee },
+        { label: 'YTD PCB', amount: payslip.ytd_pcb },
+      ]),
 
       // Footer
       ...buildFooter([

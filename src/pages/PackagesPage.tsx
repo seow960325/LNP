@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { TabNav, BILLING_TABS } from '../components/TabNav'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { fetchFeePackages, createFeePackage, updateFeePackage, toggleFeePackageActive, deleteFeePackage, fetchStudents } from '../lib/billingApi'
@@ -164,10 +164,7 @@ export function PackagesPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">Fee Packages</h1>
-        </div>
+        <PageHeader title="Fee Packages" fallback="/" />
 
         <TabNav tabs={BILLING_TABS} />
 

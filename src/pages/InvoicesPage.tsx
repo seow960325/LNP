@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
-import { BackButton } from '../components/BackButton'
+import { PageHeader } from '../components/PageHeader'
 import { TabNav, BILLING_TABS } from '../components/TabNav'
 import { fetchInvoices } from '../lib/billingApi'
 import type { InvoiceWithDetails } from '../lib/billingApi'
@@ -58,10 +58,7 @@ export function InvoicesPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-4xl space-y-4">
-        <div className="flex items-center gap-2">
-          <BackButton fallback="/" />
-          <h1 className="font-bold text-2xl text-ink">Invoices</h1>
-        </div>
+        <PageHeader title="Invoices" fallback="/" />
 
         <TabNav tabs={BILLING_TABS} />
 
