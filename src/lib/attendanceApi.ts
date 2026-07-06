@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { toKLDateISO } from './helpers'
+import { toKLDateISO, extractStoragePath } from './helpers'
 
 export interface ClassRow {
   id: string
@@ -249,8 +249,21 @@ export async function uploadAttendancePhoto(studentId: string, kind: AttendanceP
     .from('attendance-photos')
     .upload(path, file, { upsert: true, contentType: file.type })
 
-  if (uploadError) return { publicUrl: null, error: uploadError }
+  if (uploadError) return { signedUrl: null, error: uploadError }
 
-  const { data } = supabase.storage.from('attendance-photos').getPublicUrl(path)
-  return { publicUrl: data.publicUrl, error: null }
+  const { data, error } = await supabase.storage.from('attendance-photos').createSignedUrl(path, 3600)
+  if (error) return { signedUrl: null, error }
+  return { signedUrl: data?.signedUrl ?? null, error: null }
+}
+
+// attendance-photos is a private bucket — the *_photo_url columns on
+// student_attendance hold whatever URL (public or signed) was current at
+// write time, which may now be stale or expired. Re-derive the storage path
+// from it and mint a fresh signed URL for display.
+export async function getAttendancePhotoSignedUrl(storedUrl: string | null): Promise<string | null> {
+  if (!storedUrl) return null
+  const path = extractStoragePath(storedUrl, 'attendance-photos') ?? storedUrl
+  const { data, error } = await supabase.storage.from('attendance-photos').createSignedUrl(path, 3600)
+  if (error) return null
+  return data?.signedUrl ?? null
 }

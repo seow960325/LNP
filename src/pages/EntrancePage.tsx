@@ -11,11 +11,13 @@ import {
   fetchActiveConditions,
   fetchStudentsByClass,
   fetchTodayAttendance,
+  getAttendancePhotoSignedUrl,
   uploadAttendancePhoto,
   upsertArrival,
   upsertDeparture,
 } from '../lib/attendanceApi'
 import type { ClassRow, AttendanceCondition, AttendanceStudent, StudentAttendance } from '../lib/attendanceApi'
+import { getStudentPhotoSignedUrl } from '../lib/billingApi'
 
 type LoadState = 'loading' | 'ready' | 'error'
 type AttendanceStatus = 'not_arrived' | 'arrived' | 'departed'
@@ -59,6 +61,7 @@ export function EntrancePage() {
 
   const [studentsLoadState, setStudentsLoadState] = useState<LoadState>('loading')
   const [students, setStudents] = useState<AttendanceStudent[]>([])
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({})
 
   const [activeStudent, setActiveStudent] = useState<AttendanceStudent | null>(null)
 
@@ -103,6 +106,29 @@ export function EntrancePage() {
       setStudentsLoadState('ready')
     })
   }, [profile, selectedClassId])
+
+  // student-photos is a private bucket — the stored photo_url needs a fresh
+  // signed URL minted on every load rather than being used as-is.
+  useEffect(() => {
+    let cancelled = false
+    const withPhotos = students.filter((student) => student.photo_url)
+    if (withPhotos.length === 0) return
+
+    Promise.all(
+      withPhotos.map(async (student) => [student.id, await getStudentPhotoSignedUrl(student.photo_url)] as const)
+    ).then((entries) => {
+      if (cancelled) return
+      setPhotoUrls((current) => {
+        const next = { ...current }
+        for (const [id, url] of entries) next[id] = url
+        return next
+      })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [students])
 
   function handleSaved(row: StudentAttendance) {
     setAttendanceByStudent((current) => {
@@ -176,9 +202,9 @@ export function EntrancePage() {
                       className="flex flex-col items-center gap-1 rounded-xl p-1 hover:bg-white/60"
                     >
                       <span className={`block w-full rounded-full ${RING_CLASSES[status]}`}>
-                        {student.photo_url ? (
+                        {photoUrls[student.id] ? (
                           <img
-                            src={student.photo_url}
+                            src={photoUrls[student.id] ?? undefined}
                             alt={student.name}
                             className="w-full aspect-square rounded-full object-cover"
                           />
@@ -201,6 +227,7 @@ export function EntrancePage() {
       {activeStudent && (
         <CheckInModal
           student={activeStudent}
+          photoUrl={photoUrls[activeStudent.id] ?? null}
           attendanceRow={attendanceByStudent.get(activeStudent.id)}
           conditions={conditions}
           centerId={profile.center_id}
@@ -216,6 +243,7 @@ export function EntrancePage() {
 
 interface CheckInModalProps {
   student: AttendanceStudent
+  photoUrl: string | null
   attendanceRow: StudentAttendance | undefined
   conditions: AttendanceCondition[]
   centerId: string
@@ -225,7 +253,7 @@ interface CheckInModalProps {
   onSaved: (row: StudentAttendance) => void
 }
 
-function CheckInModal({ student, attendanceRow, conditions, centerId, userId, date, onClose, onSaved }: CheckInModalProps) {
+function CheckInModal({ student, photoUrl, attendanceRow, conditions, centerId, userId, date, onClose, onSaved }: CheckInModalProps) {
   const status = getStatus(attendanceRow)
 
   useEffect(() => {
@@ -245,7 +273,7 @@ function CheckInModal({ student, attendanceRow, conditions, centerId, userId, da
         className="max-h-[85vh] w-full space-y-4 overflow-y-auto rounded-t-2xl bg-white p-6 shadow-card-lg animate-slide-up sm:max-w-md sm:rounded-2xl"
       >
         <div className="flex items-center gap-3">
-          <Avatar fullName={student.name} avatarUrl={student.photo_url} size="lg" />
+          <Avatar fullName={student.name} avatarUrl={photoUrl} size="lg" />
           <div>
             <h2 id="checkin-modal-title" className="font-bold text-lg text-ink">
               {student.name}
@@ -360,7 +388,7 @@ function ArrivalForm({ student, conditions, centerId, userId, date, onSaved }: A
     if (!canSave || !photoFile) return
     setSubmitting(true)
     try {
-      const { publicUrl: arrivalPhotoUrl, error: photoError } = await uploadAttendancePhoto(
+      const { signedUrl: arrivalPhotoUrl, error: photoError } = await uploadAttendancePhoto(
         student.id,
         'arrival',
         photoFile
@@ -372,22 +400,22 @@ function ArrivalForm({ student, conditions, centerId, userId, date, onSaved }: A
 
       let carePhotoUrl: string | undefined
       if (carePhotoFile) {
-        const { publicUrl, error } = await uploadAttendancePhoto(student.id, 'care', carePhotoFile)
-        if (error || !publicUrl) {
+        const { signedUrl, error } = await uploadAttendancePhoto(student.id, 'care', carePhotoFile)
+        if (error || !signedUrl) {
           toast.error('Could not upload the care photo. Please try again.')
           return
         }
-        carePhotoUrl = publicUrl
+        carePhotoUrl = signedUrl
       }
 
       let medicinePhotoUrl: string | null = null
       if (hasMedicine && medPhotoFile) {
-        const { publicUrl, error } = await uploadAttendancePhoto(student.id, 'medicine', medPhotoFile)
-        if (error || !publicUrl) {
+        const { signedUrl, error } = await uploadAttendancePhoto(student.id, 'medicine', medPhotoFile)
+        if (error || !signedUrl) {
           toast.error('Could not upload the medicine photo. Please try again.')
           return
         }
-        medicinePhotoUrl = publicUrl
+        medicinePhotoUrl = signedUrl
       }
 
       const { data, error } = await upsertArrival(centerId, student.id, date, userId, {
@@ -625,12 +653,12 @@ function DepartureForm({ student, conditions, userId, date, onSaved }: Departure
     try {
       let pickupPhotoUrl: string | undefined
       if (photoFile) {
-        const { publicUrl, error } = await uploadAttendancePhoto(student.id, 'pickup', photoFile)
-        if (error || !publicUrl) {
+        const { signedUrl, error } = await uploadAttendancePhoto(student.id, 'pickup', photoFile)
+        if (error || !signedUrl) {
           toast.error('Could not upload the pickup photo. Please try again.')
           return
         }
-        pickupPhotoUrl = publicUrl
+        pickupPhotoUrl = signedUrl
       }
 
       const { data, error } = await upsertDeparture(student.id, date, userId, {
@@ -732,6 +760,31 @@ function DepartureForm({ student, conditions, userId, date, onSaved }: Departure
 function DepartedSummary({ row, conditions }: { row: StudentAttendance; conditions: AttendanceCondition[] }) {
   const isFever = row.arrival_temp !== null && row.arrival_temp >= FEVER_THRESHOLD
 
+  const [photoUrls, setPhotoUrls] = useState<{
+    arrival: string | null
+    care: string | null
+    medicine: string | null
+    pickup: string | null
+  }>({ arrival: null, care: null, medicine: null, pickup: null })
+
+  // attendance-photos is a private bucket — the stored *_photo_url values
+  // need a fresh signed URL minted on every load rather than being used as-is.
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      getAttendancePhotoSignedUrl(row.arrival_photo_url),
+      getAttendancePhotoSignedUrl(row.care_photo_url),
+      getAttendancePhotoSignedUrl(row.medicine_photo_url),
+      getAttendancePhotoSignedUrl(row.pickup_photo_url),
+    ]).then(([arrival, care, medicine, pickup]) => {
+      if (cancelled) return
+      setPhotoUrls({ arrival, care, medicine, pickup })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [row.arrival_photo_url, row.care_photo_url, row.medicine_photo_url, row.pickup_photo_url])
+
   function conditionNames(ids: string[] | null): string {
     if (!ids || ids.length === 0) return '—'
     return ids.map((id) => conditions.find((c) => c.id === id)?.name ?? 'Unknown').join(', ')
@@ -755,7 +808,11 @@ function DepartedSummary({ row, conditions }: { row: StudentAttendance; conditio
         <p className="font-semibold text-ink">{conditionNames(row.arrival_condition_ids)}</p>
       </div>
       {row.arrival_photo_url && (
-        <img src={row.arrival_photo_url} alt="Arrival" className="h-32 w-full rounded-xl object-cover" />
+        photoUrls.arrival ? (
+          <img src={photoUrls.arrival} alt="Arrival" className="h-32 w-full rounded-xl object-cover" />
+        ) : (
+          <div className="h-32 w-full rounded-xl bg-line/40" />
+        )
       )}
       {row.care_note && (
         <div className="rounded-xl bg-cream px-3 py-2">
@@ -764,7 +821,11 @@ function DepartedSummary({ row, conditions }: { row: StudentAttendance; conditio
         </div>
       )}
       {row.care_photo_url && (
-        <img src={row.care_photo_url} alt="Care" className="h-32 w-full rounded-xl object-cover" />
+        photoUrls.care ? (
+          <img src={photoUrls.care} alt="Care" className="h-32 w-full rounded-xl object-cover" />
+        ) : (
+          <div className="h-32 w-full rounded-xl bg-line/40" />
+        )
       )}
       {row.has_medicine && (
         <div className="rounded-xl bg-cream px-3 py-2">
@@ -776,7 +837,11 @@ function DepartedSummary({ row, conditions }: { row: StudentAttendance; conditio
         </div>
       )}
       {row.has_medicine && row.medicine_photo_url && (
-        <img src={row.medicine_photo_url} alt="Medicine" className="h-32 w-full rounded-xl object-cover" />
+        photoUrls.medicine ? (
+          <img src={photoUrls.medicine} alt="Medicine" className="h-32 w-full rounded-xl object-cover" />
+        ) : (
+          <div className="h-32 w-full rounded-xl bg-line/40" />
+        )
       )}
       <div className="flex justify-between rounded-xl bg-cream px-3 py-2">
         <span className="text-muted">Departed</span>
@@ -791,7 +856,11 @@ function DepartedSummary({ row, conditions }: { row: StudentAttendance; conditio
         <span className="font-semibold text-ink">{row.pickup_by_name ?? '—'}</span>
       </div>
       {row.pickup_photo_url && (
-        <img src={row.pickup_photo_url} alt="Pickup" className="h-32 w-full rounded-xl object-cover" />
+        photoUrls.pickup ? (
+          <img src={photoUrls.pickup} alt="Pickup" className="h-32 w-full rounded-xl object-cover" />
+        ) : (
+          <div className="h-32 w-full rounded-xl bg-line/40" />
+        )
       )}
     </div>
   )

@@ -77,6 +77,19 @@ export function formatTimeKL(input: string | Date): string {
   }).format(new Date(input));
 }
 
+// Recovers the storage path from a previously-stored public or signed
+// Supabase Storage URL (e.g. .../object/public/{bucket}/{path} or
+// .../object/sign/{bucket}/{path}?token=...), so a fresh signed URL can be
+// requested for it after a bucket moves from public to private.
+export function extractStoragePath(url: string, bucket: string): string | null {
+  const marker = `/${bucket}/`;
+  const index = url.indexOf(marker);
+  if (index === -1) return null;
+  const rest = url.slice(index + marker.length);
+  const queryIndex = rest.indexOf('?');
+  return queryIndex === -1 ? rest : rest.slice(0, queryIndex);
+}
+
 export function firstName(fullName: string): string {
   const trimmed = fullName.trim();
   const spaceIndex = trimmed.indexOf(' ');

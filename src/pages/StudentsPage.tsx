@@ -18,6 +18,7 @@ import {
   toggleStudentActive,
   deleteStudent,
   uploadStudentPhoto,
+  getStudentPhotoSignedUrl,
 } from '../lib/billingApi'
 import type { StudentWithPackage, FeePackage } from '../lib/billingApi'
 import { fetchActiveClasses } from '../lib/attendanceApi'
@@ -55,7 +56,7 @@ export function StudentsPage() {
   const [formNotes, setFormNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const [editingPhotoUrl, setEditingPhotoUrl] = useState<string | null>(null)
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({})
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [cropFile, setCropFile] = useState<File | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -97,6 +98,29 @@ export function StudentsPage() {
   useEffect(() => {
     loadData()
   }, [profile])
+
+  // student-photos is a private bucket — the stored photo_url needs a fresh
+  // signed URL minted on every load rather than being used as-is.
+  useEffect(() => {
+    let cancelled = false
+    const withPhotos = students.filter((student) => student.photo_url)
+    if (withPhotos.length === 0) return
+
+    Promise.all(
+      withPhotos.map(async (student) => [student.id, await getStudentPhotoSignedUrl(student.photo_url)] as const)
+    ).then((entries) => {
+      if (cancelled) return
+      setPhotoUrls((current) => {
+        const next = { ...current }
+        for (const [id, url] of entries) next[id] = url
+        return next
+      })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [students])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -191,7 +215,6 @@ export function StudentsPage() {
     setFormDob(student.dob || '')
     setFormAddress(student.address || '')
     setFormNotes(student.notes || '')
-    setEditingPhotoUrl(student.photo_url)
     setShowForm(true)
   }
 
@@ -209,7 +232,6 @@ export function StudentsPage() {
     setFormDob('')
     setFormAddress('')
     setFormNotes('')
-    setEditingPhotoUrl(null)
     setEditingId(null)
     setShowForm(false)
   }
@@ -235,23 +257,23 @@ export function StudentsPage() {
     setUploadingPhoto(true)
 
     const croppedFile = new File([blob], 'photo.jpg', { type: blob.type })
-    const { publicUrl, error } = await uploadStudentPhoto(editingId, croppedFile)
-    if (error || !publicUrl) {
+    const { signedUrl, error } = await uploadStudentPhoto(editingId, croppedFile)
+    if (error || !signedUrl) {
       setUploadingPhoto(false)
       toast.error('Could not upload the photo. Please try again.')
       return
     }
 
-    const { error: saveError } = await updateStudent(editingId, { photo_url: publicUrl })
+    const { error: saveError } = await updateStudent(editingId, { photo_url: signedUrl })
     setUploadingPhoto(false)
     if (saveError) {
       toast.error('Photo uploaded but could not be saved. Please try again.')
       return
     }
 
-    setEditingPhotoUrl(publicUrl)
+    setPhotoUrls((current) => ({ ...current, [editingId]: signedUrl }))
     setStudents((current) =>
-      current.map((student) => (student.id === editingId ? { ...student, photo_url: publicUrl } : student))
+      current.map((student) => (student.id === editingId ? { ...student, photo_url: signedUrl } : student))
     )
     toast.success('Photo updated')
   }
@@ -348,7 +370,7 @@ export function StudentsPage() {
             {editingId ? (
               <div className="flex flex-col items-center gap-2 pb-1">
                 <div className="relative inline-block">
-                  <Avatar fullName={formName || 'Student'} avatarUrl={editingPhotoUrl} size="xl" />
+                  <Avatar fullName={formName || 'Student'} avatarUrl={editingId ? photoUrls[editingId] ?? null : null} size="xl" />
                   <button
                     type="button"
                     onClick={() => photoInputRef.current?.click()}
@@ -561,7 +583,7 @@ export function StudentsPage() {
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-1 gap-3">
-                      <Avatar fullName={student.name} avatarUrl={student.photo_url} size="lg" />
+                      <Avatar fullName={student.name} avatarUrl={photoUrls[student.id] ?? null} size="lg" />
                       <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-ink">{student.name}</h3>
                         {student.parent_name && (

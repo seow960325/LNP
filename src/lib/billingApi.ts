@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { extractStoragePath } from './helpers'
 
 export interface FeePackage {
   id: string
@@ -45,10 +46,23 @@ export async function uploadStudentPhoto(studentId: string, file: File) {
     .from('student-photos')
     .upload(path, file, { upsert: true, contentType: file.type })
 
-  if (uploadError) return { publicUrl: null, error: uploadError }
+  if (uploadError) return { signedUrl: null, error: uploadError }
 
-  const { data } = supabase.storage.from('student-photos').getPublicUrl(path)
-  return { publicUrl: data.publicUrl, error: null }
+  const { data, error } = await supabase.storage.from('student-photos').createSignedUrl(path, 3600)
+  if (error) return { signedUrl: null, error }
+  return { signedUrl: data?.signedUrl ?? null, error: null }
+}
+
+// student-photos is a private bucket — the `photo_url` column on `students`
+// holds whatever URL (public or signed) was current at write time, which may
+// now be stale or expired. Re-derive the storage path from it and mint a
+// fresh signed URL for display.
+export async function getStudentPhotoSignedUrl(storedUrl: string | null): Promise<string | null> {
+  if (!storedUrl) return null
+  const path = extractStoragePath(storedUrl, 'student-photos') ?? storedUrl
+  const { data, error } = await supabase.storage.from('student-photos').createSignedUrl(path, 3600)
+  if (error) return null
+  return data?.signedUrl ?? null
 }
 
 export function fetchFeePackages(centerId: string) {
