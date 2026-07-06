@@ -25,3 +25,8 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+
+# C3 backups — full data dumps must never be committed (contain user data)
+center-ops-backups/
+*.sql.gz
+full_dump_*.sql
