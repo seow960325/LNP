@@ -12,10 +12,15 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const ALLOWED_ORIGINS = ['https://learnnplay.vercel.app']
+function corsHeadersFor(req: Request) {
+  const origin = req.headers.get('Origin') ?? ''
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
 function generateTempPassword(): string {
@@ -25,13 +30,13 @@ function generateTempPassword(): string {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeadersFor(req) })
 
   try {
     // --- 1. Identify the caller from their JWT (anon client + caller's token) ---
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return json({ error: 'Missing Authorization header' }, 401)
+      return json(req, { error: 'Missing Authorization header' }, 401)
     }
 
     const callerClient = createClient(
@@ -42,7 +47,7 @@ Deno.serve(async (req) => {
 
     const { data: { user: caller }, error: callerErr } = await callerClient.auth.getUser()
     if (callerErr || !caller) {
-      return json({ error: 'Invalid or expired session' }, 401)
+      return json(req, { error: 'Invalid or expired session' }, 401)
     }
 
     // --- 2. Load caller's profile (role + center) ---
@@ -52,24 +57,24 @@ Deno.serve(async (req) => {
       .eq('id', caller.id)
       .single()
     if (cpErr || !callerProfile) {
-      return json({ error: 'Caller profile not found' }, 403)
+      return json(req, { error: 'Caller profile not found' }, 403)
     }
 
     const callerRole = callerProfile.role
     const isSuper = callerRole === 'super_admin'
     const isAdmin = callerRole === 'admin' || callerRole === 'super_admin'
     if (!isAdmin) {
-      return json({ error: 'Forbidden: admin or super_admin only' }, 403)
+      return json(req, { error: 'Forbidden: admin or super_admin only' }, 403)
     }
 
     // --- 3. Parse target ---
     const body = await req.json().catch(() => null)
     const targetUserId = body?.targetUserId
     if (!targetUserId || typeof targetUserId !== 'string') {
-      return json({ error: 'targetUserId is required' }, 400)
+      return json(req, { error: 'targetUserId is required' }, 400)
     }
     if (targetUserId === caller.id) {
-      return json({ error: 'Use normal password change for your own account' }, 400)
+      return json(req, { error: 'Use normal password change for your own account' }, 400)
     }
 
     // --- 4. service_role client (bypasses RLS) — used ONLY below, server-side ---
@@ -86,14 +91,14 @@ Deno.serve(async (req) => {
       .eq('id', targetUserId)
       .single()
     if (tpErr || !targetProfile) {
-      return json({ error: 'Target user not found' }, 404)
+      return json(req, { error: 'Target user not found' }, 404)
     }
 
     // Owner protection: nobody but the app owner themselves may modify the
     // owner's account — not even another super_admin. Stronger than the
     // isSuper bypass below; this check applies regardless of caller role.
     if (targetProfile.is_app_owner === true && callerProfile.is_app_owner !== true) {
-      return json({ error: 'This profile cannot be modified.' }, 403)
+      return json(req, { error: 'This profile cannot be modified.' }, 403)
     }
 
     // Rule: admin (non-super) may reset ONLY normal staff, same center.
@@ -101,10 +106,10 @@ Deno.serve(async (req) => {
       const targetIsPrivileged =
         targetProfile.role === 'admin' || targetProfile.role === 'super_admin'
       if (targetIsPrivileged) {
-        return json({ error: 'Forbidden: admin cannot reset admin/super_admin' }, 403)
+        return json(req, { error: 'Forbidden: admin cannot reset admin/super_admin' }, 403)
       }
       if (targetProfile.center_id !== callerProfile.center_id) {
-        return json({ error: 'Forbidden: target is in a different center' }, 403)
+        return json(req, { error: 'Forbidden: target is in a different center' }, 403)
       }
     }
 
@@ -115,7 +120,7 @@ Deno.serve(async (req) => {
       password: tempPassword,
     })
     if (pwErr) {
-      return json({ error: `Failed to set password: ${pwErr.message}` }, 500)
+      return json(req, { error: `Failed to set password: ${pwErr.message}` }, 500)
     }
 
     const { error: flagErr } = await admin
@@ -124,23 +129,23 @@ Deno.serve(async (req) => {
       .eq('id', targetUserId)
     if (flagErr) {
       // Password already changed but flag failed — report so admin knows.
-      return json({
+      return json(req, {
         error: `Password reset but failed to set change-required flag: ${flagErr.message}`,
         tempPassword,   // still return it so the reset isn't lost
       }, 207)
     }
 
     // --- 7. Return temp password (plaintext, only time it exists) ---
-    return json({ tempPassword }, 200)
+    return json(req, { tempPassword }, 200)
 
   } catch (e) {
-    return json({ error: `Unexpected error: ${String(e)}` }, 500)
+    return json(req, { error: `Unexpected error: ${String(e)}` }, 500)
   }
 })
 
-function json(body: unknown, status: number) {
+function json(req: Request, body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeadersFor(req), 'Content-Type': 'application/json' },
   })
 }

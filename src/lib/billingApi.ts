@@ -342,7 +342,7 @@ export async function markInvoicePaid(id: string, paymentMethod: string, receipt
     const fileName = `${id}-${timestamp}.${fileExt}`
     const filePath = `invoices/${fileName}`
 
-    const { error: uploadError } = await supabase.storage.from('private-docs').upload(filePath, receiptFile, {
+    const { error: uploadError } = await supabase.storage.from('invoice-receipts').upload(filePath, receiptFile, {
       upsert: false,
     })
 
@@ -408,7 +408,7 @@ export async function updateInvoiceSettings(centerId: string, patch: UpdateInvoi
 export async function getReceiptSignedUrl(receiptPath: string) {
   if (!receiptPath) return { data: null, error: 'No receipt path' }
 
-  const { data, error } = await supabase.storage.from('private-docs').createSignedUrl(receiptPath, 3600) // 1 hour expiry
+  const { data, error } = await supabase.storage.from('invoice-receipts').createSignedUrl(receiptPath, 3600) // 1 hour expiry
 
   return { data, error }
 }
