@@ -6,6 +6,8 @@ import { PageHeader } from '../components/PageHeader'
 import { TabNav, leaveTabs } from '../components/TabNav'
 import { formatDate, formatLeaveDays, toKLDateISO } from '../lib/helpers'
 import { countLeaveDays, parseISODateLocal } from '../lib/leaveDays'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 import {
   fetchMyLeaveRequests,
   fetchAllLeaveRequests,
@@ -152,7 +154,7 @@ function LeaveFormFields({
             onChange={(event) => handleStartDateChange(event.target.value)}
             disabled={disabled}
             required
-            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
           />
         </div>
         <div>
@@ -164,7 +166,7 @@ function LeaveFormFields({
             disabled={disabled || values.segment !== 'full'}
             min={values.start_date}
             required
-            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:bg-cream disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:bg-cream disabled:opacity-60"
           />
         </div>
       </div>
@@ -212,8 +214,8 @@ function MyLeaveView() {
     let cancelled = false
     setLoadState('loading')
 
-    Promise.all([fetchMyLeaveRequests(profile.id), fetchMyLeaveBalances(profile.id, currentYear)]).then(
-      ([requestsRes, balancesRes]) => {
+    withTimeout(Promise.all([fetchMyLeaveRequests(profile.id), fetchMyLeaveBalances(profile.id, currentYear)]))
+      .then(([requestsRes, balancesRes]) => {
         if (cancelled) return
         if (requestsRes.error || !requestsRes.data) {
           setLoadError('Could not load your leave requests. Please try again.')
@@ -226,8 +228,12 @@ function MyLeaveView() {
         const alBalance = (balancesRes.data ?? []).find((b) => b.leave_type === 'AL')
         setAlEntitled(alBalance?.entitled_days ?? 0)
         setLoadState('ready')
-      }
-    )
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
+        setLoadState('error')
+      })
 
     return () => {
       cancelled = true
@@ -255,22 +261,29 @@ function MyLeaveView() {
     }
 
     setCreateSaving(true)
-    const { error } = await createLeaveRequest(profile.id, {
-      leave_type: createValues.leave_type,
-      start_date: createValues.start_date,
-      end_date: createValues.segment === 'full' ? createValues.end_date : createValues.start_date,
-      segment: createValues.segment,
-      reason: createValues.reason.trim() || null,
-    })
-    setCreateSaving(false)
+    try {
+      const { error } = await withTimeout(
+        createLeaveRequest(profile.id, {
+          leave_type: createValues.leave_type,
+          start_date: createValues.start_date,
+          end_date: createValues.segment === 'full' ? createValues.end_date : createValues.start_date,
+          segment: createValues.segment,
+          reason: createValues.reason.trim() || null,
+        }),
+      )
+      setCreateSaving(false)
 
-    if (error) {
-      toast.error(error.message || 'Could not submit your leave request. Please try again.')
-      return
+      if (error) {
+        toast.error(error.message || 'Could not submit your leave request. Please try again.')
+        return
+      }
+      setShowCreate(false)
+      setRefreshKey((k) => k + 1)
+      toast.success('Leave request submitted')
+    } catch (err) {
+      setCreateSaving(false)
+      toast.error(getUserErrorMessage(err))
     }
-    setShowCreate(false)
-    setRefreshKey((k) => k + 1)
-    toast.success('Leave request submitted')
   }
 
   function openEdit(request: LeaveRequestRow) {
@@ -298,16 +311,21 @@ function MyLeaveView() {
     // prior approval trail and resets submitted_at once status flips back.
     if (request.status === 'rejected') patch.status = 'pending'
 
-    const { error } = await updateLeaveRequest(request.id, patch)
-    setEditSaving(false)
+    try {
+      const { error } = await withTimeout(updateLeaveRequest(request.id, patch))
+      setEditSaving(false)
 
-    if (error) {
-      toast.error(error.message || 'Could not save changes. Please try again.')
-      return
+      if (error) {
+        toast.error(error.message || 'Could not save changes. Please try again.')
+        return
+      }
+      setEditingId(null)
+      setRefreshKey((k) => k + 1)
+      toast.success(request.status === 'rejected' ? 'Leave request resubmitted' : 'Leave request updated')
+    } catch (err) {
+      setEditSaving(false)
+      toast.error(getUserErrorMessage(err))
     }
-    setEditingId(null)
-    setRefreshKey((k) => k + 1)
-    toast.success(request.status === 'rejected' ? 'Leave request resubmitted' : 'Leave request updated')
   }
 
   return (
@@ -463,20 +481,28 @@ function AdminLeaveView() {
     let cancelled = false
     setLoadState('loading')
 
-    fetchAllLeaveRequests({
-      status: statusFilter || undefined,
-      leave_type: typeFilter || undefined,
-      year: yearFilter || undefined,
-    }).then(({ data, error }) => {
-      if (cancelled) return
-      if (error || !data) {
-        setLoadError('Could not load leave requests. Please try again.')
+    withTimeout(
+      fetchAllLeaveRequests({
+        status: statusFilter || undefined,
+        leave_type: typeFilter || undefined,
+        year: yearFilter || undefined,
+      }),
+    )
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error || !data) {
+          setLoadError('Could not load leave requests. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setRequests(data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setRequests(data)
-      setLoadState('ready')
-    })
+      })
 
     return () => {
       cancelled = true

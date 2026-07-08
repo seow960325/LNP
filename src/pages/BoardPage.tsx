@@ -12,6 +12,8 @@ import type { BoardItemRow, CreateBoardItemPayload, UpdateBoardItemPatch } from 
 import { fetchCenterMembers, fetchProfilesByIds } from '../lib/kudosApi'
 import type { CenterMember } from '../lib/kudosApi'
 import type { BoardItemType, BoardPriority } from '../types'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 const TYPE_LABELS: Record<BoardItemType, string> = {
   task: 'Task',
@@ -258,23 +260,29 @@ export function BoardPage() {
 
     async function load() {
       setItemsState('loading')
-      const { data, error } = await fetchBoardItems(centerId, selectedDate)
-      if (cancelled) return
-      if (error || !data) {
-        setItemsError('Could not load the board. Please try again.')
+      try {
+        const { data, error } = await withTimeout(fetchBoardItems(centerId, selectedDate))
+        if (cancelled) return
+        if (error || !data) {
+          setItemsError('Could not load the board. Please try again.')
+          setItemsState('error')
+          return
+        }
+
+        setItems(data)
+        setItemsState('ready')
+
+        const ids = Array.from(
+          new Set(data.flatMap((item) => [item.author_id, item.assigned_to]).filter((id): id is string => Boolean(id)))
+        )
+        const { data: profiles } = await withTimeout(Promise.resolve(fetchProfilesByIds(ids)))
+        if (cancelled) return
+        setProfileNames(new Map((profiles ?? []).map((p) => [p.id, p.full_name])))
+      } catch (err) {
+        if (cancelled) return
+        setItemsError(getUserErrorMessage(err))
         setItemsState('error')
-        return
       }
-
-      setItems(data)
-      setItemsState('ready')
-
-      const ids = Array.from(
-        new Set(data.flatMap((item) => [item.author_id, item.assigned_to]).filter((id): id is string => Boolean(id)))
-      )
-      const { data: profiles } = await fetchProfilesByIds(ids)
-      if (cancelled) return
-      setProfileNames(new Map((profiles ?? []).map((p) => [p.id, p.full_name])))
     }
 
     load()
@@ -288,14 +296,19 @@ export function BoardPage() {
     const centerId = profile.center_id
     let cancelled = false
 
-    fetchCenterMembers(centerId).then(({ data, error }) => {
-      if (cancelled) return
-      if (error) {
-        setMembersError('Could not load members to assign.')
-        return
-      }
-      setMembers(data ?? [])
-    })
+    withTimeout(fetchCenterMembers(centerId))
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          setMembersError('Could not load members to assign.')
+          return
+        }
+        setMembers(data ?? [])
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setMembersError(getUserErrorMessage(err))
+      })
 
     return () => {
       cancelled = true

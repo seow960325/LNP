@@ -7,6 +7,8 @@ import { PageHeader } from '../components/PageHeader'
 import { fetchStudents, createInvoice, fetchFeePackages } from '../lib/billingApi'
 import type { StudentWithPackage, CreateInvoiceLineItemPayload, FeePackage } from '../lib/billingApi'
 import { toKLDateISO } from '../lib/helpers'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -51,21 +53,23 @@ export function NewInvoicePage() {
   useEffect(() => {
     if (!profile) return
     setLoadState('loading')
-    Promise.all([
-      fetchStudents(profile.center_id),
-      fetchFeePackages(profile.center_id),
-    ]).then(([studentRes, packageRes]) => {
-      if (studentRes.error || !studentRes.data || packageRes.error || !packageRes.data) {
-        setLoadError('Could not load data. Please try again.')
+    withTimeout(Promise.all([fetchStudents(profile.center_id), fetchFeePackages(profile.center_id)]))
+      .then(([studentRes, packageRes]) => {
+        if (studentRes.error || !studentRes.data || packageRes.error || !packageRes.data) {
+          setLoadError('Could not load data. Please try again.')
+          setLoadState('error')
+          return
+        }
+        const activeStudents = studentRes.data.filter((s) => s.active)
+        const activePackages = packageRes.data.filter((p) => p.active)
+        setStudents(activeStudents)
+        setPackages(activePackages)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      const activeStudents = studentRes.data.filter((s) => s.active)
-      const activePackages = packageRes.data.filter((p) => p.active)
-      setStudents(activeStudents)
-      setPackages(activePackages)
-      setLoadState('ready')
-    })
+      })
   }, [profile])
 
   if (!profile || !isAdmin) return null
@@ -159,25 +163,32 @@ export function NewInvoicePage() {
 
     setSubmitting(true)
 
-    const { data, error } = await createInvoice(profile.center_id, {
-      student_id: selectedStudentId,
-      term_label: termLabel.trim() || undefined,
-      issue_date: issueDate,
-      due_date: dueDate || undefined,
-      discount: discount || undefined,
-      notes: notes.trim() || undefined,
-      line_items: validLineItems,
-    })
+    try {
+      const { data, error } = await withTimeout(
+        createInvoice(profile.center_id, {
+          student_id: selectedStudentId,
+          term_label: termLabel.trim() || undefined,
+          issue_date: issueDate,
+          due_date: dueDate || undefined,
+          discount: discount || undefined,
+          notes: notes.trim() || undefined,
+          line_items: validLineItems,
+        }),
+      )
 
-    setSubmitting(false)
+      setSubmitting(false)
 
-    if (error || !data) {
-      toast.error('Failed to create invoice')
-      return
+      if (error || !data) {
+        toast.error('Failed to create invoice')
+        return
+      }
+
+      toast.success(`Invoice ${data.invoice_no} created`)
+      navigate(`/invoices/${data.id}`)
+    } catch (err) {
+      setSubmitting(false)
+      toast.error(getUserErrorMessage(err))
     }
-
-    toast.success(`Invoice ${data.invoice_no} created`)
-    navigate(`/invoices/${data.id}`)
   }
 
   const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0)
@@ -232,7 +243,7 @@ export function NewInvoicePage() {
                   onChange={(e) => handleIssueDateChange(e.target.value)}
                   disabled={submitting}
                   required
-                  className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                  className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
                 />
               </div>
 
@@ -243,13 +254,13 @@ export function NewInvoicePage() {
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                   disabled={submitting}
-                  className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                  className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
                 />
               </div>
 
               <div>
                 <label className="text-xs text-muted">Subtotal</label>
-                <div className="mt-1 min-h-tap w-full rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-ink">
+                <div className="mt-1 flex min-h-tap w-full items-center rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-ink">
                   RM {subtotal.toFixed(2)}
                 </div>
               </div>
@@ -269,7 +280,7 @@ export function NewInvoicePage() {
 
               <div>
                 <label className="text-xs text-muted">Total (after discount)</label>
-                <div className="mt-1 min-h-tap w-full rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-accent-hover">
+                <div className="mt-1 flex min-h-tap w-full items-center rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-accent-hover">
                   RM {Math.max(0, subtotal - discount).toFixed(2)}
                 </div>
               </div>

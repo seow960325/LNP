@@ -9,6 +9,8 @@ import { buildWifiQrValue } from '../lib/helpers'
 import { copyToClipboard } from '../lib/clipboard'
 import { getWifi, updateWifi } from '../lib/settingsApi'
 import type { WifiInfo } from '../lib/settingsApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -42,16 +44,22 @@ export function WifiPage() {
     let cancelled = false
     setLoadState('loading')
 
-    getWifi(profile.center_id).then(({ data, error }) => {
-      if (cancelled) return
-      if (error) {
-        setLoadError('Could not load the WiFi details. Please try again.')
+    withTimeout(getWifi(profile.center_id))
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          setLoadError('Could not load the WiFi details. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setWifi(data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setWifi(data)
-      setLoadState('ready')
-    })
+      })
 
     return () => {
       cancelled = true

@@ -220,57 +220,35 @@ export async function fetchYtdOpening(centerId: string, year: number) {
   return { data: new Map(data.map((row) => [row.employee_id, row])), error: null }
 }
 
-// Insert or update by (employee_id, year), same pattern as upsertPayslip.
+// Insert or update by (employee_id, year) in a single request. Fixes
+// AUDIT_PHASE2 M2: the old select-then-insert-or-update shape was a
+// check-then-act race — two concurrent saves for the same employee/year
+// could both miss each other's row and insert a duplicate. `.upsert(...,
+// { onConflict })` is idempotent under a real DB unique constraint (see
+// supabase/migrations/20260708090200_m2_unique_constraints.sql), so a
+// double-click or two concurrent admins now always resolve to one row.
 export async function upsertYtdOpening(row: YtdOpeningInput) {
-  const { id, ...patch } = row
-
-  if (id) {
-    return supabase.from('payroll_ytd_opening').update(patch).eq('id', id).select().single()
-  }
-
-  const { data: existing, error: findError } = await supabase
+  const { id: _id, ...patch } = row
+  return supabase
     .from('payroll_ytd_opening')
-    .select('id')
-    .eq('employee_id', row.employee_id)
-    .eq('year', row.year)
-    .maybeSingle()
-
-  if (findError) return { data: null, error: findError }
-
-  if (existing) {
-    return supabase.from('payroll_ytd_opening').update(patch).eq('id', existing.id).select().single()
-  }
-
-  return supabase.from('payroll_ytd_opening').insert(patch).select().single()
+    .upsert(patch, { onConflict: 'employee_id,year' })
+    .select()
+    .single()
 }
 
-// Insert or update by (employee_id, year, month). Prefers a direct update by
-// `id` when known; otherwise looks up any existing row for that period so
-// re-saving a draft never creates a duplicate payslip.
+// Insert or update by (employee_id, year, month) in a single request. Fixes
+// AUDIT_PHASE2 M2 — same race as upsertYtdOpening above. `created_by` is
+// still safe to send on every call (insert AND update): the
+// payslips_preserve_created_by trigger (added alongside the unique
+// constraint) re-pins it to the original creator on every UPDATE, so a later
+// resave by a different admin can never reattribute it.
 export async function upsertPayslip(row: PayslipInput) {
-  const { id, ...patch } = row
-
-  if (id) {
-    const { created_by: _createdBy, ...updatePatch } = patch
-    return supabase.from('payslips').update(updatePatch).eq('id', id).select().single()
-  }
-
-  const { data: existing, error: findError } = await supabase
+  const { id: _id, ...patch } = row
+  return supabase
     .from('payslips')
-    .select('id')
-    .eq('employee_id', row.employee_id)
-    .eq('year', row.year)
-    .eq('month', row.month)
-    .maybeSingle()
-
-  if (findError) return { data: null, error: findError }
-
-  if (existing) {
-    const { created_by: _createdBy, ...updatePatch } = patch
-    return supabase.from('payslips').update(updatePatch).eq('id', existing.id).select().single()
-  }
-
-  return supabase.from('payslips').insert(patch).select().single()
+    .upsert(patch, { onConflict: 'employee_id,year,month' })
+    .select()
+    .single()
 }
 
 export function finalizePayslip(id: string, finalizedBy: string) {

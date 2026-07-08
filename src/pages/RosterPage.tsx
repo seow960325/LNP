@@ -15,6 +15,8 @@ import {
   swapDutyAssignments,
 } from '../lib/rosterApi'
 import type { DutyType, RotationPoolMember, DutyAssignmentRow } from '../lib/rosterApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -43,26 +45,34 @@ export function RosterPage() {
     let cancelled = false
     setLoadState('loading')
 
-    Promise.all([
-      fetchActiveDutyTypes(),
-      fetchRotationPool(profile.center_id),
-      fetchWeekAssignments(weekStart, shiftDateISO(weekStart, 4)),
-    ]).then(([dutyTypesRes, poolRes, assignmentsRes]) => {
-      if (cancelled) return
-      if (
-        dutyTypesRes.error || !dutyTypesRes.data ||
-        poolRes.error || !poolRes.data ||
-        assignmentsRes.error || !assignmentsRes.data
-      ) {
-        setLoadError('Could not load the roster. Please try again.')
+    withTimeout(
+      Promise.all([
+        fetchActiveDutyTypes(),
+        fetchRotationPool(profile.center_id),
+        fetchWeekAssignments(weekStart, shiftDateISO(weekStart, 4)),
+      ]),
+    )
+      .then(([dutyTypesRes, poolRes, assignmentsRes]) => {
+        if (cancelled) return
+        if (
+          dutyTypesRes.error || !dutyTypesRes.data ||
+          poolRes.error || !poolRes.data ||
+          assignmentsRes.error || !assignmentsRes.data
+        ) {
+          setLoadError('Could not load the roster. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setDutyTypes(dutyTypesRes.data)
+        setPool(poolRes.data)
+        setAssignments(assignmentsRes.data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setDutyTypes(dutyTypesRes.data)
-      setPool(poolRes.data)
-      setAssignments(assignmentsRes.data)
-      setLoadState('ready')
-    })
+      })
 
     return () => {
       cancelled = true
@@ -93,15 +103,20 @@ export function RosterPage() {
   async function handleGenerate() {
     if (!profile || mismatched || generating) return
     setGenerating(true)
-    const { error } = await generateWeek(profile.center_id, days)
-    setGenerating(false)
+    try {
+      const { error } = await withTimeout(generateWeek(profile.center_id, days))
+      setGenerating(false)
 
-    if (error) {
-      toast.error(error)
-      return
+      if (error) {
+        toast.error(error)
+        return
+      }
+      setRefreshKey((k) => k + 1)
+      toast.success('Roster generated')
+    } catch (err) {
+      setGenerating(false)
+      toast.error(getUserErrorMessage(err))
     }
-    setRefreshKey((k) => k + 1)
-    toast.success('Roster generated')
   }
 
   async function handleSwap(date: string, dutyTypeId: string, currentProfileId: string, newProfileId: string) {
@@ -111,14 +126,19 @@ export function RosterPage() {
 
     const key = `${date}|${dutyTypeId}|${currentProfileId}`
     setSwappingKey(key)
-    const { error } = await swapDutyAssignments(date, dutyTypeId, currentProfileId, otherRow.duty_type_id, newProfileId)
-    setSwappingKey(null)
+    try {
+      const { error } = await withTimeout(swapDutyAssignments(date, currentProfileId, newProfileId))
+      setSwappingKey(null)
 
-    if (error) {
-      toast.error('Could not update the roster. Please try again.')
-      return
+      if (error) {
+        toast.error('Could not update the roster. Please try again.')
+        return
+      }
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      setSwappingKey(null)
+      toast.error(getUserErrorMessage(err))
     }
-    setRefreshKey((k) => k + 1)
   }
 
   return (

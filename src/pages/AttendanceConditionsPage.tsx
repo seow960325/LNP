@@ -5,6 +5,8 @@ import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { fetchConditions, createCondition, updateCondition, toggleConditionActive } from '../lib/attendanceApi'
 import type { AttendanceCondition } from '../lib/attendanceApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -27,15 +29,20 @@ export function AttendanceConditionsPage() {
   function loadConditions() {
     if (!profile) return
     setLoadState('loading')
-    fetchConditions().then(({ data, error }) => {
-      if (error || !data) {
-        setLoadError('Could not load conditions. Please try again.')
+    withTimeout(fetchConditions())
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setLoadError('Could not load conditions. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setConditions(data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setConditions(data)
-      setLoadState('ready')
-    })
+      })
   }
 
   useEffect(() => {

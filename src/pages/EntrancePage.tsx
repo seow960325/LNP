@@ -18,6 +18,8 @@ import {
 } from '../lib/attendanceApi'
 import type { ClassRow, AttendanceCondition, AttendanceStudent, StudentAttendance } from '../lib/attendanceApi'
 import { getStudentPhotoSignedUrl } from '../lib/billingApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 type AttendanceStatus = 'not_arrived' | 'arrived' | 'departed'
@@ -69,8 +71,10 @@ export function EntrancePage() {
     if (!profile) return
     setLoadState('loading')
 
-    Promise.all([fetchActiveClasses(), fetchActiveConditions(), fetchTodayAttendance(profile.center_id, today)]).then(
-      ([classesRes, conditionsRes, attendanceRes]) => {
+    withTimeout(
+      Promise.all([fetchActiveClasses(), fetchActiveConditions(), fetchTodayAttendance(profile.center_id, today)]),
+    )
+      .then(([classesRes, conditionsRes, attendanceRes]) => {
         if (classesRes.error || !classesRes.data || conditionsRes.error || !conditionsRes.data) {
           setLoadError('Could not load Entrance. Please try again.')
           setLoadState('error')
@@ -87,8 +91,11 @@ export function EntrancePage() {
         setAttendanceByStudent(attendanceRes.data)
         setSelectedClassId((current) => current ?? classesRes.data[0]?.id ?? null)
         setLoadState('ready')
-      }
-    )
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
+        setLoadState('error')
+      })
   }, [profile, today])
 
   useEffect(() => {
@@ -97,14 +104,18 @@ export function EntrancePage() {
       return
     }
     setStudentsLoadState('loading')
-    fetchStudentsByClass(profile.center_id, selectedClassId).then(({ data, error }) => {
-      if (error || !data) {
+    withTimeout(fetchStudentsByClass(profile.center_id, selectedClassId))
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setStudentsLoadState('error')
+          return
+        }
+        setStudents(data)
+        setStudentsLoadState('ready')
+      })
+      .catch(() => {
         setStudentsLoadState('error')
-        return
-      }
-      setStudents(data)
-      setStudentsLoadState('ready')
-    })
+      })
   }, [profile, selectedClassId])
 
   // student-photos is a private bucket — the stored photo_url needs a fresh
@@ -388,10 +399,8 @@ function ArrivalForm({ student, conditions, centerId, userId, date, onSaved }: A
     if (!canSave || !photoFile) return
     setSubmitting(true)
     try {
-      const { signedUrl: arrivalPhotoUrl, error: photoError } = await uploadAttendancePhoto(
-        student.id,
-        'arrival',
-        photoFile
+      const { signedUrl: arrivalPhotoUrl, error: photoError } = await withTimeout(
+        uploadAttendancePhoto(student.id, 'arrival', photoFile),
       )
       if (photoError || !arrivalPhotoUrl) {
         toast.error('Could not upload the arrival photo. Please try again.')
@@ -400,7 +409,7 @@ function ArrivalForm({ student, conditions, centerId, userId, date, onSaved }: A
 
       let carePhotoUrl: string | undefined
       if (carePhotoFile) {
-        const { signedUrl, error } = await uploadAttendancePhoto(student.id, 'care', carePhotoFile)
+        const { signedUrl, error } = await withTimeout(uploadAttendancePhoto(student.id, 'care', carePhotoFile))
         if (error || !signedUrl) {
           toast.error('Could not upload the care photo. Please try again.')
           return
@@ -410,7 +419,7 @@ function ArrivalForm({ student, conditions, centerId, userId, date, onSaved }: A
 
       let medicinePhotoUrl: string | null = null
       if (hasMedicine && medPhotoFile) {
-        const { signedUrl, error } = await uploadAttendancePhoto(student.id, 'medicine', medPhotoFile)
+        const { signedUrl, error } = await withTimeout(uploadAttendancePhoto(student.id, 'medicine', medPhotoFile))
         if (error || !signedUrl) {
           toast.error('Could not upload the medicine photo. Please try again.')
           return
@@ -418,24 +427,28 @@ function ArrivalForm({ student, conditions, centerId, userId, date, onSaved }: A
         medicinePhotoUrl = signedUrl
       }
 
-      const { data, error } = await upsertArrival(centerId, student.id, date, userId, {
-        arrival_temp: tempValue,
-        arrival_condition_ids: selectedConditionIds,
-        arrival_photo_url: arrivalPhotoUrl,
-        care_note: careNote.trim() || undefined,
-        care_photo_url: carePhotoUrl,
-        has_medicine: hasMedicine,
-        medicine_photo_url: hasMedicine ? medicinePhotoUrl : null,
-        medicine_dose_amount: hasMedicine ? medAmount : null,
-        medicine_dose_unit: hasMedicine ? medUnit : null,
-        medicine_instruction: hasMedicine ? medInstruction.trim() || null : null,
-      })
+      const { data, error } = await withTimeout(
+        upsertArrival(centerId, student.id, date, userId, {
+          arrival_temp: tempValue,
+          arrival_condition_ids: selectedConditionIds,
+          arrival_photo_url: arrivalPhotoUrl,
+          care_note: careNote.trim() || undefined,
+          care_photo_url: carePhotoUrl,
+          has_medicine: hasMedicine,
+          medicine_photo_url: hasMedicine ? medicinePhotoUrl : null,
+          medicine_dose_amount: hasMedicine ? medAmount : null,
+          medicine_dose_unit: hasMedicine ? medUnit : null,
+          medicine_instruction: hasMedicine ? medInstruction.trim() || null : null,
+        }),
+      )
       if (error || !data) {
         toast.error('Could not save arrival. Please try again.')
         return
       }
       toast.success(`${student.name} checked in`)
       onSaved(data)
+    } catch (err) {
+      toast.error(getUserErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -653,7 +666,7 @@ function DepartureForm({ student, conditions, userId, date, onSaved }: Departure
     try {
       let pickupPhotoUrl: string | undefined
       if (photoFile) {
-        const { signedUrl, error } = await uploadAttendancePhoto(student.id, 'pickup', photoFile)
+        const { signedUrl, error } = await withTimeout(uploadAttendancePhoto(student.id, 'pickup', photoFile))
         if (error || !signedUrl) {
           toast.error('Could not upload the pickup photo. Please try again.')
           return
@@ -661,17 +674,21 @@ function DepartureForm({ student, conditions, userId, date, onSaved }: Departure
         pickupPhotoUrl = signedUrl
       }
 
-      const { data, error } = await upsertDeparture(student.id, date, userId, {
-        pickup_by_name: pickupByName,
-        pickup_photo_url: pickupPhotoUrl,
-        departure_condition_ids: selectedConditionIds.length > 0 ? selectedConditionIds : undefined,
-      })
+      const { data, error } = await withTimeout(
+        upsertDeparture(student.id, date, userId, {
+          pickup_by_name: pickupByName,
+          pickup_photo_url: pickupPhotoUrl,
+          departure_condition_ids: selectedConditionIds.length > 0 ? selectedConditionIds : undefined,
+        }),
+      )
       if (error || !data) {
         toast.error('Could not save departure. Please try again.')
         return
       }
       toast.success(`${student.name} checked out`)
       onSaved(data)
+    } catch (err) {
+      toast.error(getUserErrorMessage(err))
     } finally {
       setSubmitting(false)
     }

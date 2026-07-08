@@ -23,6 +23,8 @@ import {
 import type { StudentWithPackage, FeePackage } from '../lib/billingApi'
 import { fetchActiveClasses } from '../lib/attendanceApi'
 import type { ClassRow } from '../lib/attendanceApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -73,26 +75,29 @@ export function StudentsPage() {
     if (!profile) return
     setLoadState('loading')
 
-    Promise.all([
-      fetchStudents(profile.center_id),
-      fetchActiveFeePackages(profile.center_id),
-      fetchActiveClasses(),
-    ]).then(([studentsRes, packagesRes, classesRes]) => {
-      if (studentsRes.error || !studentsRes.data) {
-        setLoadError('Could not load students. Please try again.')
-        setLoadState('error')
-        return
-      }
+    withTimeout(
+      Promise.all([fetchStudents(profile.center_id), fetchActiveFeePackages(profile.center_id), fetchActiveClasses()]),
+    )
+      .then(([studentsRes, packagesRes, classesRes]) => {
+        if (studentsRes.error || !studentsRes.data) {
+          setLoadError('Could not load students. Please try again.')
+          setLoadState('error')
+          return
+        }
 
-      setStudents(studentsRes.data)
-      if (!packagesRes.error && packagesRes.data) {
-        setPackages(packagesRes.data)
-      }
-      if (!classesRes.error && classesRes.data) {
-        setClasses(classesRes.data)
-      }
-      setLoadState('ready')
-    })
+        setStudents(studentsRes.data)
+        if (!packagesRes.error && packagesRes.data) {
+          setPackages(packagesRes.data)
+        }
+        if (!classesRes.error && classesRes.data) {
+          setClasses(classesRes.data)
+        }
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
+        setLoadState('error')
+      })
   }
 
   useEffect(() => {
@@ -148,7 +153,7 @@ export function StudentsPage() {
       }
 
       if (editingId) {
-        const { error } = await updateStudent(editingId, payload)
+        const { error } = await withTimeout(updateStudent(editingId, payload))
         if (error) {
           toast.error('Failed to update student')
           return
@@ -157,7 +162,7 @@ export function StudentsPage() {
         setEditingId(null)
         setShowForm(false)
       } else {
-        const { error } = await createStudent(profile.center_id, payload)
+        const { error } = await withTimeout(createStudent(profile.center_id, payload))
         if (error) {
           toast.error('Failed to add student')
           return
@@ -180,6 +185,8 @@ export function StudentsPage() {
       }
 
       loadData()
+    } catch (err) {
+      toast.error(getUserErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -510,7 +517,7 @@ export function StudentsPage() {
                 value={formEnrolledAt}
                 onChange={(e) => setFormEnrolledAt(e.target.value)}
                 disabled={submitting}
-                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
               />
             </div>
 
@@ -521,7 +528,7 @@ export function StudentsPage() {
                 value={formDob}
                 onChange={(e) => setFormDob(e.target.value)}
                 disabled={submitting}
-                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
               />
             </div>
 

@@ -6,6 +6,8 @@ import { PageHeader } from '../components/PageHeader'
 import { toKLDateISO } from '../lib/helpers'
 import { fetchActiveStaff, fetchYtdOpening, upsertYtdOpening } from '../lib/payrollApi'
 import type { PayrollStaffMember, YtdOpeningBalance } from '../lib/payrollApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 type OpeningField = 'openingGross' | 'openingPcb' | 'openingEpfEmployee' | 'openingSocsoEmployee'
@@ -75,27 +77,32 @@ export function OpeningBalancePage() {
     async function load() {
       const centerId = profile!.center_id
 
-      const [staffResult, openingResult] = await Promise.all([
-        fetchActiveStaff(centerId),
-        fetchYtdOpening(centerId, year),
-      ])
+      try {
+        const [staffResult, openingResult] = await withTimeout(
+          Promise.all([fetchActiveStaff(centerId), fetchYtdOpening(centerId, year)]),
+        )
 
-      if (cancelled) return
+        if (cancelled) return
 
-      if (staffResult.error || !staffResult.data) {
-        setLoadError('Could not load staff. Please try again.')
+        if (staffResult.error || !staffResult.data) {
+          setLoadError('Could not load staff. Please try again.')
+          setLoadState('error')
+          return
+        }
+        if (openingResult.error) {
+          setLoadError('Could not load opening balances. Please try again.')
+          setLoadState('error')
+          return
+        }
+
+        const openingMap = openingResult.data ?? new Map()
+        setRows(staffResult.data.map((s) => buildRow(s, openingMap.get(s.id))))
+        setLoadState('ready')
+      } catch (err) {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
       }
-      if (openingResult.error) {
-        setLoadError('Could not load opening balances. Please try again.')
-        setLoadState('error')
-        return
-      }
-
-      const openingMap = openingResult.data ?? new Map()
-      setRows(staffResult.data.map((s) => buildRow(s, openingMap.get(s.id))))
-      setLoadState('ready')
     }
 
     load()

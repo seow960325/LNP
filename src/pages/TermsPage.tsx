@@ -6,6 +6,8 @@ import { PageHeader } from '../components/PageHeader'
 import { TabNav, BILLING_TABS } from '../components/TabNav'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { formatDate } from '../lib/helpers'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 import { fetchTerms, createTerm, updateTerm, deleteTerm, isCurrentTerm } from '../lib/termsApi'
 import type { Term } from '../lib/termsApi'
 import {
@@ -54,8 +56,8 @@ export function TermsPage() {
     if (!profile) return
     setLoadState('loading')
 
-    Promise.all([fetchTerms(profile.center_id), fetchPendingRequests(profile.center_id)]).then(
-      ([termsRes, pendingRes]) => {
+    withTimeout(Promise.all([fetchTerms(profile.center_id), fetchPendingRequests(profile.center_id)]))
+      .then(([termsRes, pendingRes]) => {
         if (termsRes.error || !termsRes.data) {
           setLoadError('Could not load terms. Please try again.')
           setLoadState('error')
@@ -70,8 +72,11 @@ export function TermsPage() {
         setTerms(termsRes.data)
         setPending(pendingRes.data)
         setLoadState('ready')
-      }
-    )
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
+        setLoadState('error')
+      })
   }
 
   useEffect(() => {
@@ -263,7 +268,7 @@ export function TermsPage() {
                   onChange={(e) => setFormStart(e.target.value)}
                   disabled={submitting}
                   required
-                  className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                  className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
                 />
               </div>
 
@@ -275,7 +280,7 @@ export function TermsPage() {
                   onChange={(e) => setFormEnd(e.target.value)}
                   disabled={submitting}
                   required
-                  className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                  className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
                 />
               </div>
 

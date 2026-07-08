@@ -187,18 +187,20 @@ export async function generateWeek(
     }
   }
 
-  const { error: deleteError } = await supabase
-    .from('duty_assignments')
-    .delete()
-    .gte('work_date', weekStart)
-    .lte('work_date', weekEnd)
-    .eq('is_manual', false)
+  // Atomic server-side write (Postgres function, one transaction) — see
+  // supabase/migrations/20260708090100_roster_write_rpcs.sql. Fixes
+  // AUDIT_PHASE2 H4: delete-then-insert used to be two independent
+  // client-side calls, so a failed insert left the week's non-manual roster
+  // completely empty with nothing to replace it. A failed RPC call rolls
+  // back the delete too — the previous week is left untouched.
+  const { error: applyError } = await supabase.rpc('apply_roster_week', {
+    p_week_start: weekStart,
+    p_week_end: weekEnd,
+    p_rows: rowsToInsert,
+  })
 
-  if (deleteError) return { error: deleteError.message || 'Could not clear previous assignments. Please try again.' }
-
-  if (rowsToInsert.length > 0) {
-    const { error: insertError } = await supabase.from('duty_assignments').insert(rowsToInsert)
-    if (insertError) return { error: insertError.message || 'Could not save the new assignments. Please try again.' }
+  if (applyError) {
+    return { error: applyError.message || 'Could not save the new assignments. Please try again.' }
   }
 
   return { error: null }
@@ -209,28 +211,26 @@ export async function generateWeek(
 // overwrite so the one-duty-per-person-per-day bijection that the
 // generation algorithm relies on is never broken by a manual edit — see
 // generateWeek's note above.
+//
+// Atomic server-side write (Postgres function, one transaction) — see
+// supabase/migrations/20260708090100_roster_write_rpcs.sql. Fixes
+// AUDIT_PHASE2 M3: this used to be two independent client-side UPDATEs, so a
+// failure between them left one person moved and the other not. The RPC also
+// reads each person's CURRENT duty_type_id itself (row-locked) instead of
+// trusting values the caller read earlier — the duty_type_id params this
+// function used to take are gone, since the server now sources them fresh.
 export async function swapDutyAssignments(
   workDate: string,
-  dutyTypeIdA: string,
   profileIdA: string,
-  dutyTypeIdB: string,
   profileIdB: string
 ): Promise<{ error: PostgrestError | null }> {
   if (profileIdA === profileIdB) return { error: null }
 
-  const { error: errorA } = await supabase
-    .from('duty_assignments')
-    .update({ duty_type_id: dutyTypeIdB, is_manual: true })
-    .eq('work_date', workDate)
-    .eq('profile_id', profileIdA)
+  const { error } = await supabase.rpc('swap_duty_assignments', {
+    p_work_date: workDate,
+    p_profile_a: profileIdA,
+    p_profile_b: profileIdB,
+  })
 
-  if (errorA) return { error: errorA }
-
-  const { error: errorB } = await supabase
-    .from('duty_assignments')
-    .update({ duty_type_id: dutyTypeIdA, is_manual: true })
-    .eq('work_date', workDate)
-    .eq('profile_id', profileIdB)
-
-  return { error: errorB }
+  return { error }
 }

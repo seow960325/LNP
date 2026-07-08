@@ -2,6 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { AccountNotSetupPage } from '../pages/AccountNotSetupPage'
 import { AccountDeactivatedPage } from '../pages/AccountDeactivatedPage'
+import { ConnectionErrorPage } from '../pages/ConnectionErrorPage'
 
 function LoadingScreen() {
   return (
@@ -18,6 +19,7 @@ export function RequireAuth() {
   if (!user || profileState === 'guest') return <Navigate to="/login" replace />
   if (profileState === 'not_found') return <AccountNotSetupPage />
   if (profileState === 'deactivated') return <AccountDeactivatedPage />
+  if (profileState === 'error') return <ConnectionErrorPage />
 
   return <Outlet />
 }

@@ -115,6 +115,14 @@ export interface UploadPayslipDocumentParams {
 // staff_documents row shape below mirrors uploadStaffDocument's insert
 // exactly; it's upserted on (owner_id, doc_type, year, month) since that
 // tuple already uniquely determines the deterministic storage_path.
+//
+// Fixes AUDIT_PHASE2 M2: the old select-then-insert-or-update shape was a
+// check-then-act race — two concurrent finalize/regenerate calls for the
+// same employee/period could both miss each other's row and insert a
+// duplicate staff_documents row pointing at the same (overwritten) storage
+// object. `.upsert(..., { onConflict })` is idempotent under a real DB
+// unique constraint (see
+// supabase/migrations/20260708090200_m2_unique_constraints.sql).
 export async function uploadPayslipDocument({
   ownerId,
   uploadedBy,
@@ -132,17 +140,6 @@ export async function uploadPayslipDocument({
 
   if (uploadError) return { error: uploadError }
 
-  const { data: existing, error: findError } = await supabase
-    .from('staff_documents')
-    .select('id')
-    .eq('owner_id', ownerId)
-    .eq('doc_type', 'payslip')
-    .eq('year', year)
-    .eq('month', month)
-    .maybeSingle()
-
-  if (findError) return { error: findError }
-
   const patch = {
     owner_id: ownerId,
     doc_type: 'payslip' as const,
@@ -154,12 +151,10 @@ export async function uploadPayslipDocument({
     center_id: centerId,
   }
 
-  if (existing) {
-    const { error } = await supabase.from('staff_documents').update(patch).eq('id', existing.id)
-    return { error }
-  }
+  const { error } = await supabase
+    .from('staff_documents')
+    .upsert(patch, { onConflict: 'owner_id,doc_type,year,month' })
 
-  const { error } = await supabase.from('staff_documents').insert(patch)
   return { error }
 }
 

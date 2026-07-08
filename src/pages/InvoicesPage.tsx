@@ -7,6 +7,8 @@ import { TabNav, BILLING_TABS } from '../components/TabNav'
 import { fetchInvoices } from '../lib/billingApi'
 import type { InvoiceWithDetails } from '../lib/billingApi'
 import { formatDate } from '../lib/helpers'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -36,15 +38,20 @@ export function InvoicesPage() {
   function loadInvoices() {
     if (!profile) return
     setLoadState('loading')
-    fetchInvoices(profile.center_id, statusFilter || undefined).then(({ data, error }) => {
-      if (error || !data) {
-        setLoadError('Could not load invoices. Please try again.')
+    withTimeout(fetchInvoices(profile.center_id, statusFilter || undefined))
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setLoadError('Could not load invoices. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setInvoices(data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setInvoices(data)
-      setLoadState('ready')
-    })
+      })
   }
 
   useEffect(() => {
@@ -62,7 +69,7 @@ export function InvoicesPage() {
 
         <TabNav tabs={BILLING_TABS} />
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             to="/invoices/new"
             className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 py-2 font-semibold text-sm text-white shadow-card hover:bg-accent-hover"

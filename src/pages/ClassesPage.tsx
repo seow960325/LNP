@@ -5,6 +5,8 @@ import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { fetchClasses, createClass, updateClass, toggleClassActive } from '../lib/attendanceApi'
 import type { ClassRow } from '../lib/attendanceApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -27,15 +29,20 @@ export function ClassesPage() {
   function loadClasses() {
     if (!profile) return
     setLoadState('loading')
-    fetchClasses().then(({ data, error }) => {
-      if (error || !data) {
-        setLoadError('Could not load classes. Please try again.')
+    withTimeout(fetchClasses())
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setLoadError('Could not load classes. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setClasses(data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setClasses(data)
-      setLoadState('ready')
-    })
+      })
   }
 
   useEffect(() => {

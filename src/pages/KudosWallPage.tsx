@@ -18,6 +18,8 @@ import {
 } from '../lib/kudosApi'
 import type { TopRecipient } from '../lib/kudosApi'
 import { KudosSendPanel } from './KudosSendPage'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 interface FeedItem {
   id: string
@@ -56,55 +58,62 @@ export function KudosWallPanel() {
 
     async function loadFeed() {
       setFeedState('loading')
-      const { data: rows, error } = await fetchKudosFeed(profile!.center_id)
-      if (cancelled) return
+      try {
+        const { data: rows, error } = await withTimeout(fetchKudosFeed(profile!.center_id))
+        if (cancelled) return
 
-      if (error || !rows) {
-        setFeedError('Could not load the kudos wall. Please try again.')
-        setFeedState('error')
-        return
-      }
-
-      if (rows.length === 0) {
-        setFeedItems([])
-        setFeedState('ready')
-        return
-      }
-
-      const profileIds = Array.from(new Set(rows.flatMap((r) => [r.from_user_id, r.to_user_id])))
-      const valueIds = Array.from(new Set(rows.map((r) => r.value_id)))
-
-      const [{ data: profiles, error: profilesError }, { data: values, error: valuesError }] =
-        await Promise.all([fetchProfilesByIds(profileIds), fetchKudosValuesByIds(valueIds)])
-
-      if (cancelled) return
-
-      if (profilesError || valuesError) {
-        setFeedError('Could not load the kudos wall. Please try again.')
-        setFeedState('error')
-        return
-      }
-
-      const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
-      const valueById = new Map((values ?? []).map((v) => [v.id, v]))
-
-      const items: FeedItem[] = rows.map((row) => {
-        const value = valueById.get(row.value_id)
-        const recipient = profileById.get(row.to_user_id)
-        return {
-          id: row.id,
-          recipientName: recipient?.full_name ?? 'Someone',
-          recipientAvatarUrl: recipient?.avatar_url ?? null,
-          senderName: profileById.get(row.from_user_id)?.full_name ?? 'Someone',
-          valueName: value?.name ?? 'Kudos',
-          iconKey: value?.icon_key ?? '',
-          message: row.message,
-          createdAt: row.created_at,
+        if (error || !rows) {
+          setFeedError('Could not load the kudos wall. Please try again.')
+          setFeedState('error')
+          return
         }
-      })
 
-      setFeedItems(items)
-      setFeedState('ready')
+        if (rows.length === 0) {
+          setFeedItems([])
+          setFeedState('ready')
+          return
+        }
+
+        const profileIds = Array.from(new Set(rows.flatMap((r) => [r.from_user_id, r.to_user_id])))
+        const valueIds = Array.from(new Set(rows.map((r) => r.value_id)))
+
+        const [{ data: profiles, error: profilesError }, { data: values, error: valuesError }] = await withTimeout(
+          Promise.all([fetchProfilesByIds(profileIds), fetchKudosValuesByIds(valueIds)]),
+        )
+
+        if (cancelled) return
+
+        if (profilesError || valuesError) {
+          setFeedError('Could not load the kudos wall. Please try again.')
+          setFeedState('error')
+          return
+        }
+
+        const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
+        const valueById = new Map((values ?? []).map((v) => [v.id, v]))
+
+        const items: FeedItem[] = rows.map((row) => {
+          const value = valueById.get(row.value_id)
+          const recipient = profileById.get(row.to_user_id)
+          return {
+            id: row.id,
+            recipientName: recipient?.full_name ?? 'Someone',
+            recipientAvatarUrl: recipient?.avatar_url ?? null,
+            senderName: profileById.get(row.from_user_id)?.full_name ?? 'Someone',
+            valueName: value?.name ?? 'Kudos',
+            iconKey: value?.icon_key ?? '',
+            message: row.message,
+            createdAt: row.created_at,
+          }
+        })
+
+        setFeedItems(items)
+        setFeedState('ready')
+      } catch (err) {
+        if (cancelled) return
+        setFeedError(getUserErrorMessage(err))
+        setFeedState('error')
+      }
     }
 
     loadFeed()

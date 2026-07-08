@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { TabNav, claimsTabs } from '../components/TabNav'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 import {
   fetchClaimCategories,
   createClaimCategory,
@@ -33,15 +35,20 @@ export function ClaimCategoriesPage() {
   function loadCategories() {
     if (!profile) return
     setLoadState('loading')
-    fetchClaimCategories().then(({ data, error }) => {
-      if (error || !data) {
-        setLoadError('Could not load categories. Please try again.')
+    withTimeout(fetchClaimCategories())
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setLoadError('Could not load categories. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setCategories(data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setCategories(data)
-      setLoadState('ready')
-    })
+      })
   }
 
   useEffect(() => {

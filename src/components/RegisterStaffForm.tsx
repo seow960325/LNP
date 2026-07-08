@@ -53,7 +53,7 @@ export function TempPasswordModal({
         <h2 className="font-semibold text-lg text-ink">Temporary password</h2>
         <p className="text-sm text-muted">{description}</p>
         <div className="flex items-center justify-between gap-2 rounded-xl bg-cream px-4 py-3">
-          <span className="font-semibold text-lg tracking-wide text-ink">{password}</span>
+          <span className="min-w-0 break-all font-semibold text-lg tracking-wide text-ink">{password}</span>
           <button
             type="button"
             onClick={handleCopy}

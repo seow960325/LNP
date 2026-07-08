@@ -9,6 +9,8 @@ import { fetchCenterMembers } from '../lib/kudosApi'
 import type { CenterMember } from '../lib/kudosApi'
 import { fetchAllLeaveBalances, fetchAllLeaveRequests, upsertLeaveBalance } from '../lib/leaveApi'
 import type { LeaveBalance, LeaveRequestRow, LeaveType } from '../lib/leaveApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -42,22 +44,26 @@ export function LeaveBalancesPage() {
     let cancelled = false
     setLoadState('loading')
 
-    Promise.all([
-      fetchCenterMembers(profile.center_id),
-      fetchAllLeaveBalances(year),
-      fetchAllLeaveRequests({ year }),
-    ]).then(([membersRes, balancesRes, requestsRes]) => {
-      if (cancelled) return
-      if (membersRes.error || !membersRes.data || balancesRes.error || !balancesRes.data) {
-        setLoadError('Could not load leave balances. Please try again.')
+    withTimeout(
+      Promise.all([fetchCenterMembers(profile.center_id), fetchAllLeaveBalances(year), fetchAllLeaveRequests({ year })]),
+    )
+      .then(([membersRes, balancesRes, requestsRes]) => {
+        if (cancelled) return
+        if (membersRes.error || !membersRes.data || balancesRes.error || !balancesRes.data) {
+          setLoadError('Could not load leave balances. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setMembers(membersRes.data)
+        setBalances(balancesRes.data)
+        if (!requestsRes.error && requestsRes.data) setRequests(requestsRes.data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setMembers(membersRes.data)
-      setBalances(balancesRes.data)
-      if (!requestsRes.error && requestsRes.data) setRequests(requestsRes.data)
-      setLoadState('ready')
-    })
+      })
 
     return () => {
       cancelled = true

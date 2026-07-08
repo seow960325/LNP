@@ -15,6 +15,8 @@ import {
 } from '../lib/billingApi'
 import type { InvoiceWithDetails, CreateInvoiceLineItemPayload, UpdateInvoicePatch } from '../lib/billingApi'
 import { formatDate } from '../lib/helpers'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -48,28 +50,34 @@ export function InvoiceDetailPage() {
     let cancelled = false
     setLoadState('loading')
 
-    fetchInvoice(id).then(({ data, error }) => {
-      if (cancelled) return
-      if (error || !data) {
-        setLoadError('Could not load invoice. Please try again.')
+    withTimeout(fetchInvoice(id))
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error || !data) {
+          setLoadError('Could not load invoice. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setInvoice(data)
+        setEditingTermLabel(data.term_label || '')
+        setEditingIssueDate(data.issue_date)
+        setEditingDueDate(data.due_date || '')
+        setEditingNotes(data.notes || '')
+        setEditingDiscount(data.discount || 0)
+        setEditingLineItems(
+          (data.invoice_line_items || []).map((item) => ({
+            description: item.description,
+            amount: item.amount,
+            sort_order: item.sort_order,
+          }))
+        )
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setInvoice(data)
-      setEditingTermLabel(data.term_label || '')
-      setEditingIssueDate(data.issue_date)
-      setEditingDueDate(data.due_date || '')
-      setEditingNotes(data.notes || '')
-      setEditingDiscount(data.discount || 0)
-      setEditingLineItems(
-        (data.invoice_line_items || []).map((item) => ({
-          description: item.description,
-          amount: item.amount,
-          sort_order: item.sort_order,
-        }))
-      )
-      setLoadState('ready')
-    })
+      })
 
     return () => {
       cancelled = true
@@ -103,28 +111,33 @@ export function InvoiceDetailPage() {
       discount: editingDiscount,
     }
 
-    const { error: updateError } = await updateInvoice(invoice.id, updates)
-    if (updateError) {
-      toast.error('Failed to update invoice')
+    try {
+      const { error: updateError } = await withTimeout(updateInvoice(invoice.id, updates))
+      if (updateError) {
+        toast.error('Failed to update invoice')
+        setSaving(false)
+        return
+      }
+
+      const { error: lineItemsError } = await withTimeout(updateInvoiceLineItems(invoice.id, validLineItems))
+      if (lineItemsError) {
+        toast.error('Failed to update line items')
+        setSaving(false)
+        return
+      }
+
       setSaving(false)
-      return
-    }
+      setIsEditing(false)
+      toast.success('Invoice updated')
 
-    const { error: lineItemsError } = await updateInvoiceLineItems(invoice.id, validLineItems)
-    if (lineItemsError) {
-      toast.error('Failed to update line items')
+      if (id) {
+        fetchInvoice(id).then(({ data }) => {
+          if (data) setInvoice(data)
+        })
+      }
+    } catch (err) {
       setSaving(false)
-      return
-    }
-
-    setSaving(false)
-    setIsEditing(false)
-    toast.success('Invoice updated')
-
-    if (id) {
-      fetchInvoice(id).then(({ data }) => {
-        if (data) setInvoice(data)
-      })
+      toast.error(getUserErrorMessage(err))
     }
   }
 
@@ -230,7 +243,7 @@ export function InvoiceDetailPage() {
           <>
             <div className="rounded-xl bg-white p-5 shadow-card space-y-3">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-2xl font-bold text-ink">{invoice.invoice_no}</p>
                   <p className="text-sm text-muted">{invoice.students?.name}</p>
                 </div>
@@ -261,7 +274,7 @@ export function InvoiceDetailPage() {
                       onChange={(e) => setEditingTermLabel(e.target.value)}
                       disabled={saving}
                       placeholder="e.g. Term 1 2026"
-                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm placeholder:text-muted/70 disabled:opacity-60"
                     />
                   </div>
 
@@ -272,7 +285,7 @@ export function InvoiceDetailPage() {
                       value={editingIssueDate}
                       onChange={(e) => setEditingIssueDate(e.target.value)}
                       disabled={saving}
-                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
                     />
                   </div>
 
@@ -283,13 +296,13 @@ export function InvoiceDetailPage() {
                       value={editingDueDate}
                       onChange={(e) => setEditingDueDate(e.target.value)}
                       disabled={saving}
-                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
                     />
                   </div>
 
                   <div>
                     <label className="text-xs text-muted">Subtotal</label>
-                    <div className="mt-1 min-h-tap w-full rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-ink">
+                    <div className="mt-1 flex min-h-tap w-full items-center rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-ink">
                       {formatCurrency(subtotal)}
                     </div>
                   </div>
@@ -303,13 +316,13 @@ export function InvoiceDetailPage() {
                       value={editingDiscount}
                       onChange={(e) => setEditingDiscount(parseFloat(e.target.value) || 0)}
                       disabled={saving}
-                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+                      className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm disabled:opacity-60"
                     />
                   </div>
 
                   <div>
                     <label className="text-xs text-muted">Total (after discount)</label>
-                    <div className="mt-1 min-h-tap w-full rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-ink">
+                    <div className="mt-1 flex min-h-tap w-full items-center rounded-xl border border-line bg-cream px-3 py-2 text-sm font-bold text-ink">
                       {formatCurrency(editingTotal)}
                     </div>
                   </div>

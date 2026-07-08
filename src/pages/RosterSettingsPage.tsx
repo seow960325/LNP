@@ -13,6 +13,8 @@ import {
   toggleDutyTypeActive,
 } from '../lib/rosterApi'
 import type { DutyType } from '../lib/rosterApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -37,16 +39,21 @@ export function RosterSettingsPage() {
   function loadData() {
     if (!profile) return
     setLoadState('loading')
-    Promise.all([fetchDutyTypes(), fetchRotationPool(profile.center_id)]).then(([dutyTypesRes, poolRes]) => {
-      if (dutyTypesRes.error || !dutyTypesRes.data) {
-        setLoadError('Could not load duty types. Please try again.')
+    withTimeout(Promise.all([fetchDutyTypes(), fetchRotationPool(profile.center_id)]))
+      .then(([dutyTypesRes, poolRes]) => {
+        if (dutyTypesRes.error || !dutyTypesRes.data) {
+          setLoadError('Could not load duty types. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setDutyTypes(dutyTypesRes.data)
+        if (!poolRes.error && poolRes.data) setPoolSize(poolRes.data.length)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setDutyTypes(dutyTypesRes.data)
-      if (!poolRes.error && poolRes.data) setPoolSize(poolRes.data.length)
-      setLoadState('ready')
-    })
+      })
   }
 
   useEffect(() => {

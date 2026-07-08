@@ -7,6 +7,8 @@ import { TabNav, BILLING_TABS } from '../components/TabNav'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { fetchFeePackages, createFeePackage, updateFeePackage, toggleFeePackageActive, deleteFeePackage, fetchStudents } from '../lib/billingApi'
 import type { FeePackage, StudentWithPackage } from '../lib/billingApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -33,21 +35,23 @@ export function PackagesPage() {
   function loadPackages() {
     if (!profile) return
     setLoadState('loading')
-    Promise.all([
-      fetchFeePackages(profile.center_id),
-      fetchStudents(profile.center_id),
-    ]).then(([packagesRes, studentsRes]) => {
-      if (packagesRes.error || !packagesRes.data) {
-        setLoadError('Could not load packages. Please try again.')
+    withTimeout(Promise.all([fetchFeePackages(profile.center_id), fetchStudents(profile.center_id)]))
+      .then(([packagesRes, studentsRes]) => {
+        if (packagesRes.error || !packagesRes.data) {
+          setLoadError('Could not load packages. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setPackages(packagesRes.data)
+        if (!studentsRes.error && studentsRes.data) {
+          setStudents(studentsRes.data)
+        }
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setPackages(packagesRes.data)
-      if (!studentsRes.error && studentsRes.data) {
-        setStudents(studentsRes.data)
-      }
-      setLoadState('ready')
-    })
+      })
   }
 
   useEffect(() => {

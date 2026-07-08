@@ -16,6 +16,8 @@ import {
   setClaimReceiptHeld,
 } from '../lib/claimsApi'
 import type { ClaimRow, ClaimCategory, ClaimStatus, UpdateClaimPatch } from '../lib/claimsApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -122,7 +124,7 @@ function ClaimFormFields({
             onChange={(event) => onChange({ ...values, expense_date: event.target.value })}
             disabled={disabled}
             required
-            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
           />
         </div>
         <div>
@@ -172,17 +174,23 @@ function MyClaimsView() {
     let cancelled = false
     setLoadState('loading')
 
-    Promise.all([fetchMyClaims(profile.id), fetchActiveClaimCategories()]).then(([claimsRes, categoriesRes]) => {
-      if (cancelled) return
-      if (claimsRes.error || !claimsRes.data) {
-        setLoadError('Could not load your claims. Please try again.')
+    withTimeout(Promise.all([fetchMyClaims(profile.id), fetchActiveClaimCategories()]))
+      .then(([claimsRes, categoriesRes]) => {
+        if (cancelled) return
+        if (claimsRes.error || !claimsRes.data) {
+          setLoadError('Could not load your claims. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setClaims(claimsRes.data)
+        if (!categoriesRes.error && categoriesRes.data) setCategories(categoriesRes.data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setClaims(claimsRes.data)
-      if (!categoriesRes.error && categoriesRes.data) setCategories(categoriesRes.data)
-      setLoadState('ready')
-    })
+      })
 
     return () => {
       cancelled = true
@@ -205,21 +213,28 @@ function MyClaimsView() {
     }
 
     setCreateSaving(true)
-    const { error } = await createClaim(profile.id, {
-      category_id: createValues.category_id,
-      description: createValues.description.trim(),
-      expense_date: createValues.expense_date,
-      amount: parseFloat(createValues.amount),
-    })
-    setCreateSaving(false)
+    try {
+      const { error } = await withTimeout(
+        createClaim(profile.id, {
+          category_id: createValues.category_id,
+          description: createValues.description.trim(),
+          expense_date: createValues.expense_date,
+          amount: parseFloat(createValues.amount),
+        }),
+      )
+      setCreateSaving(false)
 
-    if (error) {
-      toast.error(error.message || 'Could not submit your claim. Please try again.')
-      return
+      if (error) {
+        toast.error(error.message || 'Could not submit your claim. Please try again.')
+        return
+      }
+      setShowCreate(false)
+      setRefreshKey((k) => k + 1)
+      toast.success('Claim submitted')
+    } catch (err) {
+      setCreateSaving(false)
+      toast.error(getUserErrorMessage(err))
     }
-    setShowCreate(false)
-    setRefreshKey((k) => k + 1)
-    toast.success('Claim submitted')
   }
 
   function openEdit(claim: ClaimRow) {
@@ -246,16 +261,21 @@ function MyClaimsView() {
     // approval trail and resets submitted_at once status flips back to pending.
     if (claim.status === 'rejected') patch.status = 'pending'
 
-    const { error } = await updateClaim(claim.id, patch)
-    setEditSaving(false)
+    try {
+      const { error } = await withTimeout(updateClaim(claim.id, patch))
+      setEditSaving(false)
 
-    if (error) {
-      toast.error(error.message || 'Could not save changes. Please try again.')
-      return
+      if (error) {
+        toast.error(error.message || 'Could not save changes. Please try again.')
+        return
+      }
+      setEditingId(null)
+      setRefreshKey((k) => k + 1)
+      toast.success(claim.status === 'rejected' ? 'Claim resubmitted' : 'Claim updated')
+    } catch (err) {
+      setEditSaving(false)
+      toast.error(getUserErrorMessage(err))
     }
-    setEditingId(null)
-    setRefreshKey((k) => k + 1)
-    toast.success(claim.status === 'rejected' ? 'Claim resubmitted' : 'Claim updated')
   }
 
   return (
@@ -405,19 +425,27 @@ function AdminClaimsView() {
     let cancelled = false
     setLoadState('loading')
 
-    fetchAllClaims({
-      status: statusFilter || undefined,
-      period: periodFilter || undefined,
-    }).then(({ data, error }) => {
-      if (cancelled) return
-      if (error || !data) {
-        setLoadError('Could not load claims. Please try again.')
+    withTimeout(
+      fetchAllClaims({
+        status: statusFilter || undefined,
+        period: periodFilter || undefined,
+      }),
+    )
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error || !data) {
+          setLoadError('Could not load claims. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setClaims(data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setClaims(data)
-      setLoadState('ready')
-    })
+      })
 
     return () => {
       cancelled = true
@@ -535,7 +563,7 @@ function AdminClaimsView() {
           type="month"
           value={periodFilter}
           onChange={(e) => setPeriodFilter(e.target.value)}
-          className="min-h-tap rounded-xl border border-line bg-white px-3 text-sm text-muted shadow-card"
+          className="min-h-tap rounded-xl border border-line bg-white px-3 py-2 text-sm text-left text-muted shadow-card appearance-none"
         />
 
         {(statusFilter || claimantFilter || periodFilter) && (
@@ -560,7 +588,7 @@ function AdminClaimsView() {
           value={exportMonth}
           onChange={(e) => setExportMonth(e.target.value)}
           disabled={exporting}
-          className="min-h-tap rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+          className="min-h-tap rounded-xl border border-line px-3 py-2 text-sm text-left appearance-none disabled:opacity-60"
         />
         <button
           type="button"

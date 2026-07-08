@@ -9,6 +9,8 @@ import { RegisterStaffForm, TempPasswordModal } from '../components/RegisterStaf
 import { fetchStaffDirectory } from '../lib/profileApi'
 import type { StaffDirectoryEntry } from '../lib/profileApi'
 import type { UserRole } from '../types'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -35,15 +37,20 @@ export function StaffDirectoryPage() {
   function loadMembers() {
     if (!profile) return
     setLoadState('loading')
-    fetchStaffDirectory(profile.center_id).then(({ data, error }) => {
-      if (error || !data) {
-        setLoadError('Could not load the staff directory. Please try again.')
+    withTimeout(fetchStaffDirectory(profile.center_id))
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setLoadError('Could not load the staff directory. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setMembers(data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setMembers(data)
-      setLoadState('ready')
-    })
+      })
   }
 
   useEffect(() => {

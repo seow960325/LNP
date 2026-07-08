@@ -11,6 +11,8 @@ import { StaffDocPanel } from '../components/StaffDocPanel'
 import { EDITABLE_ROLES, TempPasswordModal } from '../components/RegisterStaffForm'
 import { fetchProfileById } from '../lib/profileApi'
 import { supabase } from '../lib/supabaseClient'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 import type { Profile, UserRole } from '../types'
 
 type LoadState = 'loading' | 'ready' | 'error'
@@ -262,16 +264,22 @@ export function StaffMemberDetailPage() {
     let cancelled = false
     setLoadState('loading')
 
-    fetchProfileById(id).then(({ data, error }) => {
-      if (cancelled) return
-      if (error || !data) {
-        setLoadError('Could not load this staff member. Please try again.')
+    withTimeout(fetchProfileById(id))
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error || !data) {
+          setLoadError('Could not load this staff member. Please try again.')
+          setLoadState('error')
+          return
+        }
+        setMember(data)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
         setLoadState('error')
-        return
-      }
-      setMember(data)
-      setLoadState('ready')
-    })
+      })
 
     return () => {
       cancelled = true

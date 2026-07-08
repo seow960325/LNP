@@ -257,44 +257,27 @@ export interface CreateInvoicePayload {
   line_items: CreateInvoiceLineItemPayload[]
 }
 
+// Atomic server-side write (Postgres function, one transaction) — see
+// supabase/migrations/20260708090000_invoice_write_rpcs.sql. Fixes AUDIT_PHASE2
+// H4: the invoice insert, line-item insert, and subtotal update used to be
+// three independent client-side calls, so a failure after the invoice insert
+// left an orphaned $0 draft with no line items. A failed RPC call rolls back
+// everything — no invoice row is created at all.
 export async function createInvoice(centerId: string, payload: CreateInvoicePayload) {
   const { line_items, ...invoiceData } = payload
 
-  const { data: invoiceData_, error: invoiceError } = await supabase
-    .from('invoices')
-    .insert({
-      center_id: centerId,
-      ...invoiceData,
-      status: 'draft',
-    })
-    .select()
-    .single()
+  const result = await supabase.rpc('create_invoice_with_lines', {
+    p_center_id: centerId,
+    p_student_id: invoiceData.student_id,
+    p_term_label: invoiceData.term_label ?? null,
+    p_issue_date: invoiceData.issue_date,
+    p_due_date: invoiceData.due_date ?? null,
+    p_discount: invoiceData.discount ?? 0,
+    p_notes: invoiceData.notes ?? null,
+    p_line_items: line_items,
+  })
 
-  if (invoiceError || !invoiceData_) return { data: null, error: invoiceError }
-
-  const lineItemsToInsert = line_items.map((item) => ({
-    invoice_id: invoiceData_.id,
-    ...item,
-  }))
-
-  const { error: lineItemsError } = await supabase.from('invoice_line_items').insert(lineItemsToInsert)
-
-  if (lineItemsError) {
-    return { data: null, error: lineItemsError }
-  }
-
-  const subtotal = line_items.reduce((sum, item) => sum + item.amount, 0)
-
-  const { data: updatedInvoice, error: updateError } = await supabase
-    .from('invoices')
-    .update({ subtotal })
-    .eq('id', invoiceData_.id)
-    .select()
-    .single()
-
-  if (updateError || !updatedInvoice) return { data: null, error: updateError }
-
-  return { data: updatedInvoice as Invoice, error: null }
+  return result as { data: Invoice | null; error: unknown }
 }
 
 export interface UpdateInvoicePatch {
@@ -311,25 +294,18 @@ export async function updateInvoice(id: string, patch: UpdateInvoicePatch) {
   return result as { data: Invoice | null; error: unknown }
 }
 
+// Atomic server-side write (Postgres function, one transaction) — see
+// supabase/migrations/20260708090000_invoice_write_rpcs.sql. Fixes AUDIT_PHASE2
+// H3: delete-then-insert used to be two independent client-side calls, so a
+// failed re-insert permanently deleted every line item with no rollback. A
+// failed RPC call rolls back the delete too — nothing is removed.
 export async function updateInvoiceLineItems(invoiceId: string, items: CreateInvoiceLineItemPayload[]) {
-  const { error: deleteError } = await supabase.from('invoice_line_items').delete().eq('invoice_id', invoiceId)
+  const { error } = await supabase.rpc('replace_invoice_lines', {
+    p_invoice_id: invoiceId,
+    p_lines: items,
+  })
 
-  if (deleteError) return { error: deleteError }
-
-  const lineItemsToInsert = items.map((item) => ({
-    invoice_id: invoiceId,
-    ...item,
-  }))
-
-  const { error: insertError } = await supabase.from('invoice_line_items').insert(lineItemsToInsert)
-
-  if (insertError) return { error: insertError }
-
-  const subtotal = items.reduce((sum, item) => sum + item.amount, 0)
-
-  const { error: updateError } = await supabase.from('invoices').update({ subtotal }).eq('id', invoiceId)
-
-  return { error: updateError }
+  return { error }
 }
 
 export async function markInvoicePaid(id: string, paymentMethod: string, receiptFile?: File) {

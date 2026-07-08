@@ -30,6 +30,8 @@ import type {
 import type { PayslipPdfData } from '../lib/payslipPdf'
 import { uploadPayslipDocument } from '../lib/staffDocsApi'
 import { regenerateYearPayslips } from '../lib/payslipRegen'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 type EditableField = 'base' | 'allowance' | 'overtime' | 'bonus' | 'unpaid'
@@ -530,47 +532,55 @@ export function PayrollPage() {
     async function load() {
       const centerId = profile!.center_id
 
-      const [settingsResult, staffResult, payslipResult] = await Promise.all([
-        fetchPayrollSettings(centerId),
-        fetchPayrollStaff(centerId, includeInactive),
-        fetchPayslips(centerId, year, month),
-      ])
-
-      if (cancelled) return
-
-      if (settingsResult.error || !settingsResult.data) {
-        setLoadError('Payroll settings are not configured for this center yet.')
-        setLoadState('error')
-        return
-      }
-      if (staffResult.error || !staffResult.data) {
-        setLoadError('Could not load staff. Please try again.')
-        setLoadState('error')
-        return
-      }
-      if (payslipResult.error) {
-        setLoadError('Could not load payslips for this period. Please try again.')
-        setLoadState('error')
-        return
-      }
-
-      const payslipMap = new Map((payslipResult.data ?? []).map((p) => [p.employee_id, p]))
-      const ytdResults = await Promise.all(staffResult.data.map((s) => fetchYtd(s.id, year, month)))
-      if (cancelled) return
-
-      if (ytdResults.some((r) => r.error)) {
-        setYtdWarning(
-          'Could not load year-to-date totals for some staff — their PCB figures may assume RM0 YTD. Reload the page to retry.'
+      try {
+        const [settingsResult, staffResult, payslipResult] = await withTimeout(
+          Promise.all([
+            fetchPayrollSettings(centerId),
+            fetchPayrollStaff(centerId, includeInactive),
+            fetchPayslips(centerId, year, month),
+          ]),
         )
+
+        if (cancelled) return
+
+        if (settingsResult.error || !settingsResult.data) {
+          setLoadError('Payroll settings are not configured for this center yet.')
+          setLoadState('error')
+          return
+        }
+        if (staffResult.error || !staffResult.data) {
+          setLoadError('Could not load staff. Please try again.')
+          setLoadState('error')
+          return
+        }
+        if (payslipResult.error) {
+          setLoadError('Could not load payslips for this period. Please try again.')
+          setLoadState('error')
+          return
+        }
+
+        const payslipMap = new Map((payslipResult.data ?? []).map((p) => [p.employee_id, p]))
+        const ytdResults = await withTimeout(Promise.all(staffResult.data.map((s) => fetchYtd(s.id, year, month))))
+        if (cancelled) return
+
+        if (ytdResults.some((r) => r.error)) {
+          setYtdWarning(
+            'Could not load year-to-date totals for some staff — their PCB figures may assume RM0 YTD. Reload the page to retry.'
+          )
+        }
+
+        const builtRows = staffResult.data.map((s, i) =>
+          buildRow(s, payslipMap.get(s.id), ytdResults[i].data, settingsResult.data!, month)
+        )
+
+        setSettings(settingsResult.data)
+        setRows(builtRows)
+        setLoadState('ready')
+      } catch (err) {
+        if (cancelled) return
+        setLoadError(getUserErrorMessage(err))
+        setLoadState('error')
       }
-
-      const builtRows = staffResult.data.map((s, i) =>
-        buildRow(s, payslipMap.get(s.id), ytdResults[i].data, settingsResult.data!, month)
-      )
-
-      setSettings(settingsResult.data)
-      setRows(builtRows)
-      setLoadState('ready')
     }
 
     load()
@@ -635,16 +645,22 @@ export function PayrollPage() {
     updateRow(row.employeeId, (r) => ({ ...r, saving: true }))
 
     const input = buildPayslipInput(row, year, month, profile.center_id, profile.id)
-    const { data, error } = await upsertPayslip(input)
+    try {
+      const { data, error } = await withTimeout(upsertPayslip(input))
 
-    if (error || !data) {
+      if (error || !data) {
+        updateRow(row.employeeId, (r) => ({ ...r, saving: false }))
+        return null
+      }
+
+      const saved: RowState = { ...row, saving: false, dirty: false, payslipId: data.id, status: data.status }
+      updateRow(row.employeeId, () => saved)
+      return saved
+    } catch (err) {
+      console.error(err)
       updateRow(row.employeeId, (r) => ({ ...r, saving: false }))
       return null
     }
-
-    const saved: RowState = { ...row, saving: false, dirty: false, payslipId: data.id, status: data.status }
-    updateRow(row.employeeId, () => saved)
-    return saved
   }
 
   async function handleSaveRowClick(row: RowState) {
@@ -730,18 +746,27 @@ export function PayrollPage() {
       return
     }
 
-    const { data, error } = await finalizePayslip(saved.payslipId, profile.id)
-    if (error || !data) {
+    let data: Payslip | null = null
+    try {
+      const result = await withTimeout(finalizePayslip(saved.payslipId, profile.id))
+      if (result.error || !result.data) {
+        updateRow(row.employeeId, (r) => ({ ...r, finalizing: false }))
+        setFinalizeTarget(null)
+        toast.error('Could not finalize. Please try again.')
+        return
+      }
+      data = result.data
+    } catch (err) {
       updateRow(row.employeeId, (r) => ({ ...r, finalizing: false }))
       setFinalizeTarget(null)
-      toast.error('Could not finalize. Please try again.')
+      toast.error(getUserErrorMessage(err))
       return
     }
 
     updateRow(row.employeeId, (r) => ({ ...r, finalizing: false, status: 'finalized' }))
     setFinalizeTarget(null)
 
-    const pdfError = await generateAndUploadPayslipPdf(saved, data)
+    const pdfError = await generateAndUploadPayslipPdf(saved, data!)
     if (pdfError) {
       toast.warning(`Payslip finalized but PDF upload failed: ${pdfError}`)
     } else {
@@ -768,8 +793,16 @@ export function PayrollPage() {
         continue
       }
 
-      const { data, error } = await finalizePayslip(saved.payslipId, profile.id)
-      if (error || !data) {
+      let data: Payslip | null = null
+      try {
+        const result = await withTimeout(finalizePayslip(saved.payslipId, profile.id))
+        if (result.error || !result.data) {
+          updateRow(row.employeeId, (r) => ({ ...r, finalizing: false }))
+          continue
+        }
+        data = result.data
+      } catch (err) {
+        console.error(err)
         updateRow(row.employeeId, (r) => ({ ...r, finalizing: false }))
         continue
       }
@@ -777,7 +810,7 @@ export function PayrollPage() {
       updateRow(row.employeeId, (r) => ({ ...r, finalizing: false, status: 'finalized' }))
       finalizedCount += 1
 
-      const pdfError = await generateAndUploadPayslipPdf(saved, data)
+      const pdfError = await generateAndUploadPayslipPdf(saved, data!)
       if (pdfError) pdfFailures += 1
     }
 
@@ -799,16 +832,29 @@ export function PayrollPage() {
     if (!profile) return
     setRegenerating(true)
 
-    const { ok, failed, errors } = await regenerateYearPayslips(profile.center_id, year, profile.id)
+    try {
+      // Longer timeout than the 15s default — this fans out across every
+      // staff member's payslips for the whole year, so it legitimately runs
+      // longer than a single request; the goal is still to catch a truly
+      // hung/dead connection, not a slow-but-working batch job.
+      const { ok, failed, errors } = await withTimeout(
+        regenerateYearPayslips(profile.center_id, year, profile.id),
+        120000,
+      )
 
-    setRegenerating(false)
-    setRegenConfirmOpen(false)
+      setRegenerating(false)
+      setRegenConfirmOpen(false)
 
-    if (failed === 0) {
-      toast.success(`Regenerated ${ok} payslip PDF(s)`)
-    } else {
-      toast.warning(`${ok} done, ${failed} failed`)
-      console.error('Payslip regeneration failures:', errors)
+      if (failed === 0) {
+        toast.success(`Regenerated ${ok} payslip PDF(s)`)
+      } else {
+        toast.warning(`${ok} done, ${failed} failed`)
+        console.error('Payslip regeneration failures:', errors)
+      }
+    } catch (err) {
+      setRegenerating(false)
+      setRegenConfirmOpen(false)
+      toast.error(getUserErrorMessage(err))
     }
   }
 
@@ -853,7 +899,7 @@ export function PayrollPage() {
           </Link>
         </PageHeader>
 
-        <div className="flex items-center justify-between gap-2 rounded-xl bg-white p-3 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 shadow-card">
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-xs text-muted">
               Period
@@ -861,7 +907,7 @@ export function PayrollPage() {
                 type="month"
                 value={`${year}-${String(month).padStart(2, '0')}`}
                 onChange={(event) => handlePeriodChange(event.target.value)}
-                className="min-h-tap rounded-xl border border-line px-3 text-sm text-ink"
+                className="min-h-tap rounded-xl border border-line px-3 py-2 text-sm text-left text-ink appearance-none"
               />
             </label>
             <label className="flex items-center gap-2 text-xs text-muted">
@@ -875,7 +921,7 @@ export function PayrollPage() {
             </label>
           </div>
           {loadState === 'ready' && (
-            <div className="flex shrink-0 gap-2">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={handleSaveAll}

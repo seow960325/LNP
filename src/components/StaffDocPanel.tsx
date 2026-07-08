@@ -11,6 +11,8 @@ import {
   validateStaffDocFile,
 } from '../lib/staffDocsApi'
 import type { StaffDocumentRow, StaffDocType } from '../lib/staffDocsApi'
+import { withTimeout } from '../lib/withTimeout'
+import { getUserErrorMessage } from '../lib/errorMessages'
 
 const DOC_TYPE_LABELS: Record<StaffDocType, string> = {
   ea: 'EA Form',
@@ -159,16 +161,22 @@ export function StaffDocPanel({ ownerId, canManage }: { ownerId: string; canMana
     let cancelled = false
     setDocsState('loading')
 
-    fetchStaffDocuments(ownerId).then(({ data, error }) => {
-      if (cancelled) return
-      if (error || !data) {
-        setDocsError('Could not load documents. Please try again.')
+    withTimeout(fetchStaffDocuments(ownerId))
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error || !data) {
+          setDocsError('Could not load documents. Please try again.')
+          setDocsState('error')
+          return
+        }
+        setDocuments(data)
+        setDocsState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setDocsError(getUserErrorMessage(err))
         setDocsState('error')
-        return
-      }
-      setDocuments(data)
-      setDocsState('ready')
-    })
+      })
 
     return () => {
       cancelled = true
