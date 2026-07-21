@@ -6,6 +6,40 @@ import type { ZohoBankTransaction } from './zohoApi'
 
 export interface BankStatementRow extends ZohoBankTransaction {
   signedAmount: number
+  label: string
+}
+
+// Humanized fallback labels, keyed by Zoho's raw transaction_type. Used only
+// when neither description nor payee has a value — see rowLabel() below.
+const TRANSACTION_TYPE_LABELS: Record<string, string> = {
+  vendor_payment: 'Vendor payment',
+  expense: 'Expense',
+  transfer_fund: 'Transfer',
+  journal: 'Journal',
+  customer_payment: 'Customer payment',
+  deposit: 'Deposit',
+  owner_contribution: 'Owner contribution',
+  creditnote_refund: 'Credit note refund',
+  expense_refund: 'Expense refund',
+}
+
+// Zoho's description field is an optional free-text note and is blank on
+// effectively every row in this org's data (confirmed: 0/1755 rows have a
+// non-empty description) — vendor payments/expenses carry their meaning in
+// payee + transaction_type instead. description/payee arrive as "" (empty
+// string) rather than null when unset, which is falsy but NOT nullish, so a
+// plain `??` chain stops at the empty string instead of falling through —
+// that was the actual bug (blank-looking rows, not truly missing data).
+// Priority: description -> payee -> humanized transaction_type -> "Transaction".
+// Never returns an empty string.
+function rowLabel(row: ZohoBankTransaction): string {
+  const description = row.description?.trim()
+  if (description) return description
+  const payee = row.payee?.trim()
+  if (payee) return payee
+  const type = row.transaction_type
+  if (type && TRANSACTION_TYPE_LABELS[type]) return TRANSACTION_TYPE_LABELS[type]
+  return 'Transaction'
 }
 
 // debit = money in (+), credit = money out (-) for a bank/cash asset
@@ -30,7 +64,7 @@ export function withRunningBalance(transactions: ZohoBankTransaction[]): BankSta
       if (a.date !== b.date) return (b.date ?? '').localeCompare(a.date ?? '')
       return (b.running_balance ?? 0) - (a.running_balance ?? 0)
     })
-    .map((txn) => ({ ...txn, signedAmount: signedAmount(txn) }))
+    .map((txn) => ({ ...txn, signedAmount: signedAmount(txn), label: rowLabel(txn) }))
 
   if (import.meta.env.DEV) warnIfSignedSumDisagrees(rows)
 

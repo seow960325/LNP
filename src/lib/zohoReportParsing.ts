@@ -115,6 +115,40 @@ export function sectionLineItems(node: Record<string, unknown> | null): ReportLi
   return []
 }
 
+export interface BankAssetLine {
+  name: string
+  total: number
+  accountId: string | null
+}
+
+// Assets -> Current Assets -> "Bank" section's child rows, WITH account_id
+// (sectionLineItems only reads name/total) — lets the Balance Sheet view
+// cross-link each bank line straight to that account's own statement.
+// Confirmed present on a live balance-sheet payload (zoho_reports, synced
+// 2026-07-21): each row carries account_id matching zoho_bank_accounts —
+// e.g. {"name": "MBB (A/C No. 564874582191)", "total": 102528.07,
+// "account_id": "4542140000000240009"}. Not guessed.
+export function balanceSheetBankLines(data: unknown): BankAssetLine[] {
+  const bankNode = findSectionNode(data, ['Bank'])
+  if (!bankNode) return []
+  for (const key of CHILD_ROW_KEYS) {
+    const arr = bankNode[key]
+    if (!Array.isArray(arr)) continue
+    const items = arr
+      .map((row): BankAssetLine | null => {
+        if (row === null || typeof row !== 'object') return null
+        const r = row as Record<string, unknown>
+        const name = typeof r.name === 'string' ? r.name : null
+        const total = toNumber(r.total)
+        const accountId = typeof r.account_id === 'string' ? r.account_id : null
+        return name && total !== null ? { name, total, accountId } : null
+      })
+      .filter((item): item is BankAssetLine => item !== null)
+    if (items.length > 0) return items
+  }
+  return []
+}
+
 export interface BalanceSheetSummary {
   totalAssets: number | null
   totalLiabilities: number | null
@@ -125,7 +159,18 @@ export function parseBalanceSheet(data: unknown): BalanceSheetSummary {
   return {
     totalAssets: findSectionTotal(data, ['Total Assets', 'Assets']),
     totalLiabilities: findSectionTotal(data, ['Total Liabilities', 'Liabilities']),
-    totalEquity: findSectionTotal(data, ['Total Equity', 'Equity', "Total Stockholders' Equity", 'Shareholders Equity']),
+    // Zoho's own balance sheet report names this section "Equities" (plural)
+    // — confirmed against a live payload (zoho_reports, synced 2026-07-21):
+    // {"name": "Equities", "total": 159833.07, "total_label": "Total Equities"}.
+    // Keeping the singular aliases too in case Zoho varies this by API version.
+    totalEquity: findSectionTotal(data, [
+      'Equities',
+      'Total Equities',
+      'Total Equity',
+      'Equity',
+      "Total Stockholders' Equity",
+      'Shareholders Equity',
+    ]),
   }
 }
 

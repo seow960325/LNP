@@ -51,13 +51,24 @@ import {
   formatMYR,
   formatPercent,
 } from '../lib/zohoFinance'
-import { parsePnl, parseBalanceSheet, findOperatingIncomeNode, sectionLineItems, formatMYROrDash } from '../lib/zohoReportParsing'
+import {
+  parsePnl,
+  parseBalanceSheet,
+  findOperatingIncomeNode,
+  sectionLineItems,
+  balanceSheetBankLines,
+  formatMYROrDash,
+} from '../lib/zohoReportParsing'
 import type { PnlSummary } from '../lib/zohoReportParsing'
 import { withRunningBalance } from '../lib/zohoBankStatement'
 
 type LoadState = 'loading' | 'ready' | 'error'
 type TabKey = 'overview' | 'pl' | 'bank' | 'balance'
-type DrilldownKey = 'revenue' | 'cash' | 'outstanding' | null
+// 'bank' = accounts list (the ONE canonical entry to bank data); 'cash' =
+// one account's statement, always reached through 'bank' (never directly
+// from Overview) so back-navigation from a statement always lands on the
+// accounts list, regardless of which account line linked into it.
+type DrilldownKey = 'revenue' | 'bank' | 'cash' | 'pl' | 'balance' | 'outstanding' | null
 
 // In-page tabs (not routes, unlike TabNav elsewhere) deliberately: all four
 // views share the FY selector below and most of their data is fetched once.
@@ -95,9 +106,12 @@ function KpiCard({
 }) {
   const content = (
     <>
-      <div className="flex items-center gap-1.5 text-muted">
-        <Icon className="h-4 w-4" aria-hidden="true" />
-        <span className="text-2xs font-semibold uppercase tracking-wider">{label}</span>
+      <div className="flex items-center justify-between gap-1.5 text-muted">
+        <span className="flex items-center gap-1.5">
+          <Icon className="h-4 w-4" aria-hidden="true" />
+          <span className="text-2xs font-semibold uppercase tracking-wider">{label}</span>
+        </span>
+        {onClick && <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
       </div>
       <div className={`mt-1.5 text-xl font-bold ${valueClassName}`}>{value}</div>
       {sub && <div className="text-2xs text-muted">{sub}</div>}
@@ -112,7 +126,7 @@ function KpiCard({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-xl bg-white p-4 text-left shadow-card transition-shadow hover:shadow-card-md active:scale-[0.98]"
+      className="min-h-tap w-full rounded-xl bg-white p-4 text-left shadow-card transition-shadow hover:shadow-card-md active:scale-[0.98]"
     >
       {content}
     </button>
@@ -128,7 +142,7 @@ function ParseWarning({ message }: { message: string }) {
   )
 }
 
-function DrilldownHeader({ title, onBack }: { title: string; onBack: () => void }) {
+function DrilldownHeader({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack: () => void }) {
   return (
     <div className="flex items-center gap-2">
       <button
@@ -139,7 +153,10 @@ function DrilldownHeader({ title, onBack }: { title: string; onBack: () => void 
       >
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
       </button>
-      <h2 className="font-bold text-lg text-ink">{title}</h2>
+      <div>
+        <h2 className="font-bold text-lg text-ink">{title}</h2>
+        {subtitle && <p className="text-xs text-muted">{subtitle}</p>}
+      </div>
     </div>
   )
 }
@@ -311,6 +328,14 @@ export function ShareholderHomePage() {
     () => (balanceSheetReport ? parseBalanceSheet(balanceSheetReport.data) : null),
     [balanceSheetReport],
   )
+  // Cross-links Balance Sheet Assets->Bank lines to that account's own
+  // statement — only possible because each line carries account_id
+  // matching zoho_bank_accounts.account_id (verified, not guessed; see
+  // balanceSheetBankLines in zohoReportParsing.ts).
+  const balanceSheetBankLineItems = useMemo(
+    () => (balanceSheetReport ? balanceSheetBankLines(balanceSheetReport.data) : []),
+    [balanceSheetReport],
+  )
 
   const netMargin =
     pnlCurrentSummary?.netProfit != null && pnlCurrentSummary?.operatingIncome
@@ -374,6 +399,186 @@ export function ShareholderHomePage() {
   }, [bankTxns, selectedAccount])
 
   const showFyStepper = !drilldown && (activeTab === 'overview' || activeTab === 'pl')
+
+  function openAccountStatement(accountId: string) {
+    setSelectedAccountId(accountId)
+    setDrilldown('cash')
+  }
+
+  // Shared content, rendered from BOTH the top tab bar (activeTab === 'bank'
+  // /'pl'/'balance', tab bar stays visible, no back header — lateral
+  // switching between tabs) AND the Overview KPI tiles (drilldown ===
+  // 'bank'/'pl'/'balance', tab bar hidden, DrilldownHeader back-to-Overview)
+  // so the two entry points never drift apart.
+  const bankAccountsContent =
+    bankAccounts.length === 0 ? (
+      <EmptyState message="No bank accounts synced yet." />
+    ) : (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {bankAccounts.map((account) => (
+            <button
+              type="button"
+              key={account.account_id}
+              onClick={() => openAccountStatement(account.account_id)}
+              className="min-h-tap rounded-xl bg-white p-4 text-left shadow-card transition-shadow hover:shadow-card-md active:scale-[0.98]"
+            >
+              <div className="flex items-center justify-between gap-1.5 text-muted">
+                <span className="flex items-center gap-1.5">
+                  <Landmark className="h-4 w-4" aria-hidden="true" />
+                  <span className="text-2xs font-semibold uppercase tracking-wider">{account.account_type ?? 'Bank'}</span>
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              </div>
+              <div className="mt-1.5 font-bold text-ink">{account.account_name ?? 'Unnamed account'}</div>
+              <div className="text-lg font-bold text-accent">{formatMYR(account.current_balance)}</div>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-card">
+          <span className="font-semibold text-sm text-ink">Total Cash at Bank</span>
+          <span className="font-bold text-lg text-accent">{formatMYR(cash)}</span>
+        </div>
+      </div>
+    )
+
+  const pnlContent = (
+    <>
+      {reportsState === 'loading' && <LoadingState label="Loading Zoho report…" />}
+      {reportsState === 'error' && <ErrorState message={reportsError ?? 'Could not load Zoho reports.'} />}
+
+      {reportsState === 'ready' && (
+        <div className="rounded-xl bg-white p-4 shadow-card">
+          {!pnlCurrent && !pnlPrior ? (
+            <EmptyState message={`No accrual P&L synced for ${fyLabel(fyStartYear)} or ${fyLabel(fyStartYear - 1)} yet.`} />
+          ) : (
+            <>
+              {pnlCurrent && pnlCurrentSummary?.netProfit === null && (
+                <div className="mb-3">
+                  <ParseWarning message="Could not read Net Profit from the synced Zoho report — see zoho_reports.data." />
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[420px] text-sm">
+                  <thead>
+                    <tr className="border-b border-line">
+                      <th className="py-2 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Line</th>
+                      <th className="py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">
+                        {fyLabel(fyStartYear)}
+                      </th>
+                      <th className="py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">
+                        {fyLabel(fyStartYear - 1)}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {PNL_ROWS.map((row) => {
+                      const isNet = row.key === 'netProfit'
+                      const currentValue = pnlCurrentSummary?.[row.key] ?? null
+                      return (
+                        <tr key={row.key} className={isNet ? 'font-bold' : ''}>
+                          <td className="py-2 text-ink">{row.label}</td>
+                          <td
+                            className={`py-2 text-right ${
+                              isNet ? (currentValue == null ? 'text-ink' : currentValue >= 0 ? 'text-success' : 'text-danger') : 'text-ink'
+                            }`}
+                          >
+                            {formatMYROrDash(currentValue)}
+                          </td>
+                          <td className="py-2 text-right text-muted">{formatMYROrDash(pnlPriorSummary?.[row.key] ?? null)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </>
+  )
+
+  const balanceContent = (
+    <>
+      {reportsState === 'loading' && <LoadingState label="Loading Zoho report…" />}
+      {reportsState === 'error' && <ErrorState message={reportsError ?? 'Could not load Zoho reports.'} />}
+
+      {reportsState === 'ready' &&
+        (!balanceSheetReport ? (
+          <EmptyState message="Balance Sheet syncing — available soon. This report will appear automatically once it's synced from Zoho." />
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-xl bg-white p-4 shadow-card">
+              <p className="mb-2 text-2xs text-muted">As of {formatDate(balanceSheetReport.period_end)}</p>
+              <ul className="divide-y divide-line">
+                <li className="flex items-center justify-between py-2 text-sm">
+                  <span className="font-semibold text-ink">Assets</span>
+                  <span className="font-bold text-ink">{formatMYROrDash(balanceSheetSummary?.totalAssets ?? null)}</span>
+                </li>
+                <li className="flex items-center justify-between py-2 text-sm">
+                  <span className="font-semibold text-ink">Liabilities</span>
+                  <span className="font-bold text-ink">{formatMYROrDash(balanceSheetSummary?.totalLiabilities ?? null)}</span>
+                </li>
+                <li className="flex items-center justify-between py-2 text-sm">
+                  <span className="font-semibold text-ink">Equity</span>
+                  <span className="font-bold text-ink">{formatMYROrDash(balanceSheetSummary?.totalEquity ?? null)}</span>
+                </li>
+              </ul>
+            </div>
+
+            {balanceSheetBankLineItems.length > 0 && (
+              <div className="rounded-xl bg-white p-4 shadow-card">
+                <h3 className="mb-1 text-2xs font-semibold uppercase tracking-wider text-muted">
+                  Assets — Bank (tap to view statement)
+                </h3>
+                <ul className="divide-y divide-line">
+                  {balanceSheetBankLineItems.map((line) =>
+                    line.accountId ? (
+                      <li key={line.name}>
+                        <button
+                          type="button"
+                          onClick={() => openAccountStatement(line.accountId!)}
+                          className="flex min-h-tap w-full items-center justify-between gap-2 py-2 text-left text-sm hover:text-accent-hover"
+                        >
+                          <span className="flex items-center gap-1 text-ink">
+                            {line.name}
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
+                          </span>
+                          <span className="font-semibold text-ink">{formatMYR(line.total)}</span>
+                        </button>
+                      </li>
+                    ) : (
+                      <li key={line.name} className="flex items-center justify-between py-2 text-sm">
+                        <span className="text-ink">{line.name}</span>
+                        <span className="font-semibold text-ink">{formatMYR(line.total)}</span>
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {bsBalanced === null ? (
+              <ParseWarning message="Could not verify Assets = Liabilities + Equity — one or more totals couldn't be read from the Zoho report. See zoho_reports.data." />
+            ) : (
+              <div
+                className={`flex items-center gap-2 rounded-xl p-4 shadow-card ${
+                  bsBalanced ? 'bg-success-soft text-success' : 'bg-danger/10 text-danger'
+                }`}
+              >
+                <Scale className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="text-sm font-semibold">
+                  Assets {formatMYROrDash(balanceSheetSummary?.totalAssets ?? null)} {bsBalanced ? '=' : '≠'} Liabilities + Equity{' '}
+                  {formatMYROrDash((balanceSheetSummary?.totalLiabilities ?? 0) + (balanceSheetSummary?.totalEquity ?? 0))}
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+    </>
+  )
 
   return (
     <div className="min-h-screen bg-cream p-6">
@@ -444,6 +649,10 @@ export function ShareholderHomePage() {
               <div className="space-y-4">
                 <DrilldownHeader title={`Revenue — ${fyLabel(fyStartYear)}`} onBack={() => setDrilldown(null)} />
 
+                {reportsState === 'loading' && <LoadingState label="Loading Zoho report…" />}
+                {reportsState === 'error' && <ErrorState message={reportsError ?? 'Could not load Zoho reports.'} />}
+
+                {reportsState === 'ready' && (
                 <div className="space-y-2 rounded-xl border border-line bg-white p-4 shadow-card">
                   <h3 className="mb-1 text-2xs font-semibold uppercase tracking-wider text-muted">P&L income breakdown</h3>
                   {incomeLineItems.length === 0 ? (
@@ -467,6 +676,7 @@ export function ShareholderHomePage() {
                     </p>
                   )}
                 </div>
+                )}
 
                 <div className="rounded-xl border border-line bg-white p-4 shadow-card">
                   <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted">
@@ -519,9 +729,34 @@ export function ShareholderHomePage() {
               </div>
             )}
 
+            {drilldown === 'bank' && (
+              <div className="space-y-4">
+                <DrilldownHeader title="Bank Accounts" onBack={() => setDrilldown(null)} />
+                {bankAccountsContent}
+              </div>
+            )}
+
+            {drilldown === 'pl' && (
+              <div className="space-y-4">
+                <DrilldownHeader title={`Profit & Loss — ${fyLabel(fyStartYear)}`} onBack={() => setDrilldown(null)} />
+                {pnlContent}
+              </div>
+            )}
+
+            {drilldown === 'balance' && (
+              <div className="space-y-4">
+                <DrilldownHeader title="Balance Sheet" onBack={() => setDrilldown(null)} />
+                {balanceContent}
+              </div>
+            )}
+
             {drilldown === 'cash' && (
               <div className="space-y-4">
-                <DrilldownHeader title="Bank Statement" onBack={() => setDrilldown(null)} />
+                <DrilldownHeader
+                  title={selectedAccount ? (selectedAccount.account_name ?? selectedAccount.account_id) : 'Bank Statement'}
+                  subtitle={selectedAccount ? `Balance: ${formatMYR(selectedAccount.current_balance)}` : undefined}
+                  onBack={() => setDrilldown('bank')}
+                />
 
                 {bankAccounts.length > 1 && (
                   <select
@@ -567,7 +802,7 @@ export function ShareholderHomePage() {
                           {statementRows.map((row) => (
                             <tr key={row.transaction_id}>
                               <td className="px-3 py-2 text-muted">{row.date ? formatDate(row.date) : '—'}</td>
-                              <td className="px-3 py-2 text-ink">{row.payee ?? row.description ?? '—'}</td>
+                              <td className="px-3 py-2 text-ink">{row.label}</td>
                               <td className="px-3 py-2 text-right text-success">
                                 {row.signedAmount > 0 ? formatMYR(row.signedAmount) : ''}
                               </td>
@@ -638,7 +873,7 @@ export function ShareholderHomePage() {
                   <ParseWarning message="Could not read Net Profit from the synced Zoho report. The raw payload is stored in zoho_reports — check its shape against src/lib/zohoReportParsing.ts." />
                 )}
 
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   <KpiCard
                     label="Revenue"
                     value={formatMYROrDash(pnlCurrentSummary?.operatingIncome ?? null)}
@@ -653,9 +888,16 @@ export function ShareholderHomePage() {
                     valueClassName={
                       pnlCurrentSummary?.netProfit == null ? 'text-ink' : pnlCurrentSummary.netProfit >= 0 ? 'text-success' : 'text-danger'
                     }
-                    onClick={() => setActiveTab('pl')}
+                    onClick={() => setDrilldown('pl')}
                   />
-                  <KpiCard label="Cash at Bank" value={formatMYR(cash)} Icon={Landmark} onClick={() => setDrilldown('cash')} />
+                  <KpiCard label="Cash at Bank" value={formatMYR(cash)} Icon={Landmark} onClick={() => setDrilldown('bank')} />
+                  <KpiCard
+                    label="Balance Sheet"
+                    value={formatMYROrDash(balanceSheetSummary?.totalAssets ?? null)}
+                    sub={`Equity ${formatMYROrDash(balanceSheetSummary?.totalEquity ?? null)}`}
+                    Icon={Scale}
+                    onClick={() => setDrilldown('balance')}
+                  />
                   <KpiCard
                     label="Outstanding AR"
                     value={formatMYR(familyAr?.total_outstanding ?? 0)}
@@ -676,140 +918,11 @@ export function ShareholderHomePage() {
               </div>
             )}
 
-            {!drilldown && activeTab === 'pl' && (
-              <div className="space-y-4">
-                {reportsState === 'loading' && <LoadingState label="Loading Zoho report…" />}
-                {reportsState === 'error' && <ErrorState message={reportsError ?? 'Could not load Zoho reports.'} />}
+            {!drilldown && activeTab === 'pl' && <div className="space-y-4">{pnlContent}</div>}
 
-                {reportsState === 'ready' && (
-                  <div className="rounded-xl bg-white p-4 shadow-card">
-                    {!pnlCurrent && !pnlPrior ? (
-                      <EmptyState message={`No accrual P&L synced for ${fyLabel(fyStartYear)} or ${fyLabel(fyStartYear - 1)} yet.`} />
-                    ) : (
-                      <>
-                        {pnlCurrent && pnlCurrentSummary?.netProfit === null && (
-                          <div className="mb-3">
-                            <ParseWarning message="Could not read Net Profit from the synced Zoho report — see zoho_reports.data." />
-                          </div>
-                        )}
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[420px] text-sm">
-                            <thead>
-                              <tr className="border-b border-line">
-                                <th className="py-2 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Line</th>
-                                <th className="py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">
-                                  {fyLabel(fyStartYear)}
-                                </th>
-                                <th className="py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">
-                                  {fyLabel(fyStartYear - 1)}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-line">
-                              {PNL_ROWS.map((row) => {
-                                const isNet = row.key === 'netProfit'
-                                const currentValue = pnlCurrentSummary?.[row.key] ?? null
-                                return (
-                                  <tr key={row.key} className={isNet ? 'font-bold' : ''}>
-                                    <td className="py-2 text-ink">{row.label}</td>
-                                    <td
-                                      className={`py-2 text-right ${
-                                        isNet ? (currentValue == null ? 'text-ink' : currentValue >= 0 ? 'text-success' : 'text-danger') : 'text-ink'
-                                      }`}
-                                    >
-                                      {formatMYROrDash(currentValue)}
-                                    </td>
-                                    <td className="py-2 text-right text-muted">{formatMYROrDash(pnlPriorSummary?.[row.key] ?? null)}</td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            {!drilldown && activeTab === 'bank' && <div className="space-y-4">{bankAccountsContent}</div>}
 
-            {!drilldown &&
-              activeTab === 'bank' &&
-              (bankAccounts.length === 0 ? (
-                <EmptyState message="No bank accounts synced yet." />
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {bankAccounts.map((account) => (
-                      <div key={account.account_id} className="rounded-xl bg-white p-4 shadow-card">
-                        <div className="flex items-center gap-1.5 text-muted">
-                          <Landmark className="h-4 w-4" aria-hidden="true" />
-                          <span className="text-2xs font-semibold uppercase tracking-wider">
-                            {account.account_type ?? 'Bank'}
-                          </span>
-                        </div>
-                        <div className="mt-1.5 font-bold text-ink">{account.account_name ?? 'Unnamed account'}</div>
-                        <div className="text-lg font-bold text-accent">{formatMYR(account.current_balance)}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-card">
-                    <span className="font-semibold text-sm text-ink">Total Cash at Bank</span>
-                    <span className="font-bold text-lg text-accent">{formatMYR(cash)}</span>
-                  </div>
-                </div>
-              ))}
-
-            {!drilldown && activeTab === 'balance' && (
-              <div className="space-y-4">
-                {reportsState === 'loading' && <LoadingState label="Loading Zoho report…" />}
-                {reportsState === 'error' && <ErrorState message={reportsError ?? 'Could not load Zoho reports.'} />}
-
-                {reportsState === 'ready' &&
-                  (!balanceSheetReport ? (
-                    <EmptyState message="Balance Sheet syncing — available soon. This report will appear automatically once it's synced from Zoho." />
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="rounded-xl bg-white p-4 shadow-card">
-                        <p className="mb-2 text-2xs text-muted">As of {formatDate(balanceSheetReport.period_end)}</p>
-                        <ul className="divide-y divide-line">
-                          <li className="flex items-center justify-between py-2 text-sm">
-                            <span className="font-semibold text-ink">Assets</span>
-                            <span className="font-bold text-ink">{formatMYROrDash(balanceSheetSummary?.totalAssets ?? null)}</span>
-                          </li>
-                          <li className="flex items-center justify-between py-2 text-sm">
-                            <span className="font-semibold text-ink">Liabilities</span>
-                            <span className="font-bold text-ink">
-                              {formatMYROrDash(balanceSheetSummary?.totalLiabilities ?? null)}
-                            </span>
-                          </li>
-                          <li className="flex items-center justify-between py-2 text-sm">
-                            <span className="font-semibold text-ink">Equity</span>
-                            <span className="font-bold text-ink">{formatMYROrDash(balanceSheetSummary?.totalEquity ?? null)}</span>
-                          </li>
-                        </ul>
-                      </div>
-
-                      {bsBalanced === null ? (
-                        <ParseWarning message="Could not verify Assets = Liabilities + Equity — one or more totals couldn't be read from the Zoho report. See zoho_reports.data." />
-                      ) : (
-                        <div
-                          className={`flex items-center gap-2 rounded-xl p-4 shadow-card ${
-                            bsBalanced ? 'bg-success-soft text-success' : 'bg-danger/10 text-danger'
-                          }`}
-                        >
-                          <Scale className="h-4 w-4 shrink-0" aria-hidden="true" />
-                          <span className="text-sm font-semibold">
-                            Assets {formatMYROrDash(balanceSheetSummary?.totalAssets ?? null)} {bsBalanced ? '=' : '≠'} Liabilities +
-                            Equity {formatMYROrDash((balanceSheetSummary?.totalLiabilities ?? 0) + (balanceSheetSummary?.totalEquity ?? 0))}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            )}
+            {!drilldown && activeTab === 'balance' && <div className="space-y-4">{balanceContent}</div>}
           </>
         )}
       </div>
