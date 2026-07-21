@@ -56,6 +56,14 @@ function findSectionTotal(node: unknown, aliases: string[]): number | null {
 }
 
 const OPERATING_INCOME_ALIASES = ['Operating Income', 'Income']
+// "Operating Expense (Cost of Sales)" is Zoho's alternate label for this
+// section on some report configs — kept alongside the confirmed live name.
+// Confirmed present on a live P&L payload (zoho_reports, synced 2026-07-21,
+// FY2025/26): {"name": "Cost of Goods Sold", "total": 246220.57}.
+const COGS_ALIASES = ['Cost of Goods Sold', 'COGS', 'Operating Expense (Cost of Sales)']
+// Confirmed present on the same live payload: {"name": "Operating Expense",
+// "total": 287554.41}.
+const OPERATING_EXPENSE_ALIASES = ['Operating Expense', 'Operating Expenses', 'Expense']
 
 export interface PnlSummary {
   operatingIncome: number | null
@@ -69,21 +77,33 @@ export interface PnlSummary {
 export function parsePnl(data: unknown): PnlSummary {
   return {
     operatingIncome: findSectionTotal(data, OPERATING_INCOME_ALIASES),
-    costOfGoodsSold: findSectionTotal(data, ['Cost of Goods Sold', 'COGS']),
+    costOfGoodsSold: findSectionTotal(data, COGS_ALIASES),
     grossProfit: findSectionTotal(data, ['Gross Profit']),
-    operatingExpense: findSectionTotal(data, ['Operating Expense', 'Operating Expenses']),
+    operatingExpense: findSectionTotal(data, OPERATING_EXPENSE_ALIASES),
     operatingProfit: findSectionTotal(data, ['Operating Profit']),
     netProfit: findSectionTotal(data, ['Net Profit/Loss', 'Net Profit', 'Net Income']),
   }
 }
 
-// Raw Operating Income section node (not just its total) — used by the
-// Revenue KPI drill-down to list "Sales by category, less Discount" the way
-// Zoho's own report breaks it down. Same alias list parsePnl uses for
-// operatingIncome, so the drill-down's line items and the KPI's headline
-// total are always reading the same section.
+// Raw section nodes (not just their totals) — used by the Revenue/P&L
+// drill-downs to list each section's account lines the way Zoho's own
+// report breaks them down. Same alias lists parsePnl uses for the matching
+// total, so a drill-down's line items and its KPI headline total always
+// read the same section.
 export function findOperatingIncomeNode(data: unknown): Record<string, unknown> | null {
   return findSectionNode(data, OPERATING_INCOME_ALIASES)
+}
+
+// Returns null (not an empty node) if the org has no COGS section at all —
+// callers must render nothing, not an empty "COGS" header, when this is
+// null. A service business with no cost-of-sales tracking is a normal case,
+// not a parse failure.
+export function findCostOfGoodsSoldNode(data: unknown): Record<string, unknown> | null {
+  return findSectionNode(data, COGS_ALIASES)
+}
+
+export function findOperatingExpenseNode(data: unknown): Record<string, unknown> | null {
+  return findSectionNode(data, OPERATING_EXPENSE_ALIASES)
 }
 
 export interface ReportLineItem {

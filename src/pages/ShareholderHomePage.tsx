@@ -14,6 +14,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 import { PageHeader } from '../components/PageHeader'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { RevenueExpenseChart } from '../components/RevenueExpenseChart'
@@ -21,6 +22,8 @@ import { LedgerRow } from '../components/LedgerRow'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
 import { formatDate, formatTimeKL } from '../lib/helpers'
+import { fetchShareholdings } from '../lib/shareholdingsApi'
+import type { Shareholding } from '../lib/shareholdingsApi'
 import {
   fetchZohoInvoices,
   fetchZohoExpenses,
@@ -55,6 +58,8 @@ import {
   parsePnl,
   parseBalanceSheet,
   findOperatingIncomeNode,
+  findCostOfGoodsSoldNode,
+  findOperatingExpenseNode,
   sectionLineItems,
   balanceSheetBankLines,
   formatMYROrDash,
@@ -162,6 +167,8 @@ function DrilldownHeader({ title, subtitle, onBack }: { title: string; subtitle?
 }
 
 export function ShareholderHomePage() {
+  const { profile } = useAuth()
+
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -176,6 +183,13 @@ export function ShareholderHomePage() {
   const [pnlCurrent, setPnlCurrent] = useState<ZohoReportRow | null>(null)
   const [pnlPrior, setPnlPrior] = useState<ZohoReportRow | null>(null)
   const [balanceSheetReport, setBalanceSheetReport] = useState<ZohoReportRow | null>(null)
+
+  // Shareholding breakdown — its own load state, fetched once at mount
+  // alongside the reports (not lazy — the Balance Sheet tab is one of only
+  // four top-level tabs, cheap to have ready).
+  const [shareholdingsState, setShareholdingsState] = useState<LoadState>('loading')
+  const [shareholdingsError, setShareholdingsError] = useState<string | null>(null)
+  const [shareholdings, setShareholdings] = useState<Shareholding[]>([])
 
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [drilldown, setDrilldown] = useState<DrilldownKey>(null)
@@ -247,6 +261,24 @@ export function ShareholderHomePage() {
       })
   }
 
+  function loadShareholdings() {
+    setShareholdingsState('loading')
+    withTimeout(fetchShareholdings())
+      .then(({ data, error }) => {
+        if (error) {
+          setShareholdingsError('Could not load shareholding. Please try again.')
+          setShareholdingsState('error')
+          return
+        }
+        setShareholdings(data ?? [])
+        setShareholdingsState('ready')
+      })
+      .catch((err) => {
+        setShareholdingsError(getUserErrorMessage(err))
+        setShareholdingsState('error')
+      })
+  }
+
   useEffect(() => {
     loadBase()
   }, [])
@@ -254,6 +286,10 @@ export function ShareholderHomePage() {
   useEffect(() => {
     loadReports(fyStartYear)
   }, [fyStartYear])
+
+  useEffect(() => {
+    loadShareholdings()
+  }, [])
 
   // Default the bank-statement account filter to the first account once
   // bank accounts have loaded.
@@ -337,6 +373,24 @@ export function ShareholderHomePage() {
     [balanceSheetReport],
   )
 
+  // Shareholding — ownership breakdown of Equity, sorted largest stake
+  // first. pct guards against a zero total (no active shareholdings yet)
+  // rather than showing NaN%.
+  const totalShareholdingCapital = useMemo(
+    () => shareholdings.reduce((sum, sh) => sum + (sh.capital ?? 0), 0),
+    [shareholdings],
+  )
+  const sortedShareholdings = useMemo(
+    () =>
+      [...shareholdings]
+        .sort((a, b) => (b.capital ?? 0) - (a.capital ?? 0))
+        .map((sh) => ({
+          ...sh,
+          pct: totalShareholdingCapital > 0 ? ((sh.capital ?? 0) / totalShareholdingCapital) * 100 : 0,
+        })),
+    [shareholdings, totalShareholdingCapital],
+  )
+
   const netMargin =
     pnlCurrentSummary?.netProfit != null && pnlCurrentSummary?.operatingIncome
       ? (pnlCurrentSummary.netProfit / pnlCurrentSummary.operatingIncome) * 100
@@ -364,6 +418,40 @@ export function ShareholderHomePage() {
     [incomeLineItems],
   )
   const contraIncomeLines = useMemo(() => incomeLineItems.filter((item) => item.total < 0), [incomeLineItems])
+
+  // --- P&L drill-down expense-side data (Cost of Goods Sold, Gross Profit,
+  // Operating Expenses) — same treatment as Operating Income above: DFS by
+  // name alias (see zohoReportParsing.ts), split into positive/contra lines
+  // by sign, positive lines sorted largest first.
+  //
+  // cogsNode is null (not an empty node) when this org has no COGS section
+  // at all — a service business with no cost-of-sales tracking is normal,
+  // not a parse failure, so the UI must omit the block silently rather than
+  // render an empty "Cost of Goods Sold" header.
+  const cogsNode = useMemo(() => (pnlCurrent ? findCostOfGoodsSoldNode(pnlCurrent.data) : null), [pnlCurrent])
+  const cogsLineItems = useMemo(() => sectionLineItems(cogsNode), [cogsNode])
+  const positiveCogsLines = useMemo(
+    () => cogsLineItems.filter((item) => item.total > 0).sort((a, b) => b.total - a.total),
+    [cogsLineItems],
+  )
+  const contraCogsLines = useMemo(() => cogsLineItems.filter((item) => item.total < 0), [cogsLineItems])
+
+  const opexNode = useMemo(() => (pnlCurrent ? findOperatingExpenseNode(pnlCurrent.data) : null), [pnlCurrent])
+  const opexLineItems = useMemo(() => sectionLineItems(opexNode), [opexNode])
+  const positiveOpexLines = useMemo(
+    () => opexLineItems.filter((item) => item.total > 0).sort((a, b) => b.total - a.total),
+    [opexLineItems],
+  )
+  const contraOpexLines = useMemo(() => opexLineItems.filter((item) => item.total < 0), [opexLineItems])
+
+  // Gross Profit = Operating Income total − COGS total, computed client-side
+  // per spec (Zoho's own report also carries a "Gross Profit" node that
+  // agrees with this, used only as a sanity check while building this, not
+  // read here). Falls back to just Operating Income when there's no COGS.
+  const computedGrossProfit =
+    pnlCurrentSummary?.operatingIncome != null
+      ? pnlCurrentSummary.operatingIncome - (pnlCurrentSummary.costOfGoodsSold ?? 0)
+      : null
 
   const periodInvoices = useMemo(
     () =>
@@ -449,51 +537,120 @@ export function ShareholderHomePage() {
       {reportsState === 'error' && <ErrorState message={reportsError ?? 'Could not load Zoho reports.'} />}
 
       {reportsState === 'ready' && (
-        <div className="rounded-xl bg-white p-4 shadow-card">
-          {!pnlCurrent && !pnlPrior ? (
-            <EmptyState message={`No accrual P&L synced for ${fyLabel(fyStartYear)} or ${fyLabel(fyStartYear - 1)} yet.`} />
-          ) : (
-            <>
-              {pnlCurrent && pnlCurrentSummary?.netProfit === null && (
-                <div className="mb-3">
-                  <ParseWarning message="Could not read Net Profit from the synced Zoho report — see zoho_reports.data." />
+        <div className="space-y-3">
+          <div className="rounded-xl bg-white p-4 shadow-card">
+            {!pnlCurrent && !pnlPrior ? (
+              <EmptyState message={`No accrual P&L synced for ${fyLabel(fyStartYear)} or ${fyLabel(fyStartYear - 1)} yet.`} />
+            ) : (
+              <>
+                {pnlCurrent && pnlCurrentSummary?.netProfit === null && (
+                  <div className="mb-3">
+                    <ParseWarning message="Could not read Net Profit from the synced Zoho report — see zoho_reports.data." />
+                  </div>
+                )}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[420px] text-sm">
+                    <thead>
+                      <tr className="border-b border-line">
+                        <th className="py-2 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Line</th>
+                        <th className="py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">
+                          {fyLabel(fyStartYear)}
+                        </th>
+                        <th className="py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">
+                          {fyLabel(fyStartYear - 1)}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {PNL_ROWS.map((row) => {
+                        const isNet = row.key === 'netProfit'
+                        const currentValue = pnlCurrentSummary?.[row.key] ?? null
+                        return (
+                          <tr key={row.key} className={isNet ? 'font-bold' : ''}>
+                            <td className="py-2 text-ink">{row.label}</td>
+                            <td
+                              className={`py-2 text-right ${
+                                isNet ? (currentValue == null ? 'text-ink' : currentValue >= 0 ? 'text-success' : 'text-danger') : 'text-ink'
+                              }`}
+                            >
+                              {formatMYROrDash(currentValue)}
+                            </td>
+                            <td className="py-2 text-right text-muted">{formatMYROrDash(pnlPriorSummary?.[row.key] ?? null)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Line-item income statement for the current FY — Operating Income
+              reuses the exact same computed values/rows as the Revenue
+              drill-down (positiveIncomeLines/contraIncomeLines), extended
+              with Cost of Goods Sold, a computed Gross Profit subtotal, and
+              Operating Expenses using the identical LedgerRow treatment. */}
+          {pnlCurrent && (
+            <div className="space-y-2 rounded-xl border border-line bg-white p-4 shadow-card">
+              <h3 className="mb-1 text-2xs font-semibold uppercase tracking-wider text-muted">
+                Income statement — {fyLabel(fyStartYear)}
+              </h3>
+
+              {incomeLineItems.length === 0 ? (
+                <p className="py-2 text-sm text-muted">Could not read the income breakdown from the Zoho report.</p>
+              ) : (
+                <>
+                  {positiveIncomeLines.map((item) => (
+                    <LedgerRow key={`inc-${item.name}`} label={item.name} amount={item.total} />
+                  ))}
+                  {contraIncomeLines.map((item) => (
+                    <LedgerRow key={`inc-${item.name}`} label={`Less: ${item.name}`} amount={item.total} negative />
+                  ))}
+                </>
+              )}
+              <div className="border-t border-line pt-2">
+                <LedgerRow label="Net operating income" amount={netOperatingIncomeFromReport ?? 0} bold />
+              </div>
+
+              {/* Cost of Goods Sold — omitted entirely (not an empty header)
+                  when this org has no COGS section, e.g. a pure-service FY. */}
+              {cogsNode && (
+                <div className="border-t border-line pt-2">
+                  <p className="mb-1 text-2xs font-semibold uppercase tracking-wider text-muted">Cost of Goods Sold</p>
+                  {positiveCogsLines.map((item) => (
+                    <LedgerRow key={`cogs-${item.name}`} label={item.name} amount={item.total} />
+                  ))}
+                  {contraCogsLines.map((item) => (
+                    <LedgerRow key={`cogs-${item.name}`} label={`Less: ${item.name}`} amount={item.total} negative />
+                  ))}
                 </div>
               )}
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[420px] text-sm">
-                  <thead>
-                    <tr className="border-b border-line">
-                      <th className="py-2 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Line</th>
-                      <th className="py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">
-                        {fyLabel(fyStartYear)}
-                      </th>
-                      <th className="py-2 text-right font-semibold text-2xs uppercase tracking-wider text-muted">
-                        {fyLabel(fyStartYear - 1)}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {PNL_ROWS.map((row) => {
-                      const isNet = row.key === 'netProfit'
-                      const currentValue = pnlCurrentSummary?.[row.key] ?? null
-                      return (
-                        <tr key={row.key} className={isNet ? 'font-bold' : ''}>
-                          <td className="py-2 text-ink">{row.label}</td>
-                          <td
-                            className={`py-2 text-right ${
-                              isNet ? (currentValue == null ? 'text-ink' : currentValue >= 0 ? 'text-success' : 'text-danger') : 'text-ink'
-                            }`}
-                          >
-                            {formatMYROrDash(currentValue)}
-                          </td>
-                          <td className="py-2 text-right text-muted">{formatMYROrDash(pnlPriorSummary?.[row.key] ?? null)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+
+              <div className="border-t border-line pt-2">
+                <LedgerRow label="Gross profit" amount={computedGrossProfit ?? 0} bold />
               </div>
-            </>
+
+              <div className="border-t border-line pt-2">
+                <p className="mb-1 text-2xs font-semibold uppercase tracking-wider text-muted">Operating Expenses</p>
+                {opexLineItems.length === 0 ? (
+                  <p className="py-2 text-sm text-muted">Could not read the expense breakdown from the Zoho report.</p>
+                ) : (
+                  <>
+                    {positiveOpexLines.map((item) => (
+                      <LedgerRow key={`opex-${item.name}`} label={item.name} amount={item.total} />
+                    ))}
+                    {contraOpexLines.map((item) => (
+                      <LedgerRow key={`opex-${item.name}`} label={`Less: ${item.name}`} amount={item.total} negative />
+                    ))}
+                  </>
+                )}
+              </div>
+
+              <div className="border-t border-line pt-2">
+                <LedgerRow label="Net profit" amount={pnlCurrentSummary?.netProfit ?? 0} bold />
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -526,6 +683,42 @@ export function ShareholderHomePage() {
                   <span className="font-bold text-ink">{formatMYROrDash(balanceSheetSummary?.totalEquity ?? null)}</span>
                 </li>
               </ul>
+            </div>
+
+            <div className="rounded-xl bg-white p-4 shadow-card">
+              <h3 className="mb-1 text-2xs font-semibold uppercase tracking-wider text-muted">Shareholding</h3>
+              {shareholdingsState === 'loading' && <LoadingState label="Loading shareholding…" />}
+              {shareholdingsState === 'error' && <ErrorState message={shareholdingsError ?? 'Could not load shareholding.'} />}
+              {shareholdingsState === 'ready' &&
+                (sortedShareholdings.length === 0 ? (
+                  <EmptyState message="No shareholding data" />
+                ) : (
+                  <>
+                    <ul className="divide-y divide-line">
+                      {sortedShareholdings.map((sh) => (
+                        <li key={sh.profile_id ?? sh.display_name} className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 py-2 text-sm">
+                          <span className="flex items-center gap-1.5 text-ink">
+                            {sh.display_name}
+                            {profile && sh.profile_id === profile.id && (
+                              <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-2xs font-semibold text-accent-hover">
+                                You
+                              </span>
+                            )}
+                          </span>
+                          <span className="min-w-[90px] text-right tabular-nums font-semibold text-ink">
+                            {formatMYR(sh.capital)}
+                          </span>
+                          <span className="min-w-[60px] text-right tabular-nums text-muted">{sh.pct.toFixed(2)}%</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 border-t border-line pt-2 text-sm font-bold">
+                      <span className="text-ink">Total</span>
+                      <span className="min-w-[90px] text-right tabular-nums text-ink">{formatMYR(totalShareholdingCapital)}</span>
+                      <span className="min-w-[60px] text-right tabular-nums text-ink">100.00%</span>
+                    </div>
+                  </>
+                ))}
             </div>
 
             {balanceSheetBankLineItems.length > 0 && (
@@ -873,7 +1066,7 @@ export function ShareholderHomePage() {
                   <ParseWarning message="Could not read Net Profit from the synced Zoho report. The raw payload is stored in zoho_reports — check its shape against src/lib/zohoReportParsing.ts." />
                 )}
 
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <KpiCard
                     label="Revenue"
                     value={formatMYROrDash(pnlCurrentSummary?.operatingIncome ?? null)}
@@ -891,13 +1084,6 @@ export function ShareholderHomePage() {
                     onClick={() => setDrilldown('pl')}
                   />
                   <KpiCard label="Cash at Bank" value={formatMYR(cash)} Icon={Landmark} onClick={() => setDrilldown('bank')} />
-                  <KpiCard
-                    label="Balance Sheet"
-                    value={formatMYROrDash(balanceSheetSummary?.totalAssets ?? null)}
-                    sub={`Equity ${formatMYROrDash(balanceSheetSummary?.totalEquity ?? null)}`}
-                    Icon={Scale}
-                    onClick={() => setDrilldown('balance')}
-                  />
                   <KpiCard
                     label="Outstanding AR"
                     value={formatMYR(familyAr?.total_outstanding ?? 0)}
