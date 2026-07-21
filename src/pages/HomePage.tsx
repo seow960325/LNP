@@ -93,8 +93,13 @@ export function HomePage() {
   const isSuperAdmin = profile.role === 'super_admin'
   const canCheckIn = profile.role === 'teacher' || isAdmin
   const canSeeFinancials = profile.role === 'shareholder' || isAdmin
+  // Pure shareholder (not admin/super_admin): Financials-only home screen —
+  // the ops tiles (Duty Roster, Kudos, etc.) are staff-facing and irrelevant
+  // to this role, so skip the base TILES set entirely rather than hiding
+  // them one by one.
+  const isShareholderOnly = profile.role === 'shareholder'
   const tiles = [
-    ...TILES,
+    ...(isShareholderOnly ? [] : TILES),
     ...(canCheckIn ? [ENTRANCE_TILE] : []),
     ...(isAdmin ? ADMIN_TILES : []),
     ...(canSeeFinancials ? [FINANCIALS_TILE] : []),
