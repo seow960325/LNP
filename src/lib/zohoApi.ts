@@ -39,9 +39,11 @@ export interface ZohoBankAccount {
   synced_at: string
 }
 
-// Feeds the Cash-at-Bank drill-down (bank statement, running balance). See
-// supabase/functions/zoho-sync/index.ts syncBankTransactions() — field
-// names here are best-effort, not verified against a live payload.
+// Feeds the Cash-at-Bank drill-down (bank statement, running balance). Field
+// names verified against a live payload — see
+// supabase/functions/zoho-sync/index.ts syncBankTransactions().
+// running_balance is Zoho's own computed value, not derived client-side.
+// direction is Zoho's raw debit_or_credit ("debit" | "credit").
 export interface ZohoBankTransaction {
   transaction_id: string
   account_id: string | null
@@ -53,6 +55,8 @@ export interface ZohoBankTransaction {
   status: string | null
   last_modified_time: string | null
   synced_at: string
+  direction: string | null
+  running_balance: number | null
 }
 
 // Zoho's own P&L / Balance Sheet report payload, verbatim (accrual-correct —
@@ -85,7 +89,8 @@ export interface FamilyArSummary {
 const INVOICE_COLUMNS = 'invoice_id, invoice_number, customer_id, customer_name, date, total, balance, discount, status, last_modified_time, synced_at'
 const EXPENSE_COLUMNS = 'expense_id, date, account_name, amount, vendor_name, description, last_modified_time, synced_at'
 const BANK_ACCOUNT_COLUMNS = 'account_id, account_name, account_type, current_balance, synced_at'
-const BANK_TRANSACTION_COLUMNS = 'transaction_id, account_id, date, amount, transaction_type, payee, description, status, last_modified_time, synced_at'
+const BANK_TRANSACTION_COLUMNS =
+  'transaction_id, account_id, date, amount, transaction_type, payee, description, status, last_modified_time, synced_at, direction, running_balance'
 const REPORT_COLUMNS = 'report_type, period_start, period_end, data, synced_at'
 
 // Explicit .limit() above PostgREST's default 1000-row cap: at 707

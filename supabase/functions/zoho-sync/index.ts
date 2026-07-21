@@ -254,10 +254,10 @@ const ENDPOINTS: EndpointSpec[] = [
       date: r.date ?? null,
       total: r.total ?? 0,
       balance: r.balance ?? 0,
-      // NOTE: field name unverified against a live payload (same caveat as
-      // bcy_total/current_balance elsewhere in this file) — trying the two
-      // names Zoho's invoice object has used historically.
-      discount: r.discount_total ?? r.discount ?? 0,
+      // bcy_discount_total = base-currency (MYR), entity-level discount total.
+      // Deliberately NOT the per-line-item `discount` field, which would
+      // undercount entity-level discounts applied across the whole invoice.
+      discount: r.bcy_discount_total ?? 0,
       status: r.status ?? null,
       last_modified_time: r.last_modified_time ?? null,
     }),
@@ -406,12 +406,19 @@ async function syncEndpoint(ctx: SyncCtx, admin: SupabaseClient, spec: EndpointS
 // Bank transactions, one Zoho account at a time (the endpoint is scoped to
 // a single account_id per call, unlike the other list endpoints). Feeds the
 // Cash-at-Bank KPI drill-down (bank statement, running balance per account).
-// NOTE: field names below (amount vs debit/credit, payee/description,
-// status, and the `banktransactions` response key) are NOT verified against
-// a live payload — no credentials were available while writing this, same
-// caveat as the reports endpoints in syncReports(). Verify against the
-// first real synced rows before trusting the bank statement's running
-// balance or transaction direction (deposit/withdrawal).
+// Field names verified against a live payload (2026-07-21):
+//   amount            - always unsigned; direction lives in debit_or_credit.
+//   debit_or_credit   - "debit" | "credit". For a bank/cash asset account,
+//                       debit increases the balance, credit decreases it
+//                       (confirmed by reconciling against running_balance).
+//   running_balance   - Zoho's own computed running balance after this
+//                       transaction. Authoritative — stored verbatim and
+//                       displayed as-is rather than re-derived from summed
+//                       signed amounts.
+// CAVEAT: running_balance is only guaranteed fresh right after a full sync.
+// A backdated/edited transaction picked up by a plain incremental sync can
+// leave downstream rows' running_balance stale until the next full sync.
+// Fine at current volume — revisit if that drift ever becomes visible.
 async function syncBankTransactions(ctx: SyncCtx, admin: SupabaseClient, full: boolean): Promise<EndpointResult> {
   const callsBefore = ctx.calls
   const logName = full ? 'banktransactions:full' : 'banktransactions'
@@ -432,15 +439,21 @@ async function syncBankTransactions(ctx: SyncCtx, admin: SupabaseClient, full: b
         transaction_id: r.transaction_id,
         account_id: r.account_id ?? accountId,
         date: r.date ?? null,
-        amount: r.amount ?? r.debit_amount ?? r.credit_amount ?? 0,
+        amount: r.amount ?? 0,
         transaction_type: r.transaction_type ?? null,
         payee: r.payee ?? null,
         description: r.description ?? r.reference_number ?? null,
         status: r.status ?? null,
         last_modified_time: r.last_modified_time ?? null,
+        direction: r.debit_or_credit ?? null,
+        running_balance: r.running_balance ?? null,
       }))
 
       if (mapped.length > 0) {
+        // PostgREST upsert issues ON CONFLICT (transaction_id) DO UPDATE SET
+        // for every column present in the payload, so direction and
+        // running_balance ARE overwritten on conflict, not just inserted —
+        // required for a full backfill to rewrite existing rows.
         const { error } = await admin.from('zoho_bank_transactions').upsert(mapped, { onConflict: 'transaction_id' })
         if (error) throw new Error(`Upsert zoho_bank_transactions failed (account ${accountId}): ${error.message}`)
       }

@@ -74,6 +74,13 @@ export function formatMYR(amount: number): string {
   return `RM ${new Intl.NumberFormat('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`
 }
 
+// Unsigned magnitude only, no "RM" prefix — for use inside LedgerRow, which
+// renders the RM/−RM prefix as its own grid column so decimal points line
+// up across rows regardless of sign.
+export function formatMYRAbs(amount: number): string {
+  return new Intl.NumberFormat('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(amount))
+}
+
 export function formatPercent(value: number): string {
   if (!Number.isFinite(value)) return '—'
   return `${value.toFixed(1)}%`

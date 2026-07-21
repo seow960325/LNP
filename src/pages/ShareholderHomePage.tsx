@@ -17,6 +17,7 @@ import type { LucideIcon } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { RevenueExpenseChart } from '../components/RevenueExpenseChart'
+import { LedgerRow } from '../components/LedgerRow'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
 import { formatDate, formatTimeKL } from '../lib/helpers'
@@ -330,6 +331,14 @@ export function ShareholderHomePage() {
   const operatingIncomeNode = useMemo(() => (pnlCurrent ? findOperatingIncomeNode(pnlCurrent.data) : null), [pnlCurrent])
   const incomeLineItems = useMemo(() => sectionLineItems(operatingIncomeNode), [operatingIncomeNode])
   const incomeLineItemsSum = useMemo(() => incomeLineItems.reduce((sum, item) => sum + item.total, 0), [incomeLineItems])
+  // Positive lines (largest first) vs contra lines (Discount, General Income
+  // adjustments, etc.) — detected by sign, never by hardcoded name, since
+  // Zoho's exact line names aren't guaranteed.
+  const positiveIncomeLines = useMemo(
+    () => incomeLineItems.filter((item) => item.total > 0).sort((a, b) => b.total - a.total),
+    [incomeLineItems],
+  )
+  const contraIncomeLines = useMemo(() => incomeLineItems.filter((item) => item.total < 0), [incomeLineItems])
 
   const periodInvoices = useMemo(
     () =>
@@ -342,7 +351,10 @@ export function ShareholderHomePage() {
   const periodDiscountTotal = useMemo(() => periodInvoices.reduce((sum, inv) => sum + (inv.discount ?? 0), 0), [periodInvoices])
   const netInvoiced = periodInvoicedTotal - periodDiscountTotal
   const netOperatingIncomeFromReport = pnlCurrentSummary?.operatingIncome ?? null
-  const reconciliationGap = netOperatingIncomeFromReport !== null ? netOperatingIncomeFromReport - netInvoiced : null
+  // Net invoiced normally exceeds recognised P&L income (timing, refundable
+  // deposits, etc.), so this is netInvoiced minus the report figure — NOT
+  // the other way round — so the normal case reads as a positive gap.
+  const reconciliationGap = netOperatingIncomeFromReport !== null ? netInvoiced - netOperatingIncomeFromReport : null
 
   // --- Outstanding AR drill-down data ---
   const outstandingInvoices = useMemo(
@@ -358,7 +370,7 @@ export function ShareholderHomePage() {
   const statementRows = useMemo(() => {
     if (!selectedAccount) return []
     const txnsForAccount = bankTxns.filter((t) => t.account_id === selectedAccount.account_id)
-    return withRunningBalance(txnsForAccount, selectedAccount.current_balance)
+    return withRunningBalance(txnsForAccount)
   }, [bankTxns, selectedAccount])
 
   const showFyStepper = !drilldown && (activeTab === 'overview' || activeTab === 'pl')
@@ -432,38 +444,31 @@ export function ShareholderHomePage() {
               <div className="space-y-4">
                 <DrilldownHeader title={`Revenue — ${fyLabel(fyStartYear)}`} onBack={() => setDrilldown(null)} />
 
-                <div className="rounded-xl bg-white p-4 shadow-card">
-                  <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted">P&L income breakdown</h3>
+                <div className="space-y-2 rounded-xl border border-line bg-white p-4 shadow-card">
+                  <h3 className="mb-1 text-2xs font-semibold uppercase tracking-wider text-muted">P&L income breakdown</h3>
                   {incomeLineItems.length === 0 ? (
                     <p className="py-2 text-sm text-muted">Could not read the income breakdown from the Zoho report.</p>
                   ) : (
-                    <ul className="divide-y divide-line">
-                      {incomeLineItems.map((item) => (
-                        <li key={item.name} className="flex items-center justify-between py-2 text-sm">
-                          <span className="text-ink">{item.name}</span>
-                          <span className={item.total < 0 ? 'text-danger' : 'text-ink'}>{formatMYR(item.total)}</span>
-                        </li>
+                    <>
+                      {positiveIncomeLines.map((item) => (
+                        <LedgerRow key={item.name} label={item.name} amount={item.total} />
                       ))}
-                    </ul>
+                      {contraIncomeLines.map((item) => (
+                        <LedgerRow key={item.name} label={`Less: ${item.name}`} amount={item.total} negative />
+                      ))}
+                    </>
                   )}
-                  {incomeLineItems.length > 0 && (
-                    <div className="mt-2 flex items-center justify-between border-t border-line pt-2 text-sm text-muted">
-                      <span>Sum of lines</span>
-                      <span>{formatMYR(incomeLineItemsSum)}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-1 font-bold text-ink">
-                    <span>Net Operating Income</span>
-                    <span>{formatMYROrDash(netOperatingIncomeFromReport)}</span>
+                  <div className="border-t border-line pt-2">
+                    <LedgerRow label="Net operating income" amount={netOperatingIncomeFromReport ?? 0} bold />
                   </div>
                   {incomeLineItems.length > 0 && netOperatingIncomeFromReport !== null && Math.abs(incomeLineItemsSum - netOperatingIncomeFromReport) > 0.01 && (
-                    <p className="mt-2 text-2xs text-danger">
+                    <p className="pt-1 text-2xs text-danger">
                       Sum of lines doesn't match Zoho's stated total — the line-item parser may be reading the wrong section.
                     </p>
                   )}
                 </div>
 
-                <div className="rounded-xl bg-white p-4 shadow-card">
+                <div className="rounded-xl border border-line bg-white p-4 shadow-card">
                   <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted">
                     Invoices — {fyLabel(fyStartYear)}
                   </h3>
@@ -486,8 +491,8 @@ export function ShareholderHomePage() {
                             <tr key={inv.invoice_id}>
                               <td className="py-2 text-muted">{inv.date ? formatDate(inv.date) : '—'}</td>
                               <td className="py-2 text-ink">{inv.customer_name ?? '—'}</td>
-                              <td className="py-2 text-right text-ink">{formatMYR(inv.total)}</td>
-                              <td className="py-2 text-right text-muted">{inv.discount ? formatMYR(inv.discount) : '—'}</td>
+                              <td className="py-2 text-right tabular-nums text-ink">{formatMYR(inv.total)}</td>
+                              <td className="py-2 text-right tabular-nums text-muted">{inv.discount ? formatMYR(inv.discount) : '—'}</td>
                               <td className="py-2 text-muted capitalize">{inv.status ?? '—'}</td>
                             </tr>
                           ))}
@@ -497,26 +502,18 @@ export function ShareholderHomePage() {
                   )}
                 </div>
 
-                <div className="space-y-1 rounded-xl bg-cream p-4 shadow-card text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted">Invoiced</span>
-                    <span className="text-ink">{formatMYR(periodInvoicedTotal)}</span>
+                <div className="space-y-2 rounded-xl border border-line bg-cream p-4 shadow-card">
+                  <LedgerRow label="Gross invoiced" amount={periodInvoicedTotal} />
+                  <LedgerRow label="Less: discounts" amount={periodDiscountTotal} negative muted />
+                  <div className="border-t border-line pt-2">
+                    <LedgerRow label="Net invoiced" amount={netInvoiced} bold />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted">Less: discounts</span>
-                    <span className="text-ink">−{formatMYR(periodDiscountTotal)}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-line pt-1 font-semibold">
-                    <span className="text-ink">= Net invoiced</span>
-                    <span className="text-ink">{formatMYR(netInvoiced)}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-muted">Net Operating Income (Zoho P&L)</span>
-                    <span className="text-ink">{formatMYROrDash(netOperatingIncomeFromReport)}</span>
-                  </div>
-                  <div className="flex items-center justify-between font-semibold">
-                    <span className="text-ink">Difference (refundable deposits, timing, other)</span>
-                    <span className="text-ink">{reconciliationGap !== null ? formatMYR(reconciliationGap) : '—'}</span>
+                  <LedgerRow label="Net operating income (Zoho P&L)" amount={netOperatingIncomeFromReport ?? 0} muted />
+                  <div className="space-y-1 border-t border-line pt-2">
+                    <LedgerRow label="Unreconciled difference" amount={reconciliationGap ?? 0} bold />
+                    <p className="text-2xs text-muted">
+                      Timing differences, refundable deposits, and other items not yet recognised in the P&L.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -577,7 +574,9 @@ export function ShareholderHomePage() {
                               <td className="px-3 py-2 text-right text-danger">
                                 {row.signedAmount < 0 ? formatMYR(Math.abs(row.signedAmount)) : ''}
                               </td>
-                              <td className="px-3 py-2 text-right font-semibold text-ink">{formatMYR(row.balanceAfter)}</td>
+                              <td className="px-3 py-2 text-right font-semibold text-ink">
+                                {formatMYROrDash(row.running_balance)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>

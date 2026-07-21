@@ -30,3 +30,4 @@ supabase/.temp/
 center-ops-backups/
 *.sql.gz
 full_dump_*.sql
+.zs_token
