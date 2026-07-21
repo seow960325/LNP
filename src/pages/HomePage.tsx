@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Briefcase, CalendarDays, ClipboardList, DoorOpen, Trophy, Users, Wifi, Receipt } from 'lucide-react'
+import { Bell, Briefcase, CalendarDays, ClipboardList, DoorOpen, Trophy, Users, Wifi, Receipt, LineChart } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { firstName, toKLDateISO } from '../lib/helpers'
@@ -36,6 +36,15 @@ const ADMIN_TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   // Billing groups Invoices + Fee Packages under one tabbed area
   { label: 'Invoice', to: '/billing', Icon: Receipt },
 ]
+
+// Shareholder/admin/super_admin only — matches the /shareholder RequireRole
+// gate, so teacher/staff/parent never see a tile that would just bounce
+// them back out.
+const FINANCIALS_TILE: { label: string; to: string; Icon: LucideIcon } = {
+  label: 'Financials',
+  to: '/shareholder',
+  Icon: LineChart,
+}
 
 function NotificationBell() {
   const { profile } = useAuth()
@@ -83,7 +92,13 @@ export function HomePage() {
   const isAdmin = profile.role === 'admin' || profile.role === 'super_admin'
   const isSuperAdmin = profile.role === 'super_admin'
   const canCheckIn = profile.role === 'teacher' || isAdmin
-  const tiles = [...TILES, ...(canCheckIn ? [ENTRANCE_TILE] : []), ...(isAdmin ? ADMIN_TILES : [])].map((tile) => ({
+  const canSeeFinancials = profile.role === 'shareholder' || isAdmin
+  const tiles = [
+    ...TILES,
+    ...(canCheckIn ? [ENTRANCE_TILE] : []),
+    ...(isAdmin ? ADMIN_TILES : []),
+    ...(canSeeFinancials ? [FINANCIALS_TILE] : []),
+  ].map((tile) => ({
     ...tile,
     key: tile.to,
   }))

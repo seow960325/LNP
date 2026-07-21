@@ -1,0 +1,7 @@
+[functions.zoho-sync]
+# zoho-sync does its own auth in-handler (ZOHO_SYNC_TOKEN for the pg_cron
+# system caller, JWT + is_admin_or_super()/is_shareholder() for "Sync now").
+# The platform's gateway-level JWT pre-check must be off, or a request
+# carrying ZOHO_SYNC_TOKEN as its bearer (not a Supabase JWT) never reaches
+# the handler at all — it gets rejected by the gateway before our code runs.
+verify_jwt = false

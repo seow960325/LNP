@@ -164,8 +164,10 @@ export function App() {
               <Route path="/parent" element={<ParentHomePage />} />
             </Route>
 
-            {/* Shareholder — Phase 2 stub */}
-            <Route element={<RequireRole allow={['shareholder']} />}>
+            {/* Shareholder financials — shareholder, admin, super_admin.
+                Reads only the zoho_* mirror tables (RLS-gated); no Zoho calls
+                from the frontend. Hidden from nav for teacher/staff/parent. */}
+            <Route element={<RequireRole allow={['shareholder', 'admin', 'super_admin']} />}>
               <Route path="/shareholder" element={<ShareholderHomePage />} />
             </Route>
           </Route>
