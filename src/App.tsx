@@ -23,6 +23,7 @@ import { PayrollPage } from './pages/PayrollPage'
 import { OpeningBalancePage } from './pages/OpeningBalancePage'
 import { PackagesPage } from './pages/PackagesPage'
 import { StudentsPage } from './pages/StudentsPage'
+import { StudentDetailPage } from './pages/StudentDetailPage'
 import { InvoicesPage } from './pages/InvoicesPage'
 import { NewInvoicePage } from './pages/NewInvoicePage'
 import { InvoiceDetailPage } from './pages/InvoiceDetailPage'
@@ -133,6 +134,11 @@ export function App() {
             {/* Students — any authenticated active user, all roles; read-only for
                 everyone except admin/super_admin (gated inline via profile.role) */}
             <Route path="/students" element={<StudentsPage />} />
+
+            {/* Student detail — any authenticated active user; billing
+                schedule/invoice history/PDF are gated inline to
+                admin/super_admin/shareholder (mirrors zoho_* RLS) */}
+            <Route path="/students/:id" element={<StudentDetailPage />} />
 
             {/* Entrance — student arrival/departure check-in. Teacher +
                 admin + super_admin only; staff/parent/shareholder excluded. */}

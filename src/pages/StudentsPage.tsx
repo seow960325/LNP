@@ -39,6 +39,7 @@ export function StudentsPage() {
   const [students, setStudents] = useState<StudentWithPackage[]>([])
   const [packages, setPackages] = useState<FeePackage[]>([])
   const [classes, setClasses] = useState<ClassRow[]>([])
+  const [rosterTab, setRosterTab] = useState<'active' | 'past'>('active')
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -335,6 +336,13 @@ export function StudentsPage() {
     return cls?.name || '—'
   }
 
+  // fetchStudents already returns rows sorted by name — filtering here
+  // preserves that order in both tabs. Cheap enough at roster scale that
+  // memoizing would just be ceremony.
+  const activeStudents = students.filter((s) => s.active)
+  const pastStudents = students.filter((s) => !s.active)
+  const visibleStudents = rosterTab === 'active' ? activeStudents : pastStudents
+
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
@@ -351,6 +359,27 @@ export function StudentsPage() {
         </PageHeader>
 
         <TabNav tabs={directoryTabs(isAdmin)} />
+
+        <div className="flex gap-1 rounded-xl bg-white p-1 shadow-card">
+          <button
+            type="button"
+            onClick={() => setRosterTab('active')}
+            className={`min-h-tap flex-1 rounded-lg font-semibold text-sm transition-colors duration-150 ${
+              rosterTab === 'active' ? 'bg-accent-soft text-accent-hover' : 'text-muted hover:bg-accent-soft/40 hover:text-ink'
+            }`}
+          >
+            Active ({activeStudents.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setRosterTab('past')}
+            className={`min-h-tap flex-1 rounded-lg font-semibold text-sm transition-colors duration-150 ${
+              rosterTab === 'past' ? 'bg-accent-soft text-accent-hover' : 'text-muted hover:bg-accent-soft/40 hover:text-ink'
+            }`}
+          >
+            Past ({pastStudents.length})
+          </button>
+        </div>
 
         {isAdmin && (
           <button
@@ -583,16 +612,27 @@ export function StudentsPage() {
           <EmptyState message="No students yet. Add one to get started." />
         )}
 
-        {loadState === 'ready' && students.length > 0 && (
+        {loadState === 'ready' && students.length > 0 && visibleStudents.length === 0 && (
+          <EmptyState message={rosterTab === 'active' ? 'No active students.' : 'No past students.'} />
+        )}
+
+        {loadState === 'ready' && visibleStudents.length > 0 && (
           <ul className="space-y-3">
-            {students.map((student) => (
+            {visibleStudents.map((student) => (
               <li key={student.id} className="rounded-xl bg-white p-5 shadow-card">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 gap-3">
+                    <Link to={`/students/${student.id}`} className="flex min-w-0 flex-1 gap-3">
                       <Avatar fullName={student.name} avatarUrl={photoUrls[student.id] ?? null} size="lg" />
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-ink">{student.name}</h3>
+                        <h3 className="font-bold text-ink">
+                          {student.name}
+                          {student.zoho_contact_id && (
+                            <span className="ml-2 rounded-full bg-accent-soft px-2 py-0.5 align-middle text-2xs font-semibold text-accent-hover">
+                              Billed
+                            </span>
+                          )}
+                        </h3>
                         {student.parent_name && (
                           <p className="text-sm text-muted">Guardian: {student.parent_name}</p>
                         )}
@@ -617,7 +657,7 @@ export function StudentsPage() {
                           <p className="text-xs text-muted">Notes: {student.notes}</p>
                         )}
                       </div>
-                    </div>
+                    </Link>
                     <div className="flex flex-col gap-2">
                       <span
                         className={`whitespace-nowrap rounded-full px-2 py-1 text-2xs font-semibold ${

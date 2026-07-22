@@ -26,6 +26,7 @@ export interface Student {
   active: boolean
   photo_url: string | null
   class_id: string | null
+  zoho_contact_id: string | null
   created_at: string
 }
 
@@ -34,7 +35,7 @@ export interface StudentWithPackage extends Student {
 }
 
 const PACKAGE_COLUMNS = 'id, center_id, name, default_price, description, active, created_at'
-const STUDENT_COLUMNS = 'id, center_id, name, parent_name, parent_phone, parent_email, package_id, enrolled_at, dob, address, notes, active, photo_url, class_id, created_at'
+const STUDENT_COLUMNS = 'id, center_id, name, parent_name, parent_phone, parent_email, package_id, enrolled_at, dob, address, notes, active, photo_url, class_id, zoho_contact_id, created_at'
 
 // Fixed path per student (no extension, contentType carries the real MIME
 // type) so re-uploading always overwrites the same object via upsert,
@@ -117,8 +118,19 @@ export function fetchStudents(centerId: string) {
     .from('students')
     .select(`${STUDENT_COLUMNS}, fee_packages!left(${PACKAGE_COLUMNS})`)
     .eq('center_id', centerId)
-    .order('created_at', { ascending: false })
+    .order('name', { ascending: true })
     .returns<StudentWithPackage[]>()
+}
+
+// maybeSingle, not single: a bad/deleted id should read as "not found", not
+// throw — the caller (StudentDetailPage) treats a null row as a load error.
+export async function fetchStudentById(id: string) {
+  const { data, error } = await supabase
+    .from('students')
+    .select(`${STUDENT_COLUMNS}, fee_packages!left(${PACKAGE_COLUMNS})`)
+    .eq('id', id)
+    .maybeSingle()
+  return { data: data as StudentWithPackage | null, error }
 }
 
 export interface CreateStudentPayload {

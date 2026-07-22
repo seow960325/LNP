@@ -16,6 +16,17 @@
 // (feeds the Cash-at-Bank drill-down / bank statement view). Uses the
 // existing ZohoBooks.banking.READ scope — no new scope needed.
 //
+// Also syncs /recurringinvoices into zoho_recurring_invoices (billing
+// schedule per student — feeds the student detail "billing schedule" view).
+// Zoho doesn't document a last_modified_time filter for this endpoint, so
+// it's always a full pull, every run (see the `incremental: false` note on
+// its ENDPOINTS entry below).
+//
+// Also handles a non-sync action, {"action":"invoice_pdf","invoice_id":"..."}:
+// fetches one Zoho invoice as a PDF (GET /invoices/{id}?accept=pdf) and
+// returns the bytes to the caller so the Zoho token never reaches the
+// browser. Same trusted-caller auth as the sync path; nothing is stored.
+//
 // Invocation:
 //   - Nightly (pg_cron / pg_net), authenticated with ZOHO_SYNC_TOKEN as the
 //     bearer token -> treated as a trusted system caller, no role/rate
@@ -227,6 +238,17 @@ async function getAccountWatermark(admin: SupabaseClient, table: string, account
   return data?.last_modified_time ?? null
 }
 
+// Zoho returns the recurrence interval as two separate fields — repeat_every
+// (a count) and recurrence_frequency ("days"|"weeks"|"months"|"years") — the
+// frontend wants one display string, e.g. "month" or "3 months".
+function composeRecurrenceFrequency(repeatEvery: unknown, recurrenceFrequency: unknown): string | null {
+  if (typeof recurrenceFrequency !== 'string' || recurrenceFrequency.length === 0) return null
+  const n = typeof repeatEvery === 'number' ? repeatEvery : Number(repeatEvery) || 1
+  const unit = recurrenceFrequency.toLowerCase()
+  if (n === 1) return unit.endsWith('s') ? unit.slice(0, -1) : unit
+  return `${n} ${unit}`
+}
+
 interface EndpointSpec {
   endpoint: string
   table: string
@@ -330,6 +352,32 @@ const ENDPOINTS: EndpointSpec[] = [
       email: r.email ?? null,
       mobile: r.mobile ?? null,
       outstanding_receivable_amount: r.outstanding_receivable_amount ?? 0,
+      last_modified_time: r.last_modified_time ?? null,
+    }),
+  },
+  {
+    endpoint: 'recurringinvoices',
+    table: 'zoho_recurring_invoices',
+    path: '/recurringinvoices',
+    listKey: 'recurring_invoices',
+    // No documented last_modified_time filter for this endpoint (unlike
+    // invoices/expenses/contacts above) — always pull every page, every run.
+    // Fine at current volume (one row per billed student).
+    incremental: false,
+    conflictKey: 'recurring_invoice_id',
+    mapRow: (r) => ({
+      recurring_invoice_id: r.recurring_invoice_id,
+      customer_id: r.customer_id ?? null,
+      customer_name: r.customer_name ?? null,
+      recurrence_name: r.recurrence_name ?? null,
+      status: r.status ?? null,
+      frequency: composeRecurrenceFrequency(r.repeat_every, r.recurrence_frequency),
+      start_date: r.start_date ?? null,
+      next_invoice_date: r.next_invoice_date ?? null,
+      // Zoho returns "" (never "null") for a recurring invoice with no end
+      // date — normalize both to null so "no end date" is a single check.
+      end_date: r.end_date ? r.end_date : null,
+      total: r.total ?? 0,
       last_modified_time: r.last_modified_time ?? null,
     }),
   },
@@ -614,6 +662,18 @@ async function runSync(admin: SupabaseClient, full: boolean): Promise<{ ok: bool
   return { ok: allOk, ranAt, records: totalRecords, apiCalls: ctx.calls }
 }
 
+// btoa() only accepts a binary string (one char per byte), not raw bytes —
+// chunked to avoid a stack overflow from spreading a large Uint8Array into
+// String.fromCharCode at once (a multi-page invoice PDF can be 100KB+).
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeadersFor(req) })
   if (req.method !== 'POST') return json(req, { error: 'Method not allowed' }, 405)
@@ -643,19 +703,13 @@ Deno.serve(async (req) => {
     // equal to an empty secret and grant trust to anyone.
     const isTrustedSystemCaller = syncToken.length > 0 && timingSafeEqual(bearer, syncToken)
 
-    const reqUrl = new URL(req.url)
-    const requestedMode = reqUrl.searchParams.get('mode') === 'full' ? 'full' : 'incremental'
-
+    // Caller resolution shared by BOTH the sync path and the invoice_pdf
+    // action below: either the pg_cron system token, or a user session that
+    // resolves to shareholder/admin/super_admin via the same DB role helpers
+    // RLS uses (not a re-implemented copy of the role check). No other path
+    // reaches runSync() or the Zoho PDF fetch below.
     if (!isTrustedSystemCaller) {
-      // "Sync now" from the app: caller must present a valid session JWT
-      // AND resolve to shareholder/admin/super_admin via the same DB role
-      // helpers RLS uses (not a re-implemented copy of the role check), AND
-      // be rate-limited to 1/min. No other path reaches runSync() below.
       if (!authHeader) return json(req, { error: 'Missing Authorization header' }, 401)
-
-      if (requestedMode === 'full') {
-        return json(req, { error: 'Full reconcile is restricted to the scheduled system caller' }, 403)
-      }
 
       const callerClient = createClient(
         Deno.env.get('SUPABASE_URL')!,
@@ -672,6 +726,57 @@ Deno.serve(async (req) => {
       if (adminErr || shErr) return json(req, { error: 'Role check failed' }, 403)
       if (!isAdminSuper && !isShareholder) {
         return json(req, { error: 'Forbidden: shareholder, admin, or super_admin only' }, 403)
+      }
+    }
+
+    let body: Record<string, unknown> = {}
+    try {
+      const raw = await req.text()
+      if (raw) body = JSON.parse(raw)
+    } catch {
+      return json(req, { error: 'Invalid JSON body' }, 400)
+    }
+
+    if (body.action === 'invoice_pdf') {
+      const invoiceId = String(body.invoice_id ?? '')
+      // Goes straight into a URL path segment below — reject anything but a
+      // plain numeric string so no path/query injection is possible.
+      if (!/^[0-9]+$/.test(invoiceId)) {
+        return json(req, { error: 'invoice_id must be a plain numeric string' }, 400)
+      }
+
+      let accessToken: string
+      try {
+        accessToken = await getZohoAccessToken()
+      } catch (e) {
+        return json(req, { error: `Zoho auth failed: ${String(e instanceof Error ? e.message : e)}` }, 502)
+      }
+
+      const pdfUrl = new URL(`${ZOHO_API_BASE}/invoices/${invoiceId}`)
+      pdfUrl.searchParams.set('organization_id', Deno.env.get('ZOHO_ORG_ID')!)
+      pdfUrl.searchParams.set('accept', 'pdf')
+      const pdfRes = await fetch(pdfUrl.toString(), {
+        headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, Accept: 'application/pdf' },
+      })
+      if (!pdfRes.ok) return json(req, { error: `Zoho PDF fetch failed: HTTP ${pdfRes.status}` }, 502)
+
+      // Not stored anywhere — read straight through to the caller.
+      const bytes = new Uint8Array(await pdfRes.arrayBuffer())
+      return json(
+        req,
+        { ok: true, invoice_id: invoiceId, content_type: 'application/pdf', pdf_base64: bytesToBase64(bytes) },
+        200,
+      )
+    }
+
+    const reqUrl = new URL(req.url)
+    const requestedMode = reqUrl.searchParams.get('mode') === 'full' ? 'full' : 'incremental'
+
+    if (!isTrustedSystemCaller) {
+      // "Sync now" from the app: additionally rate-limited to 1/min and
+      // cannot request ?mode=full (role/session already verified above).
+      if (requestedMode === 'full') {
+        return json(req, { error: 'Full reconcile is restricted to the scheduled system caller' }, 403)
       }
 
       const { data: lastRun } = await admin
