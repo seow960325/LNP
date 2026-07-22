@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
-import { Avatar } from '../components/Avatar'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { TabNav, directoryTabs } from '../components/TabNav'
+import { StaffCard } from '../components/StaffCard'
 import { RegisterStaffForm, TempPasswordModal } from '../components/RegisterStaffForm'
 import {
   fetchStaffMembers,
@@ -27,7 +28,6 @@ export function StaffDirectoryPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [members, setMembers] = useState<StaffMember[]>([])
-  const [rosterTab, setRosterTab] = useState<'active' | 'past'>('active')
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -232,8 +232,6 @@ export function StaffDirectoryPage() {
   if (!profile) return null
 
   const activeMembers = members.filter((m) => m.active)
-  const pastMembers = members.filter((m) => !m.active)
-  const visibleMembers = rosterTab === 'active' ? activeMembers : pastMembers
 
   return (
     <div className="min-h-screen bg-cream p-6">
@@ -241,27 +239,6 @@ export function StaffDirectoryPage() {
         <PageHeader title="Staff Directory" fallback="/" />
 
         <TabNav tabs={directoryTabs(isAdmin)} />
-
-        <div className="flex gap-1 rounded-xl bg-white p-1 shadow-card">
-          <button
-            type="button"
-            onClick={() => setRosterTab('active')}
-            className={`min-h-tap flex-1 rounded-lg font-semibold text-sm transition-colors duration-150 ${
-              rosterTab === 'active' ? 'bg-accent-soft text-accent-hover' : 'text-muted hover:bg-accent-soft/40 hover:text-ink'
-            }`}
-          >
-            Active ({activeMembers.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setRosterTab('past')}
-            className={`min-h-tap flex-1 rounded-lg font-semibold text-sm transition-colors duration-150 ${
-              rosterTab === 'past' ? 'bg-accent-soft text-accent-hover' : 'text-muted hover:bg-accent-soft/40 hover:text-ink'
-            }`}
-          >
-            Past ({pastMembers.length})
-          </button>
-        </div>
 
         {isAdmin && (
           <div className="flex gap-2">
@@ -376,7 +353,6 @@ export function StaffDirectoryPage() {
                 />
                 Assign duty roster
               </label>
-              <p className="mt-1 pl-6 text-2xs text-muted/70">Takes effect after the roster migration</p>
             </div>
 
             <div className="flex gap-2">
@@ -404,82 +380,34 @@ export function StaffDirectoryPage() {
         {loadState === 'loading' && <LoadingState label="Loading the directory…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
 
-        {loadState === 'ready' && members.length === 0 && (
-          <EmptyState message="No staff members yet. Add one to get started." />
+        {loadState === 'ready' && activeMembers.length === 0 && (
+          <EmptyState message="No active staff members. Add one to get started." />
         )}
 
-        {loadState === 'ready' && members.length > 0 && visibleMembers.length === 0 && (
-          <EmptyState message={rosterTab === 'active' ? 'No active staff members.' : 'No past staff members.'} />
-        )}
-
-        {loadState === 'ready' && visibleMembers.length > 0 && (
+        {loadState === 'ready' && activeMembers.length > 0 && (
           <ul className="space-y-3">
-            {visibleMembers.map((member) => (
-              <li key={member.id} className="rounded-xl bg-white p-5 shadow-card">
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 gap-3">
-                      <Avatar fullName={member.full_name} avatarUrl={null} size="lg" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-base font-bold text-ink">
-                          {member.full_name}
-                          {member.profile_id && (
-                            <span className="ml-2 rounded-full bg-accent-soft px-2 py-0.5 align-middle text-2xs font-semibold text-accent-hover">
-                              Has login
-                            </span>
-                          )}
-                        </p>
-                        {member.job_title && <p className="mt-1 text-sm text-muted">{member.job_title}</p>}
-                        {member.phone && <p className="mt-1 text-xs text-muted">{member.phone}</p>}
-                        {member.email && <p className="text-xs text-muted">{member.email}</p>}
-                      </div>
-                    </div>
-                  </div>
-
-                  {isAdmin && (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => startEdit(member)}
-                        disabled={submitting}
-                        className="min-h-tap flex-1 rounded-xl border border-line text-2xs text-muted hover:bg-cream disabled:opacity-60"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleActive(member.id, member.active)}
-                        disabled={submitting}
-                        className="min-h-tap flex-1 rounded-xl border border-line text-2xs text-muted hover:bg-cream disabled:opacity-60"
-                      >
-                        {member.active ? 'Deactivate' : 'Activate'}
-                      </button>
-                      {!member.profile_id && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => openCreateLogin(member.id)}
-                            disabled={submitting}
-                            className="min-h-tap flex-1 rounded-xl border border-line text-2xs text-muted hover:bg-cream disabled:opacity-60"
-                          >
-                            Create login
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setLinkTarget(member)}
-                            disabled={submitting}
-                            className="min-h-tap flex-1 rounded-xl border border-line text-2xs text-muted hover:bg-cream disabled:opacity-60"
-                          >
-                            Link login
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </li>
+            {activeMembers.map((member) => (
+              <StaffCard
+                key={member.id}
+                member={member}
+                isAdmin={isAdmin}
+                submitting={submitting}
+                onEdit={startEdit}
+                onToggleActive={handleToggleActive}
+                onCreateLogin={openCreateLogin}
+                onLinkLogin={setLinkTarget}
+              />
             ))}
           </ul>
+        )}
+
+        {loadState === 'ready' && (
+          <Link
+            to="/staff/past"
+            className="flex min-h-tap items-center justify-center rounded-xl border border-line bg-white text-sm font-semibold text-muted shadow-card hover:bg-cream"
+          >
+            View past staff
+          </Link>
         )}
       </div>
 

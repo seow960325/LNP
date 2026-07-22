@@ -17,7 +17,6 @@ export interface Profile {
   email: string | null
   active: boolean
   is_paid_employee: boolean
-  in_duty_roster: boolean
   is_app_owner: boolean
   must_change_password: boolean
   created_at: string

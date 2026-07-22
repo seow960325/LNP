@@ -84,19 +84,19 @@ const orderedPool = [
 const slots = buildSlots(dutyTypes) // ['on-duty', 'teaching', 'standby']
 
 const monday = computeAssignmentsForDate(orderedPool, slots, EPOCH_MONDAY)
-assertEqual(monday.find((a) => a.profile_id === 'A')?.duty_type_id, 'on-duty', 'Mon: A -> slot0 (on-duty)')
-assertEqual(monday.find((a) => a.profile_id === 'B')?.duty_type_id, 'teaching', 'Mon: B -> slot1 (teaching)')
-assertEqual(monday.find((a) => a.profile_id === 'C')?.duty_type_id, 'standby', 'Mon: C -> slot2 (standby)')
+assertEqual(monday.find((a) => a.staff_member_id === 'A')?.duty_type_id, 'on-duty', 'Mon: A -> slot0 (on-duty)')
+assertEqual(monday.find((a) => a.staff_member_id === 'B')?.duty_type_id, 'teaching', 'Mon: B -> slot1 (teaching)')
+assertEqual(monday.find((a) => a.staff_member_id === 'C')?.duty_type_id, 'standby', 'Mon: C -> slot2 (standby)')
 
 const tuesday = computeAssignmentsForDate(orderedPool, slots, '2024-01-02')
-assertEqual(tuesday.find((a) => a.profile_id === 'A')?.duty_type_id, 'teaching', 'Tue: A -> slot1 (teaching)')
-assertEqual(tuesday.find((a) => a.profile_id === 'B')?.duty_type_id, 'standby', 'Tue: B -> slot2 (standby)')
-assertEqual(tuesday.find((a) => a.profile_id === 'C')?.duty_type_id, 'on-duty', 'Tue: C -> slot0 (on-duty)')
+assertEqual(tuesday.find((a) => a.staff_member_id === 'A')?.duty_type_id, 'teaching', 'Tue: A -> slot1 (teaching)')
+assertEqual(tuesday.find((a) => a.staff_member_id === 'B')?.duty_type_id, 'standby', 'Tue: B -> slot2 (standby)')
+assertEqual(tuesday.find((a) => a.staff_member_id === 'C')?.duty_type_id, 'on-duty', 'Tue: C -> slot0 (on-duty)')
 
 // Next week's Monday (D=5): 5 mod 3 = 2, so the rotation has advanced
 // rather than resetting — A is now on slot2, not back on slot0.
 const nextMonday = computeAssignmentsForDate(orderedPool, slots, '2024-01-08')
-assertEqual(nextMonday.find((a) => a.profile_id === 'A')?.duty_type_id, 'standby', 'next Mon: A -> slot2 (continuity, not reset)')
+assertEqual(nextMonday.find((a) => a.staff_member_id === 'A')?.duty_type_id, 'standby', 'next Mon: A -> slot2 (continuity, not reset)')
 
 // S !== N guard: mismatched slot/pool counts produce no assignments at all.
 assertEqual(computeAssignmentsForDate(orderedPool, buildSlots(dutyTypesWithHeadcount2), EPOCH_MONDAY).length, 0, 'S!=N yields []')

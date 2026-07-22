@@ -119,15 +119,15 @@ export function RosterPage() {
     }
   }
 
-  async function handleSwap(date: string, dutyTypeId: string, currentProfileId: string, newProfileId: string) {
-    if (currentProfileId === newProfileId || swappingKey) return
-    const otherRow = rosterForDate(date).find((a) => a.profile_id === newProfileId)
+  async function handleSwap(date: string, dutyTypeId: string, currentStaffMemberId: string, newStaffMemberId: string) {
+    if (currentStaffMemberId === newStaffMemberId || swappingKey) return
+    const otherRow = rosterForDate(date).find((a) => a.staff_member_id === newStaffMemberId)
     if (!otherRow) return
 
-    const key = `${date}|${dutyTypeId}|${currentProfileId}`
+    const key = `${date}|${dutyTypeId}|${currentStaffMemberId}`
     setSwappingKey(key)
     try {
-      const { error } = await withTimeout(swapDutyAssignments(date, currentProfileId, newProfileId))
+      const { error } = await withTimeout(swapDutyAssignments(date, currentStaffMemberId, newStaffMemberId))
       setSwappingKey(null)
 
       if (error) {
@@ -244,12 +244,12 @@ export function RosterPage() {
                           ) : isAdmin ? (
                             <div className="space-y-1">
                               {rows.map((row) => {
-                                const key = `${day}|${dutyType.id}|${row.profile_id}`
+                                const key = `${day}|${dutyType.id}|${row.staff_member_id}`
                                 return (
                                   <select
                                     key={row.id}
-                                    value={row.profile_id}
-                                    onChange={(e) => handleSwap(day, dutyType.id, row.profile_id, e.target.value)}
+                                    value={row.staff_member_id}
+                                    onChange={(e) => handleSwap(day, dutyType.id, row.staff_member_id, e.target.value)}
                                     disabled={swappingKey === key}
                                     title={row.is_manual ? 'Manually assigned' : undefined}
                                     className={`w-full rounded-lg border px-1 py-1 text-2xs disabled:opacity-50 ${
@@ -257,7 +257,7 @@ export function RosterPage() {
                                     }`}
                                   >
                                     {rosterForDate(day).map((person) => (
-                                      <option key={person.profile_id} value={person.profile_id}>
+                                      <option key={person.staff_member_id} value={person.staff_member_id}>
                                         {person.full_name}
                                       </option>
                                     ))}

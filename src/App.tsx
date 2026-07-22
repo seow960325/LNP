@@ -17,6 +17,7 @@ import { RosterPage } from './pages/RosterPage'
 import { WifiPage } from './pages/WifiPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { StaffDirectoryPage } from './pages/StaffDirectoryPage'
+import { PastStaffPage } from './pages/PastStaffPage'
 import { StaffMemberDetailPage } from './pages/StaffMemberDetailPage'
 import { StaffDocumentsPage } from './pages/StaffDocumentsPage'
 import { PayrollPage } from './pages/PayrollPage'
@@ -103,53 +104,66 @@ export function App() {
             {/* Profile — any authenticated active user, edits own row only */}
             <Route path="/profile" element={<ProfilePage />} />
 
-            {/* Claims — any authenticated active user, all roles; the page
-                branches inline into an own-claims view or the full
-                admin review view (RLS enforces the actual row visibility) */}
-            <Route path="/claims" element={<ClaimsPage />} />
+            {/* Claims & Leave — teacher/staff/admin/super_admin only (parent,
+                shareholder excluded); the page branches inline into an
+                own-claims view or the full admin review view (RLS enforces
+                the actual row visibility) */}
+            <Route element={<RequireRole allow={['teacher', 'staff', 'admin', 'super_admin']} />}>
+              <Route path="/claims" element={<ClaimsPage />} />
+              <Route path="/leave" element={<LeavePage />} />
+            </Route>
 
-            {/* Leave — any authenticated active user, all roles; the page
-                branches inline into an own-requests view or the full
-                admin review view (RLS enforces the actual row visibility) */}
-            <Route path="/leave" element={<LeavePage />} />
-
-            {/* HR & Claims — landing menu grouping Leave, Claims, and Documents
-                behind one home tile; any authenticated active user, all roles */}
-            <Route path="/hr" element={<HrPage />} />
+            {/* HR & Claims landing menu — admin/super_admin only */}
+            <Route element={<RequireRole allow={['admin', 'super_admin']} />}>
+              <Route path="/hr" element={<HrPage />} />
+            </Route>
 
             {/* Directory group — redirects to its default tab. The tabbed pages
                 themselves keep their own routes/guards below. */}
             <Route path="/directory" element={<Navigate to="/staff" replace />} />
 
-            {/* Staff Directory — any authenticated active user, all roles, read-only */}
-            <Route path="/staff" element={<StaffDirectoryPage />} />
+            {/* Staff Directory — teacher/staff/admin/super_admin only (parent,
+                shareholder excluded), read-only. Shows active staff only;
+                past staff live at /staff/past. */}
+            <Route element={<RequireRole allow={['teacher', 'staff', 'admin', 'super_admin']} />}>
+              <Route path="/staff" element={<StaffDirectoryPage />} />
+              {/* Flat list of inactive staff, no grouping — same role gating as /staff above. */}
+              <Route path="/staff/past" element={<PastStaffPage />} />
 
-            {/* Staff member detail — any authenticated active user; document and
-                management sections are gated inline (admin+super_admin get the
-                Management block and doc-manage rights, self sees own docs
-                view-only, everyone else sees neither) */}
-            <Route path="/staff/:id" element={<StaffMemberDetailPage />} />
+              {/* Staff member detail — same role gating as /staff above; document
+                  and management sections are further gated inline (admin+super_admin
+                  get the Management block and doc-manage rights, self sees own docs
+                  view-only, everyone else sees neither) */}
+              <Route path="/staff/:id" element={<StaffMemberDetailPage />} />
+            </Route>
 
-            {/* Staff Documents — self-only, view-only for every role (gated inline via profile.role) */}
-            <Route path="/documents" element={<StaffDocumentsPage />} />
+            {/* Staff Documents — teacher/staff/admin/super_admin only (parent,
+                shareholder excluded); self-only, view-only for every allowed
+                role (gated inline via profile.role) */}
+            <Route element={<RequireRole allow={['teacher', 'staff', 'admin', 'super_admin']} />}>
+              <Route path="/documents" element={<StaffDocumentsPage />} />
+            </Route>
 
-            {/* Students — class-tile landing page. Any authenticated active
-                user, all roles; read-only for everyone except admin/super_admin
-                (gated inline via profile.role) */}
-            <Route path="/students" element={<StudentClassesPage />} />
+            {/* Students — teacher/staff/admin/super_admin only (parent,
+                shareholder excluded); read-only for everyone except
+                admin/super_admin (gated inline via profile.role) */}
+            <Route element={<RequireRole allow={['teacher', 'staff', 'admin', 'super_admin']} />}>
+              <Route path="/students" element={<StudentClassesPage />} />
 
-            {/* Active roster for one class (or the synthetic "unassigned"
-                bucket) — same role gating as /students above. */}
-            <Route path="/students/class/:classId" element={<StudentClassListPage />} />
+              {/* Active roster for one class (or the synthetic "unassigned"
+                  bucket) — same role gating as /students above. */}
+              <Route path="/students/class/:classId" element={<StudentClassListPage />} />
 
-            {/* Flat list of inactive students, no class grouping — same role
-                gating as /students above. */}
-            <Route path="/students/past" element={<PastStudentsPage />} />
+              {/* Flat list of inactive students, no class grouping — same role
+                  gating as /students above. */}
+              <Route path="/students/past" element={<PastStudentsPage />} />
 
-            {/* Student detail — any authenticated active user; billing
-                schedule/invoice history/PDF are gated inline to
-                admin/super_admin/shareholder (mirrors zoho_* RLS) */}
-            <Route path="/students/:id" element={<StudentDetailPage />} />
+              {/* Student detail — billing schedule/invoice history/PDF are
+                  further gated inline to admin/super_admin/shareholder... but
+                  shareholder can't reach this route at all now, so that inline
+                  branch is effectively admin/super_admin-only in practice */}
+              <Route path="/students/:id" element={<StudentDetailPage />} />
+            </Route>
 
             {/* Entrance — student arrival/departure check-in. Teacher +
                 admin + super_admin only; staff/parent/shareholder excluded. */}

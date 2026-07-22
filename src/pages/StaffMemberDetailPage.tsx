@@ -54,7 +54,6 @@ function ManagementSection({
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false)
 
   const [togglingPaid, setTogglingPaid] = useState(false)
-  const [togglingDutyRoster, setTogglingDutyRoster] = useState(false)
 
   const dirty = draftRole !== member.role || draftTitle !== (member.title ?? '')
 
@@ -123,25 +122,6 @@ function ManagementSection({
     toast.success(nextPaid ? 'Marked as paid employee' : 'Marked as non-paid employee')
   }
 
-  async function handleToggleDutyRoster(nextInRoster: boolean) {
-    setTogglingDutyRoster(true)
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ in_duty_roster: nextInRoster })
-      .eq('id', member.id)
-      .select()
-      .single()
-
-    setTogglingDutyRoster(false)
-    if (error || !data) {
-      toast.error('Could not update this member. Please try again.')
-      return
-    }
-    onChanged(data as Profile)
-    toast.success(nextInRoster ? 'Added to duty roster rotation' : 'Removed from duty roster rotation')
-  }
-
   return (
     <div className="space-y-3 rounded-xl bg-white p-5 shadow-card">
       <p className="font-semibold text-sm text-ink">Management</p>
@@ -186,18 +166,6 @@ function ManagementSection({
         />
         Paid employee
         {togglingPaid && <span className="text-2xs text-muted/70">Saving…</span>}
-      </label>
-
-      <label className="flex items-center gap-2 text-xs text-muted">
-        <input
-          type="checkbox"
-          checked={member.in_duty_roster}
-          onChange={(event) => handleToggleDutyRoster(event.target.checked)}
-          disabled={togglingDutyRoster}
-          className="h-4 w-4 rounded border-line disabled:opacity-60"
-        />
-        Assign duty roster
-        {togglingDutyRoster && <span className="text-2xs text-muted/70">Saving…</span>}
       </label>
 
       <div className="flex flex-wrap items-center gap-2">

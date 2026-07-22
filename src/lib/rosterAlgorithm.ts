@@ -62,7 +62,7 @@ export function orderPool(pool: PoolPerson[]): PoolPerson[] {
 }
 
 export interface SlotAssignment {
-  profile_id: string
+  staff_member_id: string
   duty_type_id: string
 }
 
@@ -81,7 +81,7 @@ export function computeAssignmentsForDate(
   if (n === 0 || slots.length !== n) return []
   const d = workingDayIndex(dateISO)
   return orderedPool.map((person, i) => ({
-    profile_id: person.id,
+    staff_member_id: person.id,
     duty_type_id: slots[(i + d) % n],
   }))
 }

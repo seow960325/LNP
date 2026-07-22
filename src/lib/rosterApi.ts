@@ -1,6 +1,5 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import { supabase } from './supabaseClient'
-import { fetchProfilesByIds } from './kudosApi'
 import { buildSlots, computeAssignmentsForDate, orderPool } from './rosterAlgorithm'
 
 // --- Duty types ---
@@ -66,14 +65,14 @@ export interface RotationPoolMember {
 }
 
 // The rotation pool: active staff opted into duty roster via
-// profiles.in_duty_roster (toggled from the staff directory). Ordered by
-// full_name so the DB round-trip already matches the algorithm's stable
+// staff_members.in_duty_roster (toggled from the staff directory). Ordered
+// by full_name so the DB round-trip already matches the algorithm's stable
 // order in the common case, though callers should still run this through
 // orderPool() before feeding it to computeAssignmentsForDate — that's the
 // one true source of the tie-break rule.
 export function fetchRotationPool(centerId: string) {
   return supabase
-    .from('profiles')
+    .from('staff_members')
     .select('id, full_name')
     .eq('center_id', centerId)
     .eq('active', true)
@@ -88,7 +87,7 @@ export interface DutyAssignment {
   id: string
   work_date: string
   duty_type_id: string
-  profile_id: string
+  staff_member_id: string
   is_manual: boolean
 }
 
@@ -102,7 +101,7 @@ export async function fetchWeekAssignments(
 ): Promise<{ data: DutyAssignmentRow[] | null; error: PostgrestError | null }> {
   const { data: rows, error } = await supabase
     .from('duty_assignments')
-    .select('id, work_date, duty_type_id, profile_id, is_manual')
+    .select('id, work_date, duty_type_id, staff_member_id, is_manual')
     .gte('work_date', weekStart)
     .lte('work_date', weekEnd)
     .order('work_date', { ascending: true })
@@ -110,14 +109,17 @@ export async function fetchWeekAssignments(
 
   if (error || !rows) return { data: null, error }
 
-  const ids = Array.from(new Set(rows.map((row) => row.profile_id)))
-  const { data: profiles, error: profilesError } = await fetchProfilesByIds(ids)
-  if (profilesError) return { data: null, error: profilesError }
+  const ids = Array.from(new Set(rows.map((row) => row.staff_member_id)))
+  const { data: staffMembers, error: staffMembersError } =
+    ids.length === 0
+      ? { data: [] as { id: string; full_name: string }[], error: null }
+      : await supabase.from('staff_members').select('id, full_name').in('id', ids).returns<{ id: string; full_name: string }[]>()
+  if (staffMembersError) return { data: null, error: staffMembersError }
 
-  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]))
+  const nameById = new Map((staffMembers ?? []).map((s) => [s.id, s.full_name]))
   const merged: DutyAssignmentRow[] = rows.map((row) => ({
     ...row,
-    full_name: nameById.get(row.profile_id) ?? 'Unknown',
+    full_name: nameById.get(row.staff_member_id) ?? 'Unknown',
   }))
 
   return { data: merged, error: null }
@@ -125,7 +127,7 @@ export async function fetchWeekAssignments(
 
 // Generates (or regenerates) a Mon-Fri week of assignments.
 //
-// Manual cells are preserved: any profile with an is_manual=true row on a
+// Manual cells are preserved: any staff member with an is_manual=true row on a
 // given date is skipped entirely by the recompute for that date (their
 // existing row, whatever duty it points to, is left untouched) — only the
 // is_manual=false rows for the week are deleted and reinserted. This is
@@ -158,30 +160,30 @@ export async function generateWeek(
 
   const { data: manualRows, error: manualError } = await supabase
     .from('duty_assignments')
-    .select('work_date, profile_id')
+    .select('work_date, staff_member_id')
     .gte('work_date', weekStart)
     .lte('work_date', weekEnd)
     .eq('is_manual', true)
-    .returns<{ work_date: string; profile_id: string }[]>()
+    .returns<{ work_date: string; staff_member_id: string }[]>()
 
   if (manualError) return { error: 'Could not check existing manual assignments. Please try again.' }
 
   const pinnedByDate = new Map<string, Set<string>>()
   for (const row of manualRows ?? []) {
     const set = pinnedByDate.get(row.work_date) ?? new Set<string>()
-    set.add(row.profile_id)
+    set.add(row.staff_member_id)
     pinnedByDate.set(row.work_date, set)
   }
 
-  const rowsToInsert: { work_date: string; duty_type_id: string; profile_id: string; is_manual: boolean }[] = []
+  const rowsToInsert: { work_date: string; duty_type_id: string; staff_member_id: string; is_manual: boolean }[] = []
   for (const date of weekDates) {
     const pinned = pinnedByDate.get(date) ?? new Set<string>()
     for (const assignment of computeAssignmentsForDate(orderedPool, slots, date)) {
-      if (pinned.has(assignment.profile_id)) continue
+      if (pinned.has(assignment.staff_member_id)) continue
       rowsToInsert.push({
         work_date: date,
         duty_type_id: assignment.duty_type_id,
-        profile_id: assignment.profile_id,
+        staff_member_id: assignment.staff_member_id,
         is_manual: false,
       })
     }
@@ -221,15 +223,15 @@ export async function generateWeek(
 // function used to take are gone, since the server now sources them fresh.
 export async function swapDutyAssignments(
   workDate: string,
-  profileIdA: string,
-  profileIdB: string
+  staffIdA: string,
+  staffIdB: string
 ): Promise<{ error: PostgrestError | null }> {
-  if (profileIdA === profileIdB) return { error: null }
+  if (staffIdA === staffIdB) return { error: null }
 
   const { error } = await supabase.rpc('swap_duty_assignments', {
     p_work_date: workDate,
-    p_profile_a: profileIdA,
-    p_profile_b: profileIdB,
+    p_staff_a: staffIdA,
+    p_staff_b: staffIdB,
   })
 
   return { error }
