@@ -362,7 +362,7 @@ export function KudosSendPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="max-w-lg mx-auto space-y-4">
-        <NavBackButton fallback="/kudos" />
+        <NavBackButton />
         <KudosSendPanel onViewWall={() => navigate('/kudos')} />
       </div>
     </div>

@@ -164,7 +164,7 @@ export function StudentClassListPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title={headerName} fallback="/students" />
+        <PageHeader title={headerName} />
 
         {loadState === 'ready' && (
           <p className="text-sm text-muted">

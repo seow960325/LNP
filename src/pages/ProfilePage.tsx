@@ -108,7 +108,7 @@ export function ProfilePage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="My Profile" fallback="/" />
+        <PageHeader title="My Profile" />
 
         <div className="flex flex-col items-center gap-3 rounded-xl bg-white p-8 text-center shadow-card">
           <div className="relative inline-block">

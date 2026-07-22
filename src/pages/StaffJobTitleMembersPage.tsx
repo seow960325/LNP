@@ -1,34 +1,38 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
-import { TabNav, directoryTabs } from '../components/TabNav'
 import { StaffCard } from '../components/StaffCard'
 import { RegisterStaffForm, TempPasswordModal } from '../components/RegisterStaffForm'
 import {
-  fetchStaffMembers,
+  fetchStaffDirectoryMembers,
   createStaffMember,
   updateStaffMember,
   toggleStaffMemberActive,
   fetchProfilesForLinking,
 } from '../lib/profileApi'
-import type { LinkableProfile, UpdateStaffMemberPatch } from '../lib/profileApi'
-import type { StaffMember } from '../types'
+import type { LinkableProfile, UpdateStaffMemberPatch, StaffDirectoryMember } from '../lib/profileApi'
+import { fetchJobTitles } from '../lib/jobTitlesApi'
+import type { JobTitle } from '../types'
+import { getDirectoryPhotoSignedUrl } from '../lib/directoryPhotoApi'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
 import { staffLabel } from '../lib/helpers'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
-export function StaffDirectoryPage() {
+export function StaffJobTitleMembersPage() {
+  const { jobTitleId } = useParams<{ jobTitleId: string }>()
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin'
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [members, setMembers] = useState<StaffMember[]>([])
+  const [members, setMembers] = useState<StaffDirectoryMember[]>([])
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([])
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({})
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -36,6 +40,7 @@ export function StaffDirectoryPage() {
   const [formName, setFormName] = useState('')
   const [formDisplayName, setFormDisplayName] = useState('')
   const [formJobTitle, setFormJobTitle] = useState('')
+  const [formJobTitleId, setFormJobTitleId] = useState('')
   const [formPhone, setFormPhone] = useState('')
   const [formEmail, setFormEmail] = useState('')
   const [formInDutyRoster, setFormInDutyRoster] = useState(false)
@@ -52,7 +57,7 @@ export function StaffDirectoryPage() {
 
   // "Link login" — attach an existing, not-yet-linked profile to a
   // staff_members row without creating a new auth user.
-  const [linkTarget, setLinkTarget] = useState<StaffMember | null>(null)
+  const [linkTarget, setLinkTarget] = useState<StaffDirectoryMember | null>(null)
   const [availableProfiles, setAvailableProfiles] = useState<LinkableProfile[]>([])
   const [loadingProfiles, setLoadingProfiles] = useState(false)
   const [linking, setLinking] = useState(false)
@@ -61,14 +66,15 @@ export function StaffDirectoryPage() {
     if (!profile) return
     setLoadState('loading')
 
-    withTimeout(fetchStaffMembers(profile.center_id))
-      .then(({ data, error }) => {
-        if (error || !data) {
+    withTimeout(Promise.all([fetchStaffDirectoryMembers(profile.center_id, true), fetchJobTitles(profile.center_id)]))
+      .then(([membersRes, jobTitlesRes]) => {
+        if (membersRes.error || !membersRes.data || jobTitlesRes.error || !jobTitlesRes.data) {
           setLoadError('Could not load the staff directory. Please try again.')
           setLoadState('error')
           return
         }
-        setMembers(data)
+        setMembers(membersRes.data)
+        setJobTitles(jobTitlesRes.data)
         setLoadState('ready')
       })
       .catch((err) => {
@@ -79,12 +85,44 @@ export function StaffDirectoryPage() {
 
   useEffect(() => {
     loadMembers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile])
+
+  const tileMembers = members.filter((m) =>
+    jobTitleId === 'unassigned' ? !m.job_title_id : m.job_title_id === jobTitleId,
+  )
+  const activeMembers = tileMembers.filter((m) => m.active)
+  const tileName =
+    jobTitleId === 'unassigned' ? 'Unassigned' : jobTitles.find((jt) => jt.id === jobTitleId)?.name ?? 'Staff'
+
+  // staff-photos is a private bucket — mint fresh signed URLs each load, and
+  // fall back to the linked login's (public) avatar when there's no own photo.
+  useEffect(() => {
+    const withOwnPhoto = activeMembers.filter((m) => m.photo_path)
+    if (withOwnPhoto.length === 0) return
+    let cancelled = false
+
+    Promise.all(withOwnPhoto.map(async (m) => [m.id, await getDirectoryPhotoSignedUrl(m.photo_path)] as const)).then(
+      (entries) => {
+        if (cancelled) return
+        setPhotoUrls((current) => ({ ...current, ...Object.fromEntries(entries) }))
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members])
+
+  function resolvePhotoUrl(member: StaffDirectoryMember): string | null {
+    return (member.photo_path ? photoUrls[member.id] : undefined) ?? member.linked_avatar_url ?? null
+  }
 
   function cancelEdit() {
     setFormName('')
     setFormDisplayName('')
     setFormJobTitle('')
+    setFormJobTitleId(jobTitleId && jobTitleId !== 'unassigned' ? jobTitleId : '')
     setFormPhone('')
     setFormEmail('')
     setFormInDutyRoster(false)
@@ -92,11 +130,17 @@ export function StaffDirectoryPage() {
     setShowForm(false)
   }
 
-  function startEdit(member: StaffMember) {
+  function startAdd() {
+    cancelEdit()
+    setShowForm(true)
+  }
+
+  function startEdit(member: StaffDirectoryMember) {
     setEditingId(member.id)
     setFormName(member.full_name)
     setFormDisplayName(member.display_name || '')
     setFormJobTitle(member.job_title || '')
+    setFormJobTitleId(member.job_title_id || '')
     setFormPhone(member.phone || '')
     setFormEmail(member.email || '')
     setFormInDutyRoster(member.in_duty_roster)
@@ -117,6 +161,7 @@ export function StaffDirectoryPage() {
         full_name: formName.trim(),
         display_name: formDisplayName.trim() || null,
         job_title: formJobTitle.trim() || undefined,
+        job_title_id: formJobTitleId || null,
         phone: formPhone.trim() || undefined,
         email: formEmail.trim() || undefined,
         in_duty_roster: formInDutyRoster,
@@ -170,8 +215,8 @@ export function StaffDirectoryPage() {
   }
 
   function openCreateLogin(staffId: string | null) {
-    // Mutually exclusive with the staff_members add/edit form — only one
-    // form on screen at a time.
+    // Mutually exclusive with the staff_members add/edit form above — only
+    // one form on screen at a time.
     cancelEdit()
     setRegisterForStaffId(staffId)
     setShowRegisterForm(true)
@@ -240,16 +285,12 @@ export function StaffDirectoryPage() {
     loadMembers()
   }
 
-  if (!profile) return null
-
-  const activeMembers = members.filter((m) => m.active)
+  if (!profile || !jobTitleId) return null
 
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Staff Directory" fallback="/" />
-
-        <TabNav tabs={directoryTabs(isAdmin)} />
+        <PageHeader title={tileName} />
 
         {isAdmin && (
           <div className="flex gap-2">
@@ -260,7 +301,7 @@ export function StaffDirectoryPage() {
                   cancelEdit()
                 } else {
                   closeCreateLogin()
-                  setShowForm(true)
+                  startAdd()
                 }
               }}
               className="min-h-tap flex-1 rounded-xl border border-accent/30 bg-white font-semibold text-sm text-accent-hover shadow-card hover:bg-accent-soft"
@@ -331,7 +372,24 @@ export function StaffDirectoryPage() {
             </div>
 
             <div>
-              <label className="text-xs text-muted">Job title</label>
+              <label className="text-xs text-muted">Job title (group)</label>
+              <select
+                value={formJobTitleId}
+                onChange={(e) => setFormJobTitleId(e.target.value)}
+                disabled={submitting}
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+              >
+                <option value="">Unassigned</option>
+                {jobTitles.map((jt) => (
+                  <option key={jt.id} value={jt.id}>
+                    {jt.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted">Job title (label)</label>
               <input
                 type="text"
                 value={formJobTitle}
@@ -401,11 +459,11 @@ export function StaffDirectoryPage() {
           </form>
         )}
 
-        {loadState === 'loading' && <LoadingState label="Loading the directory…" />}
+        {loadState === 'loading' && <LoadingState label="Loading staff…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
 
         {loadState === 'ready' && activeMembers.length === 0 && (
-          <EmptyState message="No active staff members. Add one to get started." />
+          <EmptyState message="No active staff members in this group yet." />
         )}
 
         {loadState === 'ready' && activeMembers.length > 0 && (
@@ -414,6 +472,7 @@ export function StaffDirectoryPage() {
               <StaffCard
                 key={member.id}
                 member={member}
+                photoUrl={resolvePhotoUrl(member)}
                 isAdmin={isAdmin}
                 submitting={submitting}
                 onEdit={startEdit}
@@ -423,15 +482,6 @@ export function StaffDirectoryPage() {
               />
             ))}
           </ul>
-        )}
-
-        {loadState === 'ready' && (
-          <Link
-            to="/staff/past"
-            className="flex min-h-tap items-center justify-center rounded-xl border border-line bg-white text-sm font-semibold text-muted shadow-card hover:bg-cream"
-          >
-            View past staff
-          </Link>
         )}
       </div>
 

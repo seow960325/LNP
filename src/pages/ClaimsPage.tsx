@@ -742,7 +742,7 @@ export function ClaimsPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-2xl space-y-4">
-        <PageHeader title="Claims" fallback="/" />
+        <PageHeader title="Claims" />
 
         <TabNav tabs={claimsTabs(isAdmin)} />
 

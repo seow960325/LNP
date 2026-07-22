@@ -138,7 +138,7 @@ export function ClaimCategoriesPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Claim Categories" fallback="/claims" />
+        <PageHeader title="Claim Categories" />
 
         <TabNav tabs={claimsTabs(isAdmin)} />
 

@@ -31,13 +31,32 @@ export interface StaffMember {
   profile_id: string | null
   full_name: string
   display_name: string | null
+  // Legacy free-text title — kept for existing readers. Directory grouping
+  // uses job_title_id instead; this stays populated independently.
   job_title: string | null
+  job_title_id: string | null
   phone: string | null
   email: string | null
   zoho_account_id: string | null
   in_duty_roster: boolean
+  // Whether this row shows up in the tiled Directory — owner-only-login
+  // rows are excluded there but still work everywhere else (roster, etc.)
+  // and as a linked shareholder's contact source.
+  in_directory: boolean
+  photo_path: string | null
   active: boolean
   notes: string | null
+  created_at: string
+}
+
+// Grouping tile for the Staff branch of the Directory — sort_order controls
+// tile order, active=false tiles still render (dimmed) rather than vanish.
+export interface JobTitle {
+  id: string
+  center_id: string
+  name: string
+  sort_order: number
+  active: boolean
   created_at: string
 }
 

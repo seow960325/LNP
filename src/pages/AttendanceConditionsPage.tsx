@@ -132,7 +132,7 @@ export function AttendanceConditionsPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Health Conditions" fallback="/entrance" />
+        <PageHeader title="Health Conditions" />
 
         <button
           type="button"

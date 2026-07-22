@@ -414,7 +414,7 @@ export function BoardPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Daily Ops Board" fallback="/" />
+        <PageHeader title="Daily Ops Board" />
 
         <div className="flex items-center justify-between rounded-xl bg-white p-3 shadow-card">
           <button

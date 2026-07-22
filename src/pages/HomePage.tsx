@@ -17,7 +17,6 @@ const TILES: { label: string; to: string; Icon: LucideIcon }[] = [
   { label: 'HR & Claims', to: '/hr', Icon: Briefcase },
   { label: 'WiFi Password', to: '/wifi', Icon: Wifi },
   { label: 'Daily Ops Board', to: '/board', Icon: ClipboardList },
-  // Directory groups Staff + Students (Students tab is read-only for non-admins)
   { label: 'Directory', to: '/directory', Icon: Users },
 ]
 

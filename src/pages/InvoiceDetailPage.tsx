@@ -234,7 +234,7 @@ export function InvoiceDetailPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-2xl space-y-4">
-        <PageHeader title="Invoice" fallback="/invoices" />
+        <PageHeader title="Invoice" />
 
         {loadState === 'loading' && <LoadingState label="Loading invoice…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}

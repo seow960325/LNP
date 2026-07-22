@@ -1,25 +1,16 @@
-import { useNavigate, useLocation } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
+import { useUp } from '../lib/up'
 
-export function BackButton({ fallback = '/' }: { fallback?: string }) {
-  const navigate = useNavigate()
-  const location = useLocation()
-
-  function handleBack() {
-    // location.key === 'default' means there's no local history to pop
-    // back into (e.g. a hard refresh or direct link) — go up a fixed
-    // route instead of navigate(-1), which would leave the app.
-    if (location.key === 'default') {
-      navigate(fallback)
-    } else {
-      navigate(-1)
-    }
-  }
+// Always navigates to the deterministic parent of the current route (see
+// lib/up.ts) — never browser history — so Back can't ping-pong between
+// pages that happen to have been visited in some order.
+export function BackButton({ parentOverride }: { parentOverride?: string | null }) {
+  const up = useUp(parentOverride)
 
   return (
     <button
       type="button"
-      onClick={handleBack}
+      onClick={up}
       aria-label="Back"
       className="flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted hover:bg-accent-soft/60 hover:text-ink"
     >

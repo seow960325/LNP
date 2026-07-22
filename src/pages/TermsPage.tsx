@@ -222,7 +222,7 @@ export function TermsPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-6">
-        <PageHeader title="Terms" fallback="/invoices" />
+        <PageHeader title="Terms" />
 
         <TabNav tabs={BILLING_TABS} />
 

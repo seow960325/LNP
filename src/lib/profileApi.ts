@@ -69,7 +69,7 @@ export async function fetchProfileById(id: string) {
 // everyone who works here); profiles is login accounts only. profile_id
 // optionally links a row to its login, when one exists.
 const STAFF_MEMBER_COLUMNS =
-  'id, center_id, profile_id, full_name, display_name, job_title, phone, email, zoho_account_id, in_duty_roster, active, notes, created_at'
+  'id, center_id, profile_id, full_name, display_name, job_title, job_title_id, phone, email, zoho_account_id, in_duty_roster, in_directory, photo_path, active, notes, created_at'
 
 export function fetchStaffMembers(centerId: string) {
   return supabase
@@ -80,10 +80,59 @@ export function fetchStaffMembers(centerId: string) {
     .returns<StaffMember[]>()
 }
 
+// Directory-flavored staff row — adds the linked login's avatar + activation
+// state via an embedded select on profiles!staff_members_profile_id_fkey.
+// Kept separate from StaffMember/fetchStaffMembers/STAFF_MEMBER_COLUMNS so
+// the roster fetchers and other plain consumers are untouched.
+export interface StaffDirectoryMember extends StaffMember {
+  linked_avatar_url: string | null
+  must_change_password: boolean | null
+}
+
+interface StaffDirectoryRow extends StaffMember {
+  profiles: { avatar_url: string | null; must_change_password: boolean } | null
+}
+
+function toDirectoryMember(row: StaffDirectoryRow): StaffDirectoryMember {
+  const { profiles, ...rest } = row
+  return {
+    ...rest,
+    linked_avatar_url: profiles?.avatar_url ?? null,
+    must_change_password: profiles?.must_change_password ?? null,
+  }
+}
+
+// onlyInDirectory=true (the tiled Directory) filters to in_directory rows;
+// false (Past Staff) returns every row regardless, same photo/badge fidelity.
+export async function fetchStaffDirectoryMembers(centerId: string, onlyInDirectory: boolean) {
+  let query = supabase
+    .from('staff_members')
+    .select(`${STAFF_MEMBER_COLUMNS}, profiles(avatar_url, must_change_password)`)
+    .eq('center_id', centerId)
+  if (onlyInDirectory) query = query.eq('in_directory', true)
+
+  const { data, error } = await query.order('full_name', { ascending: true }).returns<StaffDirectoryRow[]>()
+
+  if (error || !data) return { data: null, error }
+  return { data: data.map(toDirectoryMember), error: null }
+}
+
+export async function fetchStaffMemberById(id: string) {
+  const { data, error } = await supabase
+    .from('staff_members')
+    .select(`${STAFF_MEMBER_COLUMNS}, profiles(avatar_url, must_change_password)`)
+    .eq('id', id)
+    .maybeSingle<StaffDirectoryRow>()
+
+  if (error || !data) return { data: null, error }
+  return { data: toDirectoryMember(data), error: null }
+}
+
 export interface CreateStaffMemberPayload {
   full_name: string
   display_name?: string | null
   job_title?: string
+  job_title_id?: string | null
   phone?: string
   email?: string
   in_duty_roster?: boolean
@@ -101,12 +150,14 @@ export interface UpdateStaffMemberPatch {
   full_name?: string
   display_name?: string | null
   job_title?: string
+  job_title_id?: string | null
   phone?: string
   email?: string
   in_duty_roster?: boolean
   active?: boolean
   notes?: string
   profile_id?: string | null
+  photo_path?: string | null
 }
 
 export function updateStaffMember(id: string, patch: UpdateStaffMemberPatch) {
@@ -117,7 +168,7 @@ export function toggleStaffMemberActive(id: string, active: boolean) {
   return supabase.from('staff_members').update({ active }).eq('id', id)
 }
 
-// Candidates for the "Link login" picker — the caller (StaffDirectoryPage)
+// Candidates for the "Link login" picker — the caller (StaffJobTitleMembersPage)
 // already has the full staff_members list loaded and filters out any
 // profile_id already claimed by another row client-side.
 export interface LinkableProfile {

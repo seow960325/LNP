@@ -13,7 +13,7 @@ export function StaffDocumentsPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Documents" fallback="/" />
+        <PageHeader title="Documents" />
 
         <StaffDocPanel ownerId={profile.id} canManage={false} />
       </div>

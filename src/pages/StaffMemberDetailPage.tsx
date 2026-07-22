@@ -3,13 +3,15 @@ import { useParams } from 'react-router-dom'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
-import { Avatar } from '../components/Avatar'
+import { DirectoryPhotoUpload } from '../components/DirectoryPhotoUpload'
 import { LoadingState, ErrorState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { StaffDocPanel } from '../components/StaffDocPanel'
 import { EDITABLE_ROLES, TempPasswordModal } from '../components/RegisterStaffForm'
-import { fetchProfileById } from '../lib/profileApi'
+import { fetchStaffMemberById, fetchProfileById, updateStaffMember } from '../lib/profileApi'
+import type { StaffDirectoryMember } from '../lib/profileApi'
+import { getDirectoryPhotoSignedUrl } from '../lib/directoryPhotoApi'
 import { supabase } from '../lib/supabaseClient'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
@@ -29,7 +31,7 @@ const PROMOTABLE_ROLES: { value: UserRole; label: string }[] = [
 ]
 
 // Management controls visible to admin + super_admin on another member's
-// detail page — gated further by the owner/super_admin exclusion rules
+// linked login — gated further by the owner/super_admin exclusion rules
 // computed in StaffMemberDetailPage (canManageTarget) before this even
 // renders. Role editing is further restricted to canEditRole (super_admin
 // && !isSelf && !targetIsOwner) by the caller — this component itself has
@@ -221,7 +223,9 @@ export function StaffMemberDetailPage() {
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [member, setMember] = useState<Profile | null>(null)
+  const [staffMember, setStaffMember] = useState<StaffDirectoryMember | null>(null)
+  const [linkedProfile, setLinkedProfile] = useState<Profile | null>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -232,15 +236,23 @@ export function StaffMemberDetailPage() {
     let cancelled = false
     setLoadState('loading')
 
-    withTimeout(fetchProfileById(id))
-      .then(({ data, error }) => {
+    withTimeout(fetchStaffMemberById(id))
+      .then(async ({ data, error }) => {
         if (cancelled) return
         if (error || !data) {
           setLoadError('Could not load this staff member. Please try again.')
           setLoadState('error')
           return
         }
-        setMember(data)
+        setStaffMember(data)
+
+        if (data.profile_id) {
+          const { data: profileData } = await withTimeout(fetchProfileById(data.profile_id))
+          if (cancelled) return
+          setLinkedProfile(profileData)
+        } else {
+          setLinkedProfile(null)
+        }
         setLoadState('ready')
       })
       .catch((err) => {
@@ -254,6 +266,21 @@ export function StaffMemberDetailPage() {
     }
   }, [id])
 
+  // staff-photos is a private bucket — mint a fresh signed URL each load.
+  useEffect(() => {
+    if (!staffMember?.photo_path) {
+      setPhotoUrl(staffMember?.linked_avatar_url ?? null)
+      return
+    }
+    let cancelled = false
+    getDirectoryPhotoSignedUrl(staffMember.photo_path).then((url) => {
+      if (!cancelled) setPhotoUrl(url ?? staffMember.linked_avatar_url ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [staffMember?.photo_path, staffMember?.linked_avatar_url])
+
   if (!profile || !id) return null
 
   const viewerIsSuperAdmin = profile.role === 'super_admin'
@@ -263,23 +290,24 @@ export function StaffMemberDetailPage() {
   // allowed to manage this target at all:
   //   - only the owner may manage the owner (even other super_admins can't)
   //   - only a super_admin may manage a super_admin (admins can't)
-  const targetIsOwner = member?.is_app_owner === true
-  const targetIsSuperAdmin = member?.role === 'super_admin'
+  const targetIsOwner = linkedProfile?.is_app_owner === true
+  const targetIsSuperAdmin = linkedProfile?.role === 'super_admin'
   const canManageTarget = !(targetIsOwner && !viewerIsOwner) && !(targetIsSuperAdmin && !viewerIsSuperAdmin)
 
-  const showManagement = isAdmin && canManageTarget
-  const canReset = isAdmin && id !== profile.id && canManageTarget
+  const isSelf = linkedProfile?.id === profile.id
+  const showManagement = isAdmin && !!linkedProfile && canManageTarget
+  const canReset = isAdmin && !!linkedProfile && !isSelf && canManageTarget
   // Role editor is further restricted beyond canManageTarget: only a
   // super_admin may promote/change roles, never on their own row, and never
   // on the owner's row (the owner's role is never editable via UI).
-  const canEditRole = viewerIsSuperAdmin && id !== profile.id && !targetIsOwner
+  const canEditRole = viewerIsSuperAdmin && !isSelf && !targetIsOwner
 
   async function handleResetConfirm() {
-    if (!id) return
+    if (!linkedProfile) return
     setResetting(true)
 
     const { data, error } = await supabase.functions.invoke('admin-reset-password', {
-      body: { targetUserId: id },
+      body: { targetUserId: linkedProfile.id },
     })
 
     setResetting(false)
@@ -304,34 +332,74 @@ export function StaffMemberDetailPage() {
     toast.success('Password reset')
   }
 
+  async function handlePhotoUploaded(photoPath: string) {
+    if (!staffMember) return
+    const { error } = await updateStaffMember(staffMember.id, { photo_path: photoPath })
+    if (error) {
+      toast.error('Photo uploaded but could not be saved. Please try again.')
+      return
+    }
+    setStaffMember({ ...staffMember, photo_path: photoPath })
+  }
+
+  const parentOverride = staffMember ? `/directory/staff/${staffMember.job_title_id ?? 'unassigned'}` : undefined
+
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Staff Member" fallback="/staff" />
+        <PageHeader title="Staff Member" parentOverride={parentOverride} />
 
         {loadState === 'loading' && <LoadingState label="Loading…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
 
-        {loadState === 'ready' && member && (
+        {loadState === 'ready' && staffMember && (
           <>
             <div className="flex items-center gap-4 rounded-xl bg-white p-5 shadow-card">
-              <Avatar fullName={member.full_name} avatarUrl={member.avatar_url} size="xl" />
+              {isAdmin ? (
+                <DirectoryPhotoUpload
+                  scope="staff"
+                  id={staffMember.id}
+                  fullName={staffMember.display_name || staffMember.full_name}
+                  photoUrl={photoUrl}
+                  onUploaded={handlePhotoUploaded}
+                />
+              ) : (
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full shadow-card">
+                  {photoUrl ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text
+                    <img src={photoUrl} alt={staffMember.full_name} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center bg-accent-soft font-bold text-accent-hover">
+                      {(staffMember.display_name || staffMember.full_name).slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-lg font-bold text-ink">
-                  {member.full_name}
+                  {staffMember.full_name}
+                  {staffMember.profile_id && (
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 align-middle text-2xs font-semibold ${
+                        staffMember.must_change_password ? 'bg-line/70 text-muted' : 'bg-cyan-100 text-cyan-700'
+                      }`}
+                    >
+                      {staffMember.must_change_password ? 'Invited' : 'Registered'}
+                    </span>
+                  )}
                 </p>
-                <p className="text-sm text-muted">{member.title || 'Staff'}</p>
-                {member.email && <p className="mt-1 truncate text-xs text-muted">{member.email}</p>}
-                {member.phone && <p className="text-xs text-muted">{member.phone}</p>}
+                <p className="text-sm text-muted">{staffMember.job_title || 'Staff'}</p>
+                {staffMember.email && <p className="mt-1 truncate text-xs text-muted">{staffMember.email}</p>}
+                {staffMember.phone && <p className="text-xs text-muted">{staffMember.phone}</p>}
               </div>
             </div>
 
-            {showManagement && (
+            {showManagement && linkedProfile && (
               <ManagementSection
-                member={member}
-                isSelf={id === profile.id}
+                member={linkedProfile}
+                isSelf={isSelf}
                 canEditRole={canEditRole}
-                onChanged={setMember}
+                onChanged={setLinkedProfile}
               />
             )}
 
@@ -348,8 +416,8 @@ export function StaffMemberDetailPage() {
             {/* canManageTarget also downgrades documents to read-only for
                 the owner/super_admin exclusion cases — "read-only profile +
                 documents" for e.g. a non-owner super_admin viewing the owner. */}
-            {isAdmin && <StaffDocPanel ownerId={id} canManage={canManageTarget} />}
-            {!isAdmin && id === profile.id && <StaffDocPanel ownerId={id} canManage={false} />}
+            {isAdmin && linkedProfile && <StaffDocPanel ownerId={linkedProfile.id} canManage={canManageTarget} />}
+            {!isAdmin && isSelf && linkedProfile && <StaffDocPanel ownerId={linkedProfile.id} canManage={false} />}
           </>
         )}
       </div>
@@ -357,7 +425,7 @@ export function StaffMemberDetailPage() {
       <ConfirmDialog
         open={resetConfirmOpen}
         title="Reset password?"
-        message={`Reset password for ${member?.full_name ?? 'this staff member'}?`}
+        message={`Reset password for ${staffMember?.full_name ?? 'this staff member'}?`}
         confirmLabel="Reset"
         onConfirm={handleResetConfirm}
         onCancel={() => setResetConfirmOpen(false)}
@@ -367,7 +435,7 @@ export function StaffMemberDetailPage() {
       {tempPassword && (
         <TempPasswordModal
           password={tempPassword}
-          description={`Give this temporary password to ${member?.full_name}. They will be required to set a new password on next login.`}
+          description={`Give this temporary password to ${staffMember?.full_name}. They will be required to set a new password on next login.`}
           onClose={() => setTempPassword(null)}
         />
       )}

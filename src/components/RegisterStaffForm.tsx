@@ -80,7 +80,7 @@ export function TempPasswordModal({
 // the real enforcement — see ALLOWED_ROLES_BY_CALLER there). admin doesn't
 // get 'shareholder'; that role is reserved for super_admin.
 // displayName is threaded through onCreated so the caller can apply it to a
-// linked staff_members row (see StaffDirectoryPage's handleLoginCreated) —
+// linked staff_members row (see StaffJobTitleMembersPage's handleLoginCreated) —
 // this form itself only creates an auth user + profiles row via
 // admin-create-staff, never a staff_members row directly.
 export function RegisterStaffForm({

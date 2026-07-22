@@ -156,7 +156,7 @@ export function RosterSettingsPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Duty Config" fallback="/roster" />
+        <PageHeader title="Duty Config" />
 
         <TabNav tabs={rosterTabs(isAdmin)} />
 

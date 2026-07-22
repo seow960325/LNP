@@ -108,7 +108,7 @@ export function WifiPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="WiFi Password" fallback="/" />
+        <PageHeader title="WiFi Password" />
 
         {loadState === 'loading' && <LoadingState label="Loading WiFi details…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}

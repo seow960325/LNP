@@ -249,7 +249,7 @@ export function RosterPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-2xl space-y-4">
-        <PageHeader title="Duty Roster" fallback="/" />
+        <PageHeader title="Duty Roster" />
 
         <TabNav tabs={rosterTabs(isAdmin)} />
 

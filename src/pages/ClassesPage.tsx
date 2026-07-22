@@ -135,7 +135,7 @@ export function ClassesPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Classes" fallback="/entrance" />
+        <PageHeader title="Classes" />
 
         <button
           type="button"

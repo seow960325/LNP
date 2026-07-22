@@ -10,17 +10,6 @@ export interface TabNavItem {
 // its own route, RequireRole guard, and data logic untouched. Deep routes
 // (/staff/:id, /invoices/new, /invoices/:id) bypass the tab bar entirely.
 
-// Both Staff and Students are visible to every role — Students is read-only
-// for non-admins (gated inline on StudentsPage), not hidden. `_isAdmin` is
-// kept unused so the signature still matches the other per-section tab
-// builders below, which do hide admin-only tabs.
-export function directoryTabs(_isAdmin: boolean): TabNavItem[] {
-  return [
-    { label: 'Staff', to: '/staff' },
-    { label: 'Students', to: '/students' },
-  ]
-}
-
 export const BILLING_TABS: TabNavItem[] = [
   { label: 'Invoices', to: '/invoices' },
   { label: 'Packages', to: '/packages' },
@@ -28,7 +17,7 @@ export const BILLING_TABS: TabNavItem[] = [
 ]
 
 // Categories management is admin/super_admin-only: hide the tab (not just
-// disable) for everyone else, mirroring directoryTabs above.
+// disable) for everyone else.
 export function claimsTabs(isAdmin: boolean): TabNavItem[] {
   return isAdmin
     ? [
@@ -39,7 +28,7 @@ export function claimsTabs(isAdmin: boolean): TabNavItem[] {
 }
 
 // Duty Config is admin/super_admin-only: hide the tab (not just disable)
-// for everyone else, mirroring directoryTabs/claimsTabs above.
+// for everyone else, mirroring claimsTabs above.
 export function rosterTabs(isAdmin: boolean): TabNavItem[] {
   return isAdmin
     ? [
@@ -50,7 +39,7 @@ export function rosterTabs(isAdmin: boolean): TabNavItem[] {
 }
 
 // Balances management is admin/super_admin-only: hide the tab (not just
-// disable) for everyone else, mirroring directoryTabs/claimsTabs above.
+// disable) for everyone else, mirroring claimsTabs above.
 export function leaveTabs(isAdmin: boolean): TabNavItem[] {
   return isAdmin
     ? [

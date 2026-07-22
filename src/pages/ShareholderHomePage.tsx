@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 import {
@@ -696,9 +697,11 @@ export function ShareholderHomePage() {
                   <>
                     <ul className="divide-y divide-line">
                       {sortedShareholdings.map((sh) => (
-                        <li key={sh.profile_id ?? sh.display_name} className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 py-2 text-sm">
+                        <li key={sh.id} className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 py-2 text-sm">
                           <span className="flex items-center gap-1.5 text-ink">
-                            {sh.display_name}
+                            <Link to={`/directory/shareholder/${sh.id}`} className="hover:text-accent-hover hover:underline">
+                              {sh.display_name}
+                            </Link>
                             {profile && sh.profile_id === profile.id && (
                               <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-2xs font-semibold text-accent-hover">
                                 You
@@ -776,7 +779,7 @@ export function ShareholderHomePage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-4xl space-y-4">
-        <PageHeader title="Shareholder Financials" fallback="/" />
+        <PageHeader title="Shareholder Financials" />
 
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 shadow-card">
           <span className="text-xs text-muted">Last synced: {lastSyncedLabel}</span>

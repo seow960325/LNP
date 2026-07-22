@@ -273,7 +273,7 @@ export function KudosWallPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="max-w-lg mx-auto space-y-4">
-        <PageHeader title="Kudos" fallback="/" />
+        <PageHeader title="Kudos" />
 
         <div className="flex gap-2 rounded-xl bg-white p-1.5 shadow-card">
           <button

@@ -24,7 +24,7 @@ export function HrPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-6">
-        <PageHeader title="HR & Claims" fallback="/" />
+        <PageHeader title="HR & Claims" />
 
         <ReorderableTileGrid menuKey="hr" tiles={tiles} canEdit={isSuperAdmin} />
       </div>

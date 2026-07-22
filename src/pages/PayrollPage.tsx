@@ -893,7 +893,7 @@ export function PayrollPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Payroll" fallback="/">
+        <PageHeader title="Payroll">
           <Link to="/payroll/opening" className="text-xs text-accent hover:underline">
             Opening Balances
           </Link>

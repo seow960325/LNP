@@ -1,11 +1,31 @@
+import { Link } from 'react-router-dom'
 import { Avatar } from './Avatar'
-import type { StaffMember } from '../types'
+import type { StaffDirectoryMember } from '../lib/profileApi'
+
+function LoginBadge({ profileId, mustChangePassword }: { profileId: string | null; mustChangePassword: boolean | null }) {
+  if (!profileId) return null
+  if (mustChangePassword) {
+    return (
+      <span className="ml-2 rounded-full bg-line/70 px-2 py-0.5 align-middle text-2xs font-semibold text-muted">
+        Invited
+      </span>
+    )
+  }
+  return (
+    <span className="ml-2 rounded-full bg-cyan-100 px-2 py-0.5 align-middle text-2xs font-semibold text-cyan-700">
+      Registered
+    </span>
+  )
+}
 
 // Shared row card for both staff lists (active directory, past) — factored
-// out so StaffDirectoryPage and PastStaffPage render identical markup
-// instead of copy-pasting it, same as StudentCard.
+// out so the job-title member list and PastStaffPage render identical
+// markup instead of copy-pasting it, same as StudentCard. Clicking the
+// name/photo area opens the staff profile (/staff/:id); the admin action
+// row underneath stays inline, unchanged from before.
 export function StaffCard({
   member,
+  photoUrl,
   isAdmin,
   submitting,
   onEdit,
@@ -13,34 +33,31 @@ export function StaffCard({
   onCreateLogin,
   onLinkLogin,
 }: {
-  member: StaffMember
+  member: StaffDirectoryMember
+  photoUrl: string | null
   isAdmin: boolean
   submitting: boolean
-  onEdit?: (member: StaffMember) => void
+  onEdit?: (member: StaffDirectoryMember) => void
   onToggleActive: (id: string, currentActive: boolean) => void
   onCreateLogin?: (staffId: string) => void
-  onLinkLogin?: (member: StaffMember) => void
+  onLinkLogin?: (member: StaffDirectoryMember) => void
 }) {
   return (
     <li className="rounded-xl bg-white p-5 shadow-card">
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-1 gap-3">
-            <Avatar fullName={member.full_name} avatarUrl={null} size="lg" />
+          <Link to={`/staff/${member.id}`} className="flex min-w-0 flex-1 gap-3">
+            <Avatar fullName={member.display_name || member.full_name} avatarUrl={photoUrl} size="lg" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-base font-bold text-ink">
                 {member.full_name}
-                {member.profile_id && (
-                  <span className="ml-2 rounded-full bg-accent-soft px-2 py-0.5 align-middle text-2xs font-semibold text-accent-hover">
-                    Has login
-                  </span>
-                )}
+                <LoginBadge profileId={member.profile_id} mustChangePassword={member.must_change_password} />
               </p>
               {member.job_title && <p className="mt-1 text-sm text-muted">{member.job_title}</p>}
               {member.phone && <p className="mt-1 text-xs text-muted">{member.phone}</p>}
               {member.email && <p className="text-xs text-muted">{member.email}</p>}
             </div>
-          </div>
+          </Link>
         </div>
 
         {isAdmin && (

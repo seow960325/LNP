@@ -4,8 +4,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { StaffCard } from '../components/StaffCard'
-import { fetchStaffMembers, toggleStaffMemberActive } from '../lib/profileApi'
-import type { StaffMember } from '../types'
+import { fetchStaffDirectoryMembers, toggleStaffMemberActive } from '../lib/profileApi'
+import type { StaffDirectoryMember } from '../lib/profileApi'
+import { getDirectoryPhotoSignedUrl } from '../lib/directoryPhotoApi'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
 
@@ -17,14 +18,15 @@ export function PastStaffPage() {
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [members, setMembers] = useState<StaffMember[]>([])
+  const [members, setMembers] = useState<StaffDirectoryMember[]>([])
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({})
   const [submitting, setSubmitting] = useState(false)
 
   function loadMembers() {
     if (!profile) return
     setLoadState('loading')
 
-    withTimeout(fetchStaffMembers(profile.center_id))
+    withTimeout(fetchStaffDirectoryMembers(profile.center_id, false))
       .then(({ data, error }) => {
         if (error || !data) {
           setLoadError('Could not load past staff. Please try again.')
@@ -42,7 +44,33 @@ export function PastStaffPage() {
 
   useEffect(() => {
     loadMembers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile])
+
+  const pastMembers = members
+    .filter((m) => !m.active)
+    .sort((a, b) => a.full_name.localeCompare(b.full_name))
+
+  useEffect(() => {
+    const withOwnPhoto = pastMembers.filter((m) => m.photo_path)
+    if (withOwnPhoto.length === 0) return
+    let cancelled = false
+
+    Promise.all(withOwnPhoto.map(async (m) => [m.id, await getDirectoryPhotoSignedUrl(m.photo_path)] as const)).then(
+      (entries) => {
+        if (cancelled) return
+        setPhotoUrls((current) => ({ ...current, ...Object.fromEntries(entries) }))
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members])
+
+  function resolvePhotoUrl(member: StaffDirectoryMember): string | null {
+    return (member.photo_path ? photoUrls[member.id] : undefined) ?? member.linked_avatar_url ?? null
+  }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
     setSubmitting(true)
@@ -61,14 +89,10 @@ export function PastStaffPage() {
 
   if (!profile) return null
 
-  const pastMembers = members
-    .filter((m) => !m.active)
-    .sort((a, b) => a.full_name.localeCompare(b.full_name))
-
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Past Staff" fallback="/staff" />
+        <PageHeader title="Past Staff" />
 
         {loadState === 'loading' && <LoadingState label="Loading past staff…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
@@ -81,6 +105,7 @@ export function PastStaffPage() {
               <StaffCard
                 key={member.id}
                 member={member}
+                photoUrl={resolvePhotoUrl(member)}
                 isAdmin={isAdmin}
                 submitting={submitting}
                 onToggleActive={handleToggleActive}

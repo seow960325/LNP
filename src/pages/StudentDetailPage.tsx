@@ -163,7 +163,10 @@ export function StudentDetailPage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Student" fallback="/students" />
+        <PageHeader
+          title="Student"
+          parentOverride={student ? `/students/class/${student.class_id ?? 'unassigned'}` : undefined}
+        />
 
         {loadState === 'loading' && <LoadingState label="Loading…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}

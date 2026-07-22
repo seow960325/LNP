@@ -159,7 +159,7 @@ export function EntrancePage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-2xl space-y-4">
-        <PageHeader title="Entrance" fallback="/">
+        <PageHeader title="Entrance">
           {isAdmin && (
             <Link to="/attendance/conditions" className="text-xs text-accent hover:underline">
               Conditions

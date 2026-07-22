@@ -16,9 +16,13 @@ import { BoardPage } from './pages/BoardPage'
 import { RosterPage } from './pages/RosterPage'
 import { WifiPage } from './pages/WifiPage'
 import { ProfilePage } from './pages/ProfilePage'
-import { StaffDirectoryPage } from './pages/StaffDirectoryPage'
+import { DirectoryPage } from './pages/DirectoryPage'
+import { StaffJobTitlesPage } from './pages/StaffJobTitlesPage'
+import { StaffJobTitleMembersPage } from './pages/StaffJobTitleMembersPage'
 import { PastStaffPage } from './pages/PastStaffPage'
 import { StaffMemberDetailPage } from './pages/StaffMemberDetailPage'
+import { DirectoryShareholderTilesPage } from './pages/DirectoryShareholderTilesPage'
+import { ShareholderDetailPage } from './pages/ShareholderDetailPage'
 import { StaffDocumentsPage } from './pages/StaffDocumentsPage'
 import { PayrollPage } from './pages/PayrollPage'
 import { OpeningBalancePage } from './pages/OpeningBalancePage'
@@ -118,23 +122,38 @@ export function App() {
               <Route path="/hr" element={<HrPage />} />
             </Route>
 
-            {/* Directory group — redirects to its default tab. The tabbed pages
-                themselves keep their own routes/guards below. */}
-            <Route path="/directory" element={<Navigate to="/staff" replace />} />
+            {/* Directory — Staff and Shareholder are separate top-level
+                branches under here (decoupled from Students, which used to
+                share a tab bar with Staff). /staff redirects here for old
+                links/bookmarks. */}
+            <Route path="/staff" element={<Navigate to="/directory/staff" replace />} />
 
-            {/* Staff Directory — teacher/staff/admin/super_admin only (parent,
-                shareholder excluded), read-only. Shows active staff only;
+            {/* Directory: Staff branch — teacher/staff/admin/super_admin only
+                (parent, shareholder excluded), read-only. Tiled by job title;
                 past staff live at /staff/past. */}
             <Route element={<RequireRole allow={['teacher', 'staff', 'admin', 'super_admin']} />}>
-              <Route path="/staff" element={<StaffDirectoryPage />} />
-              {/* Flat list of inactive staff, no grouping — same role gating as /staff above. */}
+              <Route path="/directory" element={<DirectoryPage />} />
+              <Route path="/directory/staff" element={<StaffJobTitlesPage />} />
+              <Route path="/directory/staff/:jobTitleId" element={<StaffJobTitleMembersPage />} />
+              {/* Flat list of inactive staff, no grouping — same role gating as above. */}
               <Route path="/staff/past" element={<PastStaffPage />} />
+            </Route>
 
-              {/* Staff member detail — same role gating as /staff above; document
-                  and management sections are further gated inline (admin+super_admin
-                  get the Management block and doc-manage rights, self sees own docs
-                  view-only, everyone else sees neither) */}
+            {/* Staff member detail — also reachable from a linked
+                shareholder's "View staff profile" link, so shareholder is
+                allowed here too (read-only; admin-only sections stay gated
+                inline via profile.role). */}
+            <Route element={<RequireRole allow={['teacher', 'staff', 'admin', 'super_admin', 'shareholder']} />}>
               <Route path="/staff/:id" element={<StaffMemberDetailPage />} />
+            </Route>
+
+            {/* Directory: Shareholder branch — same as Staff plus
+                shareholder itself, since the Balance Sheet's shareholder
+                names link here and shareholder-role viewers must be able to
+                follow their own link. */}
+            <Route element={<RequireRole allow={['teacher', 'staff', 'admin', 'super_admin', 'shareholder']} />}>
+              <Route path="/directory/shareholder" element={<DirectoryShareholderTilesPage />} />
+              <Route path="/directory/shareholder/:id" element={<ShareholderDetailPage />} />
             </Route>
 
             {/* Staff Documents — teacher/staff/admin/super_admin only (parent,

@@ -7,11 +7,14 @@ import { BackButton } from './BackButton'
 // AND in capture phase, so it still fires if a page scrolls a nested box.
 export function PageHeader({
   title,
-  fallback = '/',
+  parentOverride,
   children,
 }: {
   title: string
-  fallback?: string
+  // Only needed by pages whose real parent depends on fetched data (e.g.
+  // StaffMemberDetailPage, StudentDetailPage) — everyone else is resolved
+  // automatically from the route table in lib/up.ts.
+  parentOverride?: string | null
   children?: ReactNode
 }) {
   const [scrolled, setScrolled] = useState(false)
@@ -35,7 +38,7 @@ export function PageHeader({
           : 'border-transparent py-3'
       }`}
     >
-      <BackButton fallback={fallback} />
+      <BackButton parentOverride={parentOverride} />
       <h1
         className={`font-bold text-ink transition-all duration-200 ${
           scrolled ? 'text-base' : 'text-2xl'

@@ -742,7 +742,7 @@ export function LeavePage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-2xl space-y-4">
-        <PageHeader title="Leave" fallback="/" />
+        <PageHeader title="Leave" />
 
         <TabNav tabs={leaveTabs(isAdmin)} />
 

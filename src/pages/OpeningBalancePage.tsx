@@ -150,7 +150,7 @@ export function OpeningBalancePage() {
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Opening Balances" fallback="/payroll" />
+        <PageHeader title="Opening Balances" />
 
         <p className="rounded-xl bg-accent-soft/60 px-4 py-3 text-xs text-ink/80">
           Enter accumulated Jan–[month before go-live] totals per employee. Used only for
