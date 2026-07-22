@@ -133,6 +133,81 @@ export async function fetchStudentById(id: string) {
   return { data: data as StudentWithPackage | null, error }
 }
 
+export function fetchActiveStudentsByClass(centerId: string, classId: string | null) {
+  let query = supabase
+    .from('students')
+    .select(`${STUDENT_COLUMNS}, fee_packages!left(${PACKAGE_COLUMNS})`)
+    .eq('center_id', centerId)
+    .eq('active', true)
+  query = classId === null ? query.is('class_id', null) : query.eq('class_id', classId)
+  return query.order('name', { ascending: true }).returns<StudentWithPackage[]>()
+}
+
+export function fetchInactiveStudents(centerId: string) {
+  return supabase
+    .from('students')
+    .select(`${STUDENT_COLUMNS}, fee_packages!left(${PACKAGE_COLUMNS})`)
+    .eq('center_id', centerId)
+    .eq('active', false)
+    .order('name', { ascending: true })
+    .returns<StudentWithPackage[]>()
+}
+
+// One tile per class (student directory landing page) plus a synthetic
+// "unassigned" tile for active students with no class_id. A single
+// students-by-class_id fetch, aggregated client-side against the classes
+// list, rather than one count query per class.
+export interface ClassTile {
+  id: string // 'unassigned' for the synthetic tile — never a real class id
+  name: string
+  sort_order: number
+  active: boolean
+  active_student_count: number
+}
+
+export async function fetchClassTileCounts(centerId: string): Promise<{ data: ClassTile[] | null; error: unknown }> {
+  const [classesRes, studentsRes] = await Promise.all([
+    supabase.from('classes').select('id, name, sort_order, active').eq('center_id', centerId).returns<
+      { id: string; name: string; sort_order: number; active: boolean }[]
+    >(),
+    supabase.from('students').select('class_id').eq('center_id', centerId).eq('active', true).returns<
+      { class_id: string | null }[]
+    >(),
+  ])
+
+  if (classesRes.error) return { data: null, error: classesRes.error }
+  if (studentsRes.error) return { data: null, error: studentsRes.error }
+
+  const counts = new Map<string | null, number>()
+  for (const s of studentsRes.data ?? []) {
+    counts.set(s.class_id, (counts.get(s.class_id) ?? 0) + 1)
+  }
+
+  // Inactive classes still holding active students must keep showing (so an
+  // admin can move those students out); inactive classes with nobody left in
+  // them are hidden entirely.
+  const tiles: ClassTile[] = (classesRes.data ?? [])
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      sort_order: c.sort_order,
+      active: c.active,
+      active_student_count: counts.get(c.id) ?? 0,
+    }))
+    .filter((t) => t.active || t.active_student_count > 0)
+    .sort((a, b) => a.sort_order - b.sort_order)
+
+  tiles.push({
+    id: 'unassigned',
+    name: 'Unassigned',
+    sort_order: Number.MAX_SAFE_INTEGER,
+    active: true,
+    active_student_count: counts.get(null) ?? 0,
+  })
+
+  return { data: tiles, error: null }
+}
+
 export interface CreateStudentPayload {
   name: string
   parent_name?: string

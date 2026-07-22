@@ -72,7 +72,11 @@ export function EntrancePage() {
     setLoadState('loading')
 
     withTimeout(
-      Promise.all([fetchActiveClasses(), fetchActiveConditions(), fetchTodayAttendance(profile.center_id, today)]),
+      Promise.all([
+        fetchActiveClasses(profile.center_id),
+        fetchActiveConditions(),
+        fetchTodayAttendance(profile.center_id, today),
+      ]),
     )
       .then(([classesRes, conditionsRes, attendanceRes]) => {
         if (classesRes.error || !classesRes.data || conditionsRes.error || !conditionsRes.data) {
@@ -157,14 +161,9 @@ export function EntrancePage() {
       <div className="mx-auto max-w-2xl space-y-4">
         <PageHeader title="Entrance" fallback="/">
           {isAdmin && (
-            <>
-              <Link to="/classes" className="text-xs text-accent hover:underline">
-                Classes
-              </Link>
-              <Link to="/attendance/conditions" className="text-xs text-accent hover:underline">
-                Conditions
-              </Link>
-            </>
+            <Link to="/attendance/conditions" className="text-xs text-accent hover:underline">
+              Conditions
+            </Link>
           )}
         </PageHeader>
 

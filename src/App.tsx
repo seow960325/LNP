@@ -22,7 +22,9 @@ import { StaffDocumentsPage } from './pages/StaffDocumentsPage'
 import { PayrollPage } from './pages/PayrollPage'
 import { OpeningBalancePage } from './pages/OpeningBalancePage'
 import { PackagesPage } from './pages/PackagesPage'
-import { StudentsPage } from './pages/StudentsPage'
+import { StudentClassesPage } from './pages/StudentClassesPage'
+import { StudentClassListPage } from './pages/StudentClassListPage'
+import { PastStudentsPage } from './pages/PastStudentsPage'
 import { StudentDetailPage } from './pages/StudentDetailPage'
 import { InvoicesPage } from './pages/InvoicesPage'
 import { NewInvoicePage } from './pages/NewInvoicePage'
@@ -131,9 +133,18 @@ export function App() {
             {/* Staff Documents — self-only, view-only for every role (gated inline via profile.role) */}
             <Route path="/documents" element={<StaffDocumentsPage />} />
 
-            {/* Students — any authenticated active user, all roles; read-only for
-                everyone except admin/super_admin (gated inline via profile.role) */}
-            <Route path="/students" element={<StudentsPage />} />
+            {/* Students — class-tile landing page. Any authenticated active
+                user, all roles; read-only for everyone except admin/super_admin
+                (gated inline via profile.role) */}
+            <Route path="/students" element={<StudentClassesPage />} />
+
+            {/* Active roster for one class (or the synthetic "unassigned"
+                bucket) — same role gating as /students above. */}
+            <Route path="/students/class/:classId" element={<StudentClassListPage />} />
+
+            {/* Flat list of inactive students, no class grouping — same role
+                gating as /students above. */}
+            <Route path="/students/past" element={<PastStudentsPage />} />
 
             {/* Student detail — any authenticated active user; billing
                 schedule/invoice history/PDF are gated inline to

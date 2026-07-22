@@ -62,11 +62,13 @@ export function ClassesPage() {
       return
     }
 
+    if (!profile) return
+
     setSubmitting(true)
 
     try {
       if (editingId) {
-        const { error } = await updateClass(editingId, {
+        const { error } = await updateClass(editingId, profile.center_id, {
           name: formName.trim(),
           sort_order: sortOrder,
           active: formActive,
@@ -77,7 +79,7 @@ export function ClassesPage() {
         }
         toast.success('Class updated')
       } else {
-        const { error } = await createClass({
+        const { error } = await createClass(profile.center_id, {
           name: formName.trim(),
           sort_order: sortOrder,
           active: formActive,
@@ -113,9 +115,10 @@ export function ClassesPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
+    if (!profile) return
     setSubmitting(true)
     try {
-      const { error } = await toggleClassActive(id, !currentActive)
+      const { error } = await toggleClassActive(id, profile.center_id, !currentActive)
       if (error) {
         toast.error('Failed to update class status')
         return

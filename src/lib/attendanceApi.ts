@@ -55,18 +55,33 @@ const ATTENDANCE_COLUMNS =
   'id, center_id, student_id, attendance_date, arrived_at, arrival_temp, arrival_photo_url, arrival_condition_ids, arrived_by, departed_at, departure_condition_ids, pickup_by_name, pickup_photo_url, departed_by, care_note, care_photo_url, has_medicine, medicine_photo_url, medicine_dose_amount, medicine_dose_unit, medicine_instruction'
 
 // --- Classes ---
-// Not center-scoped, same as claim_categories/attendance_conditions — a
-// single shared lookup list managed by admins.
+// classes.center_id was added 2026-07-22 (NOT NULL, FK to centers, RLS now
+// center-scoped) — fetchClasses() below still relies on RLS alone (not
+// filtered explicitly here), but every write below sets/checks it explicitly
+// so a stale id from another center can never be read or written past RLS.
 
 export function fetchClasses() {
   return supabase.from('classes').select(CLASS_COLUMNS).order('sort_order', { ascending: true }).returns<ClassRow[]>()
 }
 
-export function fetchActiveClasses() {
+export function fetchActiveClasses(centerId: string) {
   return supabase
     .from('classes')
     .select(CLASS_COLUMNS)
+    .eq('center_id', centerId)
     .eq('active', true)
+    .order('sort_order', { ascending: true })
+    .returns<ClassRow[]>()
+}
+
+// All classes (active + inactive) for one center — used where a label
+// lookup must still resolve a class that's since been deactivated (e.g.
+// PastStudentsPage), unlike fetchActiveClasses above.
+export function fetchClassesForCenter(centerId: string) {
+  return supabase
+    .from('classes')
+    .select(CLASS_COLUMNS)
+    .eq('center_id', centerId)
     .order('sort_order', { ascending: true })
     .returns<ClassRow[]>()
 }
@@ -77,8 +92,8 @@ export interface CreateClassPayload {
   sort_order?: number
 }
 
-export function createClass(payload: CreateClassPayload) {
-  return supabase.from('classes').insert(payload)
+export function createClass(centerId: string, payload: CreateClassPayload) {
+  return supabase.from('classes').insert({ center_id: centerId, ...payload })
 }
 
 export interface UpdateClassPatch {
@@ -87,12 +102,14 @@ export interface UpdateClassPatch {
   sort_order?: number
 }
 
-export function updateClass(id: string, patch: UpdateClassPatch) {
-  return supabase.from('classes').update(patch).eq('id', id)
+// centerId guards against writing through a stale id from another center —
+// same pattern as the read side's RLS scoping, enforced explicitly here too.
+export function updateClass(id: string, centerId: string, patch: UpdateClassPatch) {
+  return supabase.from('classes').update(patch).eq('id', id).eq('center_id', centerId)
 }
 
-export function toggleClassActive(id: string, active: boolean) {
-  return supabase.from('classes').update({ active }).eq('id', id)
+export function toggleClassActive(id: string, centerId: string, active: boolean) {
+  return supabase.from('classes').update({ active }).eq('id', id).eq('center_id', centerId)
 }
 
 // --- Attendance conditions ---
