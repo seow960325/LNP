@@ -102,14 +102,17 @@ function toDirectoryMember(row: StaffDirectoryRow): StaffDirectoryMember {
   }
 }
 
-// onlyInDirectory=true (the tiled Directory) filters to in_directory rows;
-// false (Past Staff) returns every row regardless, same photo/badge fidelity.
-export async function fetchStaffDirectoryMembers(centerId: string, onlyInDirectory: boolean) {
+// forTiles=true (the tiled Directory — job-title tile counts AND the
+// card list within a tile) filters to active in_directory rows, so
+// deactivated staff and owner-only-login rows never appear or get counted
+// there. forTiles=false (Past Staff) returns every row regardless, same
+// photo/badge fidelity, filtered to inactive client-side.
+export async function fetchStaffDirectoryMembers(centerId: string, forTiles: boolean) {
   let query = supabase
     .from('staff_members')
     .select(`${STAFF_MEMBER_COLUMNS}, profiles(avatar_url, must_change_password)`)
     .eq('center_id', centerId)
-  if (onlyInDirectory) query = query.eq('in_directory', true)
+  if (forTiles) query = query.eq('in_directory', true).eq('active', true)
 
   const { data, error } = await query.order('full_name', { ascending: true }).returns<StaffDirectoryRow[]>()
 

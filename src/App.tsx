@@ -117,8 +117,11 @@ export function App() {
               <Route path="/leave" element={<LeavePage />} />
             </Route>
 
-            {/* HR & Claims landing menu — admin/super_admin only */}
-            <Route element={<RequireRole allow={['admin', 'super_admin']} />}>
+            {/* HR & Claims landing menu — teacher/staff/admin/super_admin,
+                matching the Home tile's visibility and HrPage's own children
+                (/leave, /claims, /documents below); Payroll stays admin-only
+                via a tile gated inline inside HrPage itself. */}
+            <Route element={<RequireRole allow={['teacher', 'staff', 'admin', 'super_admin']} />}>
               <Route path="/hr" element={<HrPage />} />
             </Route>
 
