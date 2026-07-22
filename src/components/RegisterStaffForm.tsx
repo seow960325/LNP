@@ -83,7 +83,7 @@ export function RegisterStaffForm({
   onCreated,
 }: {
   callerRole: UserRole
-  onCreated: (tempPassword: string) => void
+  onCreated: (userId: string, tempPassword: string) => void
 }) {
   const roleOptions =
     callerRole === 'super_admin' ? EDITABLE_ROLES : EDITABLE_ROLES.filter((option) => option.value !== 'shareholder')
@@ -117,7 +117,7 @@ export function RegisterStaffForm({
       toast.error(await extractInvokeError(invokeError, 'Could not register this staff member. Please try again.'))
       return
     }
-    if (!data?.tempPassword) {
+    if (!data?.tempPassword || !data?.userId) {
       toast.error('Could not register this staff member. Please try again.')
       return
     }
@@ -128,7 +128,7 @@ export function RegisterStaffForm({
     setRole('teacher')
     setTitle('')
     setPhone('')
-    onCreated(data.tempPassword)
+    onCreated(data.userId, data.tempPassword)
   }
 
   return (

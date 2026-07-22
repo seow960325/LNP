@@ -23,6 +23,24 @@ export interface Profile {
   created_at: string
 }
 
+// Directory of record for people who work at the center — distinct from
+// Profile (login accounts). profile_id is set only for staff who also have
+// an app login; most seeded rows have profile_id = null.
+export interface StaffMember {
+  id: string
+  center_id: string
+  profile_id: string | null
+  full_name: string
+  job_title: string | null
+  phone: string | null
+  email: string | null
+  zoho_account_id: string | null
+  in_duty_roster: boolean
+  active: boolean
+  notes: string | null
+  created_at: string
+}
+
 export interface KudosValue {
   id: string
   center_id: string
