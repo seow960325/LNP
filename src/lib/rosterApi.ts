@@ -62,6 +62,7 @@ export function toggleDutyTypeActive(id: string, active: boolean) {
 export interface RotationPoolMember {
   id: string
   full_name: string
+  display_name: string | null
 }
 
 // The rotation pool: active staff opted into duty roster via
@@ -73,12 +74,35 @@ export interface RotationPoolMember {
 export function fetchRotationPool(centerId: string) {
   return supabase
     .from('staff_members')
-    .select('id, full_name')
+    .select('id, full_name, display_name')
     .eq('center_id', centerId)
     .eq('active', true)
     .eq('in_duty_roster', true)
     .order('full_name')
     .returns<RotationPoolMember[]>()
+}
+
+// --- Active staff (for the cell picker) ---
+
+export interface RosterStaffOption {
+  id: string
+  full_name: string
+  display_name: string | null
+  in_duty_roster: boolean
+}
+
+// Every active staff member, not just those in the rotation pool — the cell
+// picker lets an admin assign anyone active to cover a slot, even someone not
+// normally on the roster. in_duty_roster is included so the picker can list
+// pool members first.
+export function fetchActiveStaffMembers(centerId: string) {
+  return supabase
+    .from('staff_members')
+    .select('id, full_name, display_name, in_duty_roster')
+    .eq('center_id', centerId)
+    .eq('active', true)
+    .order('full_name')
+    .returns<RosterStaffOption[]>()
 }
 
 // --- Duty assignments ---
@@ -93,6 +117,7 @@ export interface DutyAssignment {
 
 export interface DutyAssignmentRow extends DutyAssignment {
   full_name: string
+  display_name: string | null
 }
 
 export async function fetchWeekAssignments(
@@ -110,17 +135,22 @@ export async function fetchWeekAssignments(
   if (error || !rows) return { data: null, error }
 
   const ids = Array.from(new Set(rows.map((row) => row.staff_member_id)))
+  type StaffLookup = { id: string; full_name: string; display_name: string | null }
   const { data: staffMembers, error: staffMembersError } =
     ids.length === 0
-      ? { data: [] as { id: string; full_name: string }[], error: null }
-      : await supabase.from('staff_members').select('id, full_name').in('id', ids).returns<{ id: string; full_name: string }[]>()
+      ? { data: [] as StaffLookup[], error: null }
+      : await supabase.from('staff_members').select('id, full_name, display_name').in('id', ids).returns<StaffLookup[]>()
   if (staffMembersError) return { data: null, error: staffMembersError }
 
-  const nameById = new Map((staffMembers ?? []).map((s) => [s.id, s.full_name]))
-  const merged: DutyAssignmentRow[] = rows.map((row) => ({
-    ...row,
-    full_name: nameById.get(row.staff_member_id) ?? 'Unknown',
-  }))
+  const staffById = new Map((staffMembers ?? []).map((s) => [s.id, s]))
+  const merged: DutyAssignmentRow[] = rows.map((row) => {
+    const staff = staffById.get(row.staff_member_id)
+    return {
+      ...row,
+      full_name: staff?.full_name ?? 'Unknown',
+      display_name: staff?.display_name ?? null,
+    }
+  })
 
   return { data: merged, error: null }
 }
@@ -235,4 +265,45 @@ export async function swapDutyAssignments(
   })
 
   return { error }
+}
+
+// Reassigns exactly one cell (one duty_type_id slot on one work_date) to a
+// different staff member — unlike swapDutyAssignments above, this never
+// touches any other row. If assignmentId is null the slot has no row yet
+// (an empty cell), so this inserts one instead of updating; otherwise it
+// updates that row in place and marks it is_manual so generateWeek's
+// pinning logic (see its comment above) leaves it alone on the next
+// regenerate. The (work_date, staff_member_id) unique constraint means this
+// fails with Postgres code 23505 if the chosen person already has a
+// different slot that day — callers must surface that as a normal
+// "already on duty" message, not a generic error.
+export async function reassignDutyCell(params: {
+  assignmentId: string | null
+  workDate: string
+  dutyTypeId: string
+  centerId: string
+  staffMemberId: string
+}): Promise<{ data: { id: string } | null; error: PostgrestError | null }> {
+  if (params.assignmentId) {
+    const { data, error } = await supabase
+      .from('duty_assignments')
+      .update({ staff_member_id: params.staffMemberId, is_manual: true })
+      .eq('id', params.assignmentId)
+      .select('id')
+      .single()
+    return { data, error }
+  }
+
+  const { data, error } = await supabase
+    .from('duty_assignments')
+    .insert({
+      work_date: params.workDate,
+      duty_type_id: params.dutyTypeId,
+      staff_member_id: params.staffMemberId,
+      is_manual: true,
+      center_id: params.centerId,
+    })
+    .select('id')
+    .single()
+  return { data, error }
 }

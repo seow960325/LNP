@@ -3,6 +3,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 import { copyToClipboard } from '../lib/clipboard'
 import { supabase } from '../lib/supabaseClient'
+import { staffLabel } from '../lib/helpers'
 import type { UserRole } from '../types'
 
 // Roles assignable through staff management UI (registration + the detail
@@ -78,17 +79,22 @@ export function TempPasswordModal({
 // actually accept from this caller (server-side tiering in that function is
 // the real enforcement — see ALLOWED_ROLES_BY_CALLER there). admin doesn't
 // get 'shareholder'; that role is reserved for super_admin.
+// displayName is threaded through onCreated so the caller can apply it to a
+// linked staff_members row (see StaffDirectoryPage's handleLoginCreated) —
+// this form itself only creates an auth user + profiles row via
+// admin-create-staff, never a staff_members row directly.
 export function RegisterStaffForm({
   callerRole,
   onCreated,
 }: {
   callerRole: UserRole
-  onCreated: (userId: string, tempPassword: string) => void
+  onCreated: (userId: string, tempPassword: string, displayName: string) => void
 }) {
   const roleOptions =
     callerRole === 'super_admin' ? EDITABLE_ROLES : EDITABLE_ROLES.filter((option) => option.value !== 'shareholder')
 
   const [fullName, setFullName] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<UserRole>('teacher')
   const [title, setTitle] = useState('')
@@ -123,12 +129,14 @@ export function RegisterStaffForm({
     }
 
     toast.success('Staff member registered')
+    const registeredDisplayName = displayName.trim()
     setFullName('')
+    setDisplayName('')
     setEmail('')
     setRole('teacher')
     setTitle('')
     setPhone('')
-    onCreated(data.userId, data.tempPassword)
+    onCreated(data.userId, data.tempPassword, registeredDisplayName)
   }
 
   return (
@@ -143,6 +151,19 @@ export function RegisterStaffForm({
           onChange={(event) => setFullName(event.target.value)}
           disabled={submitting}
           required
+          className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+        />
+      </div>
+
+      <div>
+        <label className="text-xs text-muted">Short name</label>
+        <input
+          type="text"
+          value={displayName}
+          onChange={(event) => setDisplayName(event.target.value)}
+          disabled={submitting}
+          maxLength={4}
+          placeholder={fullName.trim() ? staffLabel({ full_name: fullName }) : undefined}
           className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
         />
       </div>

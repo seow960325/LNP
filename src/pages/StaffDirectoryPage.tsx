@@ -14,10 +14,11 @@ import {
   toggleStaffMemberActive,
   fetchProfilesForLinking,
 } from '../lib/profileApi'
-import type { LinkableProfile } from '../lib/profileApi'
+import type { LinkableProfile, UpdateStaffMemberPatch } from '../lib/profileApi'
 import type { StaffMember } from '../types'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
+import { staffLabel } from '../lib/helpers'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -33,6 +34,7 @@ export function StaffDirectoryPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const [formName, setFormName] = useState('')
+  const [formDisplayName, setFormDisplayName] = useState('')
   const [formJobTitle, setFormJobTitle] = useState('')
   const [formPhone, setFormPhone] = useState('')
   const [formEmail, setFormEmail] = useState('')
@@ -81,6 +83,7 @@ export function StaffDirectoryPage() {
 
   function cancelEdit() {
     setFormName('')
+    setFormDisplayName('')
     setFormJobTitle('')
     setFormPhone('')
     setFormEmail('')
@@ -92,6 +95,7 @@ export function StaffDirectoryPage() {
   function startEdit(member: StaffMember) {
     setEditingId(member.id)
     setFormName(member.full_name)
+    setFormDisplayName(member.display_name || '')
     setFormJobTitle(member.job_title || '')
     setFormPhone(member.phone || '')
     setFormEmail(member.email || '')
@@ -111,6 +115,7 @@ export function StaffDirectoryPage() {
     try {
       const payload = {
         full_name: formName.trim(),
+        display_name: formDisplayName.trim() || null,
         job_title: formJobTitle.trim() || undefined,
         phone: formPhone.trim() || undefined,
         email: formEmail.trim() || undefined,
@@ -134,6 +139,7 @@ export function StaffDirectoryPage() {
         toast.success('Staff member added')
         // Keep form open for bulk entry — just clear the fields
         setFormName('')
+        setFormDisplayName('')
         setFormJobTitle('')
         setFormPhone('')
         setFormEmail('')
@@ -176,9 +182,14 @@ export function StaffDirectoryPage() {
     setRegisterForStaffId(null)
   }
 
-  async function handleLoginCreated(userId: string, tempPassword: string) {
+  async function handleLoginCreated(userId: string, tempPassword: string, displayName: string) {
     if (registerForStaffId) {
-      const { error } = await updateStaffMember(registerForStaffId, { profile_id: userId })
+      // Only sets display_name when one was actually entered — an empty
+      // Short name here leaves whatever display_name the directory row
+      // already has untouched, rather than clearing it.
+      const patch: UpdateStaffMemberPatch = { profile_id: userId }
+      if (displayName) patch.display_name = displayName
+      const { error } = await updateStaffMember(registerForStaffId, patch)
       if (error) {
         toast.error('Login created, but could not link it to the staff record. Use Link login to attach it manually.')
       }
@@ -302,6 +313,19 @@ export function StaffDirectoryPage() {
                 disabled={submitting}
                 required
                 placeholder="e.g. Tan Chi Ming"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted">Short name</label>
+              <input
+                type="text"
+                value={formDisplayName}
+                onChange={(e) => setFormDisplayName(e.target.value)}
+                disabled={submitting}
+                maxLength={4}
+                placeholder={formName.trim() ? staffLabel({ full_name: formName }) : undefined}
                 className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
               />
             </div>

@@ -1,26 +1,53 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { TabNav, rosterTabs } from '../components/TabNav'
-import { formatDateShort, getWeekStartISO, shiftDateISO, toKLDateISO } from '../lib/helpers'
+import { formatDateShort, getWeekStartISO, shiftDateISO, staffLabel, toKLDateISO } from '../lib/helpers'
 import { totalSlots } from '../lib/rosterAlgorithm'
 import {
   fetchActiveDutyTypes,
+  fetchActiveStaffMembers,
   fetchRotationPool,
   fetchWeekAssignments,
   generateWeek,
-  swapDutyAssignments,
+  reassignDutyCell,
 } from '../lib/rosterApi'
-import type { DutyType, RotationPoolMember, DutyAssignmentRow } from '../lib/rosterApi'
+import type { DutyType, RotationPoolMember, DutyAssignmentRow, RosterStaffOption } from '../lib/rosterApi'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+
+// Rough popover height (header + a couple of rows) used only to decide
+// whether it should flip upward — the real, precise limit is maxListHeight,
+// computed from actual available space at open time.
+const POPOVER_HEIGHT_ESTIMATE = 260
+const POPOVER_MARGIN = 8
+
+// Which cell's picker is currently open — at most one at a time.
+// assignmentId is null for an empty slot (the picker will insert instead of
+// update); currentStaffId is null for the same reason. anchor* are captured
+// from the clicked chip's bounding rect at open time (viewport-relative, so
+// they plug straight into a position:fixed popover with no scroll-offset
+// math) — this is a one-shot snapshot, not reactively tracked, which is fine
+// for a popover that's closed on any outside click anyway.
+interface OpenPicker {
+  date: string
+  dutyTypeId: string
+  assignmentId: string | null
+  currentStaffId: string | null
+  anchorLeft: number
+  anchorTop: number
+  anchorBottom: number
+  openUp: boolean
+  maxListHeight: number
+}
 
 export function RosterPage() {
   const { profile } = useAuth()
@@ -32,10 +59,12 @@ export function RosterPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([])
   const [pool, setPool] = useState<RotationPoolMember[]>([])
+  const [activeStaff, setActiveStaff] = useState<RosterStaffOption[]>([])
   const [assignments, setAssignments] = useState<DutyAssignmentRow[]>([])
 
   const [generating, setGenerating] = useState(false)
-  const [swappingKey, setSwappingKey] = useState<string | null>(null)
+  const [picker, setPicker] = useState<OpenPicker | null>(null)
+  const [reassigning, setReassigning] = useState(false)
 
   const days = Array.from({ length: 5 }, (_, i) => shiftDateISO(weekStart, i))
   const weekEnd = days[4]
@@ -49,14 +78,16 @@ export function RosterPage() {
       Promise.all([
         fetchActiveDutyTypes(),
         fetchRotationPool(profile.center_id),
+        fetchActiveStaffMembers(profile.center_id),
         fetchWeekAssignments(weekStart, shiftDateISO(weekStart, 4)),
       ]),
     )
-      .then(([dutyTypesRes, poolRes, assignmentsRes]) => {
+      .then(([dutyTypesRes, poolRes, activeStaffRes, assignmentsRes]) => {
         if (cancelled) return
         if (
           dutyTypesRes.error || !dutyTypesRes.data ||
           poolRes.error || !poolRes.data ||
+          activeStaffRes.error || !activeStaffRes.data ||
           assignmentsRes.error || !assignmentsRes.data
         ) {
           setLoadError('Could not load the roster. Please try again.')
@@ -65,6 +96,7 @@ export function RosterPage() {
         }
         setDutyTypes(dutyTypesRes.data)
         setPool(poolRes.data)
+        setActiveStaff(activeStaffRes.data)
         setAssignments(assignmentsRes.data)
         setLoadState('ready')
       })
@@ -89,6 +121,39 @@ export function RosterPage() {
   const S = totalSlots(dutyTypes)
   const N = pool.length
   const mismatched = S !== N
+
+  // Pool members first (subtle marker in the picker), then alphabetical.
+  const sortedActiveStaff = [...activeStaff].sort(
+    (a, b) => Number(b.in_duty_roster) - Number(a.in_duty_roster) || a.full_name.localeCompare(b.full_name),
+  )
+
+  function openPickerFor(
+    e: React.MouseEvent<HTMLButtonElement>,
+    date: string,
+    dutyTypeId: string,
+    assignmentId: string | null,
+    currentStaffId: string | null,
+  ) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    const openUp = spaceBelow < POPOVER_HEIGHT_ESTIMATE && spaceAbove > spaceBelow
+    const available = (openUp ? spaceAbove : spaceBelow) - POPOVER_MARGIN * 2
+    // ~32px for the "Assign staff" header above the scrollable list.
+    const maxListHeight = Math.max(120, available - 32)
+
+    setPicker({
+      date,
+      dutyTypeId,
+      assignmentId,
+      currentStaffId,
+      anchorLeft: rect.left + rect.width / 2,
+      anchorTop: rect.top,
+      anchorBottom: rect.bottom,
+      openUp,
+      maxListHeight,
+    })
+  }
 
   function rosterForDate(date: string): DutyAssignmentRow[] {
     return assignments.filter((a) => a.work_date === date)
@@ -119,24 +184,64 @@ export function RosterPage() {
     }
   }
 
-  async function handleSwap(date: string, dutyTypeId: string, currentStaffMemberId: string, newStaffMemberId: string) {
-    if (currentStaffMemberId === newStaffMemberId || swappingKey) return
-    const otherRow = rosterForDate(date).find((a) => a.staff_member_id === newStaffMemberId)
-    if (!otherRow) return
-
-    const key = `${date}|${dutyTypeId}|${currentStaffMemberId}`
-    setSwappingKey(key)
+  async function handleReassignCell(newStaffId: string) {
+    if (!profile || !picker || reassigning) return
+    setReassigning(true)
     try {
-      const { error } = await withTimeout(swapDutyAssignments(date, currentStaffMemberId, newStaffMemberId))
-      setSwappingKey(null)
+      const { data, error } = await withTimeout(
+        reassignDutyCell({
+          assignmentId: picker.assignmentId,
+          workDate: picker.date,
+          dutyTypeId: picker.dutyTypeId,
+          centerId: profile.center_id,
+          staffMemberId: newStaffId,
+        }),
+      )
+      setReassigning(false)
 
       if (error) {
-        toast.error('Could not update the roster. Please try again.')
+        if (error.code === '23505') {
+          const person = activeStaff.find((s) => s.id === newStaffId)
+          toast.error(`${person?.full_name ?? 'This person'} is already on duty this day — free their other slot first.`)
+        } else {
+          toast.error('Could not update the roster. Please try again.')
+        }
         return
       }
-      setRefreshKey((k) => k + 1)
+
+      const chosen = activeStaff.find((s) => s.id === newStaffId)
+      const openedPicker = picker
+      setAssignments((current) => {
+        if (openedPicker.assignmentId) {
+          return current.map((a) =>
+            a.id === openedPicker.assignmentId
+              ? {
+                  ...a,
+                  staff_member_id: newStaffId,
+                  is_manual: true,
+                  full_name: chosen?.full_name ?? a.full_name,
+                  display_name: chosen?.display_name ?? null,
+                }
+              : a,
+          )
+        }
+        if (!data) return current
+        return [
+          ...current,
+          {
+            id: data.id,
+            work_date: openedPicker.date,
+            duty_type_id: openedPicker.dutyTypeId,
+            staff_member_id: newStaffId,
+            is_manual: true,
+            full_name: chosen?.full_name ?? 'Unknown',
+            display_name: chosen?.display_name ?? null,
+          },
+        ]
+      })
+      setPicker(null)
     } catch (err) {
-      setSwappingKey(null)
+      setReassigning(false)
       toast.error(getUserErrorMessage(err))
     }
   }
@@ -206,79 +311,141 @@ export function RosterPage() {
         )}
 
         {loadState === 'ready' && dutyTypes.length > 0 && (
-          <div className="rounded-xl bg-white shadow-card overflow-x-auto">
+          <div className="rounded-xl bg-white shadow-card">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>
                   <th className="px-3 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted">
-                    Duty
+                    Day
                   </th>
-                  {days.map((day, i) => {
-                    const isToday = isCurrentWeek && day === today
-                    return (
-                      <th
-                        key={day}
-                        className={`px-2 py-3 text-center font-semibold text-2xs text-muted ${
-                          isToday ? 'bg-accent-soft' : ''
-                        }`}
-                      >
-                        <div className={isToday ? 'font-bold text-accent-hover' : ''}>{WEEKDAY_LABELS[i]}</div>
-                        <div className="text-2xs font-normal text-muted/70">{formatDateShort(day)}</div>
-                      </th>
-                    )
-                  })}
+                  {dutyTypes.map((dutyType) => (
+                    <th
+                      key={dutyType.id}
+                      className="px-2 py-3 text-center font-semibold text-2xs uppercase tracking-wider text-muted"
+                    >
+                      {dutyType.name}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {dutyTypes.map((dutyType) => (
-                  <tr key={dutyType.id} className="border-t border-line">
-                    <td className="px-3 py-3 font-semibold text-ink">{dutyType.name}</td>
-                    {days.map((day) => {
-                      const rows = assignmentsFor(day, dutyType.id)
-                      const isToday = isCurrentWeek && day === today
+                {days.map((day, i) => {
+                  const isToday = isCurrentWeek && day === today
+                  return (
+                    <tr key={day} className={`border-t border-line ${isToday ? 'bg-accent-soft' : ''}`}>
+                      <td className="px-3 py-3 align-top">
+                        <div className={`font-semibold ${isToday ? 'text-accent-hover' : 'text-ink'}`}>
+                          {WEEKDAY_LABELS[i]}
+                        </div>
+                        <div className="text-2xs text-muted/70">{formatDateShort(day)}</div>
+                      </td>
+                      {dutyTypes.map((dutyType) => {
+                        const rows = assignmentsFor(day, dutyType.id)
+                        const cellOpen = picker && picker.date === day && picker.dutyTypeId === dutyType.id
+                        const assignedIdsThisDate = new Set(rosterForDate(day).map((a) => a.staff_member_id))
 
-                      return (
-                        <td key={day} className={`px-2 py-3 text-center align-top ${isToday ? 'bg-accent-soft' : ''}`}>
-                          {rows.length === 0 ? (
-                            <span className="text-muted">—</span>
-                          ) : isAdmin ? (
-                            <div className="space-y-1">
-                              {rows.map((row) => {
-                                const key = `${day}|${dutyType.id}|${row.staff_member_id}`
-                                return (
-                                  <select
+                        return (
+                          <td key={dutyType.id} className="relative px-2 py-3 text-center align-top">
+                            <div className="flex flex-wrap justify-center gap-1">
+                              {rows.length === 0 && !isAdmin && <span className="text-muted">—</span>}
+
+                              {rows.length === 0 && isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => openPickerFor(e, day, dutyType.id, null, null)}
+                                  aria-label={`Assign ${dutyType.name}`}
+                                  className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-line text-muted hover:bg-accent-soft/40"
+                                >
+                                  +
+                                </button>
+                              )}
+
+                              {rows.map((row) =>
+                                isAdmin ? (
+                                  <button
                                     key={row.id}
-                                    value={row.staff_member_id}
-                                    onChange={(e) => handleSwap(day, dutyType.id, row.staff_member_id, e.target.value)}
-                                    disabled={swappingKey === key}
-                                    title={row.is_manual ? 'Manually assigned' : undefined}
-                                    className={`w-full rounded-lg border px-1 py-1 text-2xs disabled:opacity-50 ${
-                                      row.is_manual ? 'border-accent/40 bg-accent-soft/40' : 'border-line bg-white'
+                                    type="button"
+                                    title={row.full_name}
+                                    aria-label={row.full_name}
+                                    onClick={(e) => openPickerFor(e, day, dutyType.id, row.id, row.staff_member_id)}
+                                    className={`flex h-7 w-9 items-center justify-center rounded-full text-2xs font-semibold hover:brightness-95 ${
+                                      row.is_manual ? 'bg-accent-soft text-accent-hover ring-1 ring-accent/40' : 'bg-accent-soft text-accent-hover'
                                     }`}
                                   >
-                                    {rosterForDate(day).map((person) => (
-                                      <option key={person.staff_member_id} value={person.staff_member_id}>
-                                        {person.full_name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )
-                              })}
+                                    {staffLabel(row)}
+                                  </button>
+                                ) : (
+                                  <span
+                                    key={row.id}
+                                    title={row.full_name}
+                                    aria-label={row.full_name}
+                                    className="flex h-7 w-9 items-center justify-center rounded-full bg-accent-soft text-2xs font-semibold text-accent-hover"
+                                  >
+                                    {staffLabel(row)}
+                                  </span>
+                                ),
+                              )}
                             </div>
-                          ) : (
-                            <div className="space-y-0.5">
-                              {rows.map((row) => (
-                                <p key={row.id} className="text-ink">
-                                  {row.full_name}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
+
+                            {cellOpen &&
+                              picker &&
+                              createPortal(
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={() => setPicker(null)} />
+                                  <div
+                                    className="fixed z-50 w-56 -translate-x-1/2 rounded-xl border border-line bg-white p-2 text-left shadow-card-lg"
+                                    style={{
+                                      left: picker.anchorLeft,
+                                      ...(picker.openUp
+                                        ? { bottom: window.innerHeight - picker.anchorTop + POPOVER_MARGIN }
+                                        : { top: picker.anchorBottom + POPOVER_MARGIN }),
+                                    }}
+                                  >
+                                    <p className="px-1 pb-1 text-2xs font-semibold uppercase tracking-wide text-muted">
+                                      Assign staff
+                                    </p>
+                                    <ul
+                                      className="space-y-0.5 overflow-y-auto"
+                                      style={{ maxHeight: picker.maxListHeight }}
+                                    >
+                                      {sortedActiveStaff.map((s) => {
+                                        const conflict = assignedIdsThisDate.has(s.id) && s.id !== picker.currentStaffId
+                                        return (
+                                          <li key={s.id}>
+                                            <button
+                                              type="button"
+                                              disabled={reassigning}
+                                              onClick={() => handleReassignCell(s.id)}
+                                              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-cream disabled:opacity-50 ${
+                                                conflict ? 'opacity-50' : ''
+                                              }`}
+                                            >
+                                              <span
+                                                className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.in_duty_roster ? 'bg-accent' : 'bg-transparent'}`}
+                                                aria-hidden="true"
+                                              />
+                                              <span className="flex h-6 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-2xs font-semibold text-accent-hover">
+                                                {staffLabel(s)}
+                                              </span>
+                                              <span className="min-w-0 flex-1 truncate text-ink">{s.full_name}</span>
+                                              {conflict && (
+                                                <span className="shrink-0 text-2xs text-muted">on duty this day</span>
+                                              )}
+                                            </button>
+                                          </li>
+                                        )
+                                      })}
+                                    </ul>
+                                  </div>
+                                </>,
+                                document.body,
+                              )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

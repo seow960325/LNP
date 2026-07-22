@@ -10,6 +10,24 @@ export function formatDate(input: string | Date): string {
   }).format(new Date(input));
 }
 
+// Relationship/honorific tokens (e.g. "Ganga A/P Raman", "Ahmad Bin Ismail")
+// aren't part of anyone's given/family name, so they'd otherwise corrupt the
+// "last two words" initials heuristic below — dropped before taking initials.
+const NAME_RELATION_TOKENS = new Set(['a/p', 'a/l', 'bin', 'binti', 'bt', 'bte']);
+
+// Short label for a staff member in tight spaces (roster chips): the display
+// name if set, otherwise initials of the last two words of full_name — e.g.
+// "Tan Chi Ming" -> "CM", so the initials stay a family/given-name pair
+// rather than drifting to a middle name for people with 3+ name parts.
+export function staffLabel(s: { display_name?: string | null; full_name: string }): string {
+  const d = s.display_name?.trim();
+  if (d) return d;
+  const trimmed = s.full_name.trim();
+  const w = trimmed.split(/\s+/).filter((x) => !NAME_RELATION_TOKENS.has(x.toLowerCase()));
+  if (w.length === 0) return trimmed[0]?.toUpperCase() ?? '';
+  return (w.length >= 2 ? w.slice(-2) : w).map((x) => x[0]?.toUpperCase() ?? '').join('');
+}
+
 export function toKLDateISO(input: string | Date): string {
   if (Number.isNaN(new Date(input).getTime())) return '';
   return new Intl.DateTimeFormat('en-CA', {

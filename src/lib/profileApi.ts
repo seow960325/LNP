@@ -69,7 +69,7 @@ export async function fetchProfileById(id: string) {
 // everyone who works here); profiles is login accounts only. profile_id
 // optionally links a row to its login, when one exists.
 const STAFF_MEMBER_COLUMNS =
-  'id, center_id, profile_id, full_name, job_title, phone, email, zoho_account_id, in_duty_roster, active, notes, created_at'
+  'id, center_id, profile_id, full_name, display_name, job_title, phone, email, zoho_account_id, in_duty_roster, active, notes, created_at'
 
 export function fetchStaffMembers(centerId: string) {
   return supabase
@@ -82,6 +82,7 @@ export function fetchStaffMembers(centerId: string) {
 
 export interface CreateStaffMemberPayload {
   full_name: string
+  display_name?: string | null
   job_title?: string
   phone?: string
   email?: string
@@ -98,6 +99,7 @@ export function createStaffMember(centerId: string, payload: CreateStaffMemberPa
 
 export interface UpdateStaffMemberPatch {
   full_name?: string
+  display_name?: string | null
   job_title?: string
   phone?: string
   email?: string

@@ -30,6 +30,7 @@ export interface StaffMember {
   center_id: string
   profile_id: string | null
   full_name: string
+  display_name: string | null
   job_title: string | null
   phone: string | null
   email: string | null
