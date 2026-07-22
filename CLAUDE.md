@@ -14,6 +14,14 @@ Staff-management app for Learn N' Play. React + TypeScript + Vite frontend, Supa
 
 - Live/authoritative project ref: **`nrioqwrhqczwomwgzmgp`** — matches `VITE_SUPABASE_URL` in `.env.local`. The Supabase CLI has been observed defaulting to a different, unrelated project (`pcsibltsngocrahcpelm`) in this environment — **always verify the CLI's linked project before running `supabase functions deploy`**, don't assume it matches the frontend target.
 - Edge functions use a two-tier client pattern: an anon-key client scoped to the caller's JWT for identity/RLS-respecting reads, and a service-role client for privileged writes (see `admin-reset-password`, `admin-create-staff`).
+- Schema is a single squashed baseline: `supabase/migrations/20260101000000_remote_baseline.sql`. Old migrations live in `supabase/migrations_archive/` (not applied). Write new schema changes as new migrations on top of the baseline, don't edit it in place.
+- Docker is installed on TUF — validate schema changes locally with `supabase db reset` before pushing to remote.
+
+## Payroll & staff data
+
+- Payroll is outsourced to "Payroll Panda Sdn Bhd" — individual salaries are NOT in `zoho_bank_transactions` by name. Payee prefix `BPO - <name>` = part-timer; `Claims - <name>` = employed staff. In that table, `customer_payment`/debit rows are incoming parent fees (student names), not outgoing payroll.
+- Active teaching staff: Loo Min Hui, Lydia, Pang Kai Xuan, Saranjit Kaur A/P Jeswant Singh (+ Pravena, tentative). Lim Pei Tien and Tam You Sheng are shareholders, not staff.
+- `staff_members.display_name` is the admin-editable short label used for roster chips.
 
 ## Working agreement
 
