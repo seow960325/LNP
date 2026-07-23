@@ -187,7 +187,7 @@ export function ShareholderDetailPage() {
                 to={`/staff/${shareholding.linked_staff.id}`}
                 className="flex min-h-tap w-full items-center justify-center rounded-xl border border-accent/30 bg-white font-semibold text-sm text-accent-hover shadow-card hover:bg-accent-soft"
               >
-                View staff profile
+                View directory profile
               </Link>
             )}
 

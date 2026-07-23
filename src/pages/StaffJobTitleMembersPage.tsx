@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
@@ -36,6 +36,7 @@ export function StaffJobTitleMembersPage() {
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
 
   const [formName, setFormName] = useState('')
   const [formDisplayName, setFormDisplayName] = useState('')
@@ -127,6 +128,7 @@ export function StaffJobTitleMembersPage() {
     setFormEmail('')
     setFormInDutyRoster(false)
     setEditingId(null)
+    setEditingProfileId(null)
     setShowForm(false)
   }
 
@@ -137,6 +139,7 @@ export function StaffJobTitleMembersPage() {
 
   function startEdit(member: StaffDirectoryMember) {
     setEditingId(member.id)
+    setEditingProfileId(member.profile_id)
     setFormName(member.full_name)
     setFormDisplayName(member.display_name || '')
     setFormJobTitle(member.job_title || '')
@@ -146,6 +149,22 @@ export function StaffJobTitleMembersPage() {
     setFormInDutyRoster(member.in_duty_roster)
     setShowForm(true)
   }
+
+  // A staff_members row with a linked login gets phone/email from that
+  // person's own profile (edited on My Profile) — the staff_members columns
+  // become dead weight for that row, so the form must not touch them. Only
+  // applies while editing an existing row; a new row has no login yet.
+  const contactManagedByProfile = !!editingId && !!editingProfileId
+
+  // The edit form renders above the list (see JSX below), so opening it for
+  // a row further down pushes that row down by the form's height. Left
+  // alone, the page keeps its old scrollY and appears to jump toward the
+  // top. Scroll the clicked row back into view before paint so it stays
+  // put instead.
+  useLayoutEffect(() => {
+    if (!showForm || !editingId) return
+    document.getElementById(`staff-card-${editingId}`)?.scrollIntoView({ block: 'nearest' })
+  }, [showForm, editingId])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -162,8 +181,9 @@ export function StaffJobTitleMembersPage() {
         display_name: formDisplayName.trim() || null,
         job_title: formJobTitle.trim() || undefined,
         job_title_id: formJobTitleId || null,
-        phone: formPhone.trim() || undefined,
-        email: formEmail.trim() || undefined,
+        ...(contactManagedByProfile
+          ? {}
+          : { phone: formPhone.trim() || undefined, email: formEmail.trim() || undefined }),
         in_duty_roster: formInDutyRoster,
       }
 
@@ -408,29 +428,35 @@ export function StaffJobTitleMembersPage() {
               />
             </div>
 
-            <div>
-              <label className="text-xs text-muted">Phone</label>
-              <input
-                type="tel"
-                value={formPhone}
-                onChange={(e) => setFormPhone(e.target.value)}
-                disabled={submitting}
-                placeholder="e.g. 012-3456789"
-                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
-              />
-            </div>
+            {contactManagedByProfile ? (
+              <p className="text-xs text-muted">Managed by this person in My Profile.</p>
+            ) : (
+              <>
+                <div>
+                  <label className="text-xs text-muted">Phone</label>
+                  <input
+                    type="tel"
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(e.target.value)}
+                    disabled={submitting}
+                    placeholder="e.g. 012-3456789"
+                    className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+                  />
+                </div>
 
-            <div>
-              <label className="text-xs text-muted">Email</label>
-              <input
-                type="email"
-                value={formEmail}
-                onChange={(e) => setFormEmail(e.target.value)}
-                disabled={submitting}
-                placeholder="e.g. name@example.com"
-                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
-              />
-            </div>
+                <div>
+                  <label className="text-xs text-muted">Email</label>
+                  <input
+                    type="email"
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    disabled={submitting}
+                    placeholder="e.g. name@example.com"
+                    className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+                  />
+                </div>
+              </>
+            )}
 
             <div>
               <label className="flex items-center gap-2 text-xs text-muted">
@@ -479,6 +505,7 @@ export function StaffJobTitleMembersPage() {
             {activeMembers.map((member) => (
               <StaffCard
                 key={member.id}
+                id={`staff-card-${member.id}`}
                 member={member}
                 photoUrl={resolvePhotoUrl(member)}
                 isAdmin={isAdmin}
