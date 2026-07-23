@@ -24,7 +24,6 @@ function LoginBadge({ profileId, mustChangePassword }: { profileId: string | nul
 // name/photo area opens the staff profile (/staff/:id); the admin action
 // row underneath stays inline, unchanged from before.
 export function StaffCard({
-  id,
   member,
   photoUrl,
   isAdmin,
@@ -34,10 +33,6 @@ export function StaffCard({
   onCreateLogin,
   onLinkLogin,
 }: {
-  // Lets a caller scroll/find this specific row after a layout shift
-  // elsewhere on the page (e.g. an edit form opening above the list) —
-  // optional since most callers don't need it.
-  id?: string
   member: StaffDirectoryMember
   photoUrl: string | null
   isAdmin: boolean
@@ -48,7 +43,7 @@ export function StaffCard({
   onLinkLogin?: (member: StaffDirectoryMember) => void
 }) {
   return (
-    <li id={id} className="rounded-xl bg-white p-5 shadow-card">
+    <li className="rounded-xl bg-white p-5 shadow-card">
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-3">
           <Link to={`/staff/${member.id}`} className="flex min-w-0 flex-1 gap-3">

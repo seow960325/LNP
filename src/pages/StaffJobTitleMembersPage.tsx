@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
@@ -34,7 +34,11 @@ export function StaffJobTitleMembersPage() {
   const [jobTitles, setJobTitles] = useState<JobTitle[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({})
 
-  const [showForm, setShowForm] = useState(false)
+  // showAddForm controls only the standalone "add new member" form above the
+  // list. Editing an existing row has no visibility flag of its own — the
+  // inline form for a row renders whenever editingId === that row's id (see
+  // the members map below), so at most one row can ever be in edit mode.
+  const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
 
@@ -119,7 +123,7 @@ export function StaffJobTitleMembersPage() {
     return (member.photo_path ? photoUrls[member.id] : undefined) ?? member.linked_avatar_url ?? null
   }
 
-  function cancelEdit() {
+  function closeForm() {
     setFormName('')
     setFormDisplayName('')
     setFormJobTitle('')
@@ -129,15 +133,16 @@ export function StaffJobTitleMembersPage() {
     setFormInDutyRoster(false)
     setEditingId(null)
     setEditingProfileId(null)
-    setShowForm(false)
+    setShowAddForm(false)
   }
 
   function startAdd() {
-    cancelEdit()
-    setShowForm(true)
+    closeForm()
+    setShowAddForm(true)
   }
 
   function startEdit(member: StaffDirectoryMember) {
+    closeForm()
     setEditingId(member.id)
     setEditingProfileId(member.profile_id)
     setFormName(member.full_name)
@@ -147,7 +152,6 @@ export function StaffJobTitleMembersPage() {
     setFormPhone(member.phone || '')
     setFormEmail(member.email || '')
     setFormInDutyRoster(member.in_duty_roster)
-    setShowForm(true)
   }
 
   // A staff_members row with a linked login gets phone/email from that
@@ -155,16 +159,6 @@ export function StaffJobTitleMembersPage() {
   // become dead weight for that row, so the form must not touch them. Only
   // applies while editing an existing row; a new row has no login yet.
   const contactManagedByProfile = !!editingId && !!editingProfileId
-
-  // The edit form renders above the list (see JSX below), so opening it for
-  // a row further down pushes that row down by the form's height. Left
-  // alone, the page keeps its old scrollY and appears to jump toward the
-  // top. Scroll the clicked row back into view before paint so it stays
-  // put instead.
-  useLayoutEffect(() => {
-    if (!showForm || !editingId) return
-    document.getElementById(`staff-card-${editingId}`)?.scrollIntoView({ block: 'nearest' })
-  }, [showForm, editingId])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -194,7 +188,7 @@ export function StaffJobTitleMembersPage() {
           return
         }
         toast.success('Staff member updated')
-        cancelEdit()
+        closeForm()
       } else {
         const { error } = await withTimeout(createStaffMember(profile.center_id, payload))
         if (error) {
@@ -235,9 +229,9 @@ export function StaffJobTitleMembersPage() {
   }
 
   function openCreateLogin(staffId: string | null) {
-    // Mutually exclusive with the staff_members add/edit form above — only
-    // one form on screen at a time.
-    cancelEdit()
+    // Mutually exclusive with the staff_members add/edit form — only one
+    // form on screen at a time.
+    closeForm()
     setRegisterForStaffId(staffId)
     setShowRegisterForm(true)
   }
@@ -305,6 +299,146 @@ export function StaffJobTitleMembersPage() {
     loadMembers()
   }
 
+  // Shared by both the standalone "add" form (rendered above the list) and
+  // the inline "edit" form (rendered inside the clicked row's <li>, replacing
+  // its normal card content) — same fields, same state, same handleSubmit,
+  // same validation either way. Which one is showing is entirely determined
+  // by editingId: null means this is the add form, a matching id means it's
+  // that row's inline edit form.
+  function renderStaffForm() {
+    return (
+      <form onSubmit={handleSubmit} className="space-y-3 rounded-xl bg-white p-5 shadow-card">
+        <p className="font-semibold text-sm text-ink">{editingId ? 'Edit staff member' : 'Add new staff member'}</p>
+
+        <div>
+          <label className="text-xs text-muted">Name *</label>
+          <input
+            type="text"
+            value={formName}
+            onChange={(e) => setFormName(e.target.value)}
+            disabled={submitting}
+            required
+            placeholder="e.g. Tan Chi Ming"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs text-muted">Short name</label>
+          <input
+            type="text"
+            value={formDisplayName}
+            onChange={(e) => setFormDisplayName(e.target.value)}
+            disabled={submitting}
+            maxLength={4}
+            placeholder={formName.trim() ? staffLabel({ full_name: formName }) : undefined}
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs text-muted">Job title (group)</label>
+          <select
+            value={formJobTitleId}
+            onChange={(e) => setFormJobTitleId(e.target.value)}
+            disabled={submitting}
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
+          >
+            <option value="">Unassigned</option>
+            {/* Deactivated titles drop out of this picker (per Job Titles
+                management), except the one currently assigned to whoever
+                is being edited — otherwise their existing value would
+                silently vanish from the list rather than showing what's
+                actually set. */}
+            {jobTitles
+              .filter((jt) => jt.active || jt.id === formJobTitleId)
+              .map((jt) => (
+                <option key={jt.id} value={jt.id}>
+                  {jt.name}
+                  {!jt.active ? ' (inactive)' : ''}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs text-muted">Job title (label)</label>
+          <input
+            type="text"
+            value={formJobTitle}
+            onChange={(e) => setFormJobTitle(e.target.value)}
+            disabled={submitting}
+            placeholder="e.g. Teacher"
+            className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+          />
+        </div>
+
+        {contactManagedByProfile ? (
+          <p className="text-xs text-muted">Managed by this person in My Profile.</p>
+        ) : (
+          <>
+            <div>
+              <label className="text-xs text-muted">Phone</label>
+              <input
+                type="tel"
+                value={formPhone}
+                onChange={(e) => setFormPhone(e.target.value)}
+                disabled={submitting}
+                placeholder="e.g. 012-3456789"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted">Email</label>
+              <input
+                type="email"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
+                disabled={submitting}
+                placeholder="e.g. name@example.com"
+                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
+              />
+            </div>
+          </>
+        )}
+
+        <div>
+          <label className="flex items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={formInDutyRoster}
+              onChange={(e) => setFormInDutyRoster(e.target.checked)}
+              disabled={submitting}
+              className="h-4 w-4 rounded border-line disabled:opacity-60"
+            />
+            Assign duty roster
+          </label>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
+          >
+            {editingId ? 'Update' : 'Add'}
+          </button>
+          {editingId && (
+            <button
+              type="button"
+              onClick={closeForm}
+              disabled={submitting}
+              className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+    )
+  }
+
   if (!profile || !jobTitleId) return null
 
   return (
@@ -317,8 +451,8 @@ export function StaffJobTitleMembersPage() {
             <button
               type="button"
               onClick={() => {
-                if (showForm) {
-                  cancelEdit()
+                if (showAddForm) {
+                  closeForm()
                 } else {
                   closeCreateLogin()
                   startAdd()
@@ -326,7 +460,7 @@ export function StaffJobTitleMembersPage() {
               }}
               className="min-h-tap flex-1 rounded-xl border border-accent/30 bg-white font-semibold text-sm text-accent-hover shadow-card hover:bg-accent-soft"
             >
-              {showForm ? 'Cancel' : '+ Add staff member'}
+              {showAddForm ? 'Cancel' : '+ Add staff member'}
             </button>
             <button
               type="button"
@@ -359,139 +493,7 @@ export function StaffJobTitleMembersPage() {
           </div>
         )}
 
-        {isAdmin && showForm && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-xl bg-white p-5 shadow-card">
-            <p className="font-semibold text-sm text-ink">
-              {editingId ? 'Edit staff member' : 'Add new staff member'}
-            </p>
-
-            <div>
-              <label className="text-xs text-muted">Name *</label>
-              <input
-                type="text"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                disabled={submitting}
-                required
-                placeholder="e.g. Tan Chi Ming"
-                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-muted">Short name</label>
-              <input
-                type="text"
-                value={formDisplayName}
-                onChange={(e) => setFormDisplayName(e.target.value)}
-                disabled={submitting}
-                maxLength={4}
-                placeholder={formName.trim() ? staffLabel({ full_name: formName }) : undefined}
-                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-muted">Job title (group)</label>
-              <select
-                value={formJobTitleId}
-                onChange={(e) => setFormJobTitleId(e.target.value)}
-                disabled={submitting}
-                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
-              >
-                <option value="">Unassigned</option>
-                {/* Deactivated titles drop out of this picker (per Job Titles
-                    management), except the one currently assigned to whoever
-                    is being edited — otherwise their existing value would
-                    silently vanish from the list rather than showing what's
-                    actually set. */}
-                {jobTitles
-                  .filter((jt) => jt.active || jt.id === formJobTitleId)
-                  .map((jt) => (
-                    <option key={jt.id} value={jt.id}>
-                      {jt.name}
-                      {!jt.active ? ' (inactive)' : ''}
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs text-muted">Job title (label)</label>
-              <input
-                type="text"
-                value={formJobTitle}
-                onChange={(e) => setFormJobTitle(e.target.value)}
-                disabled={submitting}
-                placeholder="e.g. Teacher"
-                className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
-              />
-            </div>
-
-            {contactManagedByProfile ? (
-              <p className="text-xs text-muted">Managed by this person in My Profile.</p>
-            ) : (
-              <>
-                <div>
-                  <label className="text-xs text-muted">Phone</label>
-                  <input
-                    type="tel"
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    disabled={submitting}
-                    placeholder="e.g. 012-3456789"
-                    className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-muted">Email</label>
-                  <input
-                    type="email"
-                    value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
-                    disabled={submitting}
-                    placeholder="e.g. name@example.com"
-                    className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm placeholder:text-muted/70 disabled:opacity-60"
-                  />
-                </div>
-              </>
-            )}
-
-            <div>
-              <label className="flex items-center gap-2 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={formInDutyRoster}
-                  onChange={(e) => setFormInDutyRoster(e.target.checked)}
-                  disabled={submitting}
-                  className="h-4 w-4 rounded border-line disabled:opacity-60"
-                />
-                Assign duty roster
-              </label>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="min-h-tap flex-1 rounded-xl bg-accent font-semibold text-sm text-white shadow-card hover:bg-accent-hover disabled:opacity-60"
-              >
-                {editingId ? 'Update' : 'Add'}
-              </button>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  disabled={submitting}
-                  className="min-h-tap flex-1 rounded-xl border border-line font-semibold text-sm text-muted hover:bg-cream disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </form>
-        )}
+        {isAdmin && showAddForm && renderStaffForm()}
 
         {loadState === 'loading' && <LoadingState label="Loading staff…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
@@ -502,20 +504,23 @@ export function StaffJobTitleMembersPage() {
 
         {loadState === 'ready' && activeMembers.length > 0 && (
           <ul className="space-y-3">
-            {activeMembers.map((member) => (
-              <StaffCard
-                key={member.id}
-                id={`staff-card-${member.id}`}
-                member={member}
-                photoUrl={resolvePhotoUrl(member)}
-                isAdmin={isAdmin}
-                submitting={submitting}
-                onEdit={startEdit}
-                onToggleActive={handleToggleActive}
-                onCreateLogin={openCreateLogin}
-                onLinkLogin={setLinkTarget}
-              />
-            ))}
+            {activeMembers.map((member) =>
+              isAdmin && editingId === member.id ? (
+                <li key={member.id}>{renderStaffForm()}</li>
+              ) : (
+                <StaffCard
+                  key={member.id}
+                  member={member}
+                  photoUrl={resolvePhotoUrl(member)}
+                  isAdmin={isAdmin}
+                  submitting={submitting}
+                  onEdit={startEdit}
+                  onToggleActive={handleToggleActive}
+                  onCreateLogin={openCreateLogin}
+                  onLinkLogin={setLinkTarget}
+                />
+              ),
+            )}
           </ul>
         )}
       </div>

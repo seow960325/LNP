@@ -151,11 +151,13 @@ export function App() {
               <Route path="/staff/:id" element={<StaffMemberDetailPage />} />
             </Route>
 
-            {/* Directory: Shareholder branch — same as Staff plus
-                shareholder itself, since the Balance Sheet's shareholder
-                names link here and shareholder-role viewers must be able to
-                follow their own link. */}
-            <Route element={<RequireRole allow={['teacher', 'staff', 'admin', 'super_admin', 'shareholder']} />}>
+            {/* Directory: Shareholder branch — shareholder/admin/super_admin
+                only, matching can_view_shareholdings() (the RLS gate on
+                public.shareholdings). teacher/staff excluded: they could
+                reach /directory (this branch's tile lives there, itself
+                gated to the same three roles), click through, and RLS would
+                return zero rows — an empty page, not an access boundary. */}
+            <Route element={<RequireRole allow={['shareholder', 'admin', 'super_admin']} />}>
               <Route path="/directory/shareholder" element={<DirectoryShareholderTilesPage />} />
               <Route path="/directory/shareholder/:id" element={<ShareholderDetailPage />} />
             </Route>
