@@ -14,7 +14,6 @@ export interface Profile {
   title: string | null
   avatar_url: string | null
   phone: string | null
-  email: string | null
   active: boolean
   is_paid_employee: boolean
   is_app_owner: boolean
@@ -37,7 +36,6 @@ export interface StaffMember {
   job_title_id: string | null
   phone: string | null
   email: string | null
-  zoho_account_id: string | null
   in_duty_roster: boolean
   // Whether this row shows up in the tiled Directory — owner-only-login
   // rows are excluded there but still work everywhere else (roster, etc.)
@@ -45,7 +43,6 @@ export interface StaffMember {
   in_directory: boolean
   photo_path: string | null
   active: boolean
-  notes: string | null
   created_at: string
 }
 

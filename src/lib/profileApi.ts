@@ -55,7 +55,7 @@ export async function fetchProfileById(id: string) {
 // everyone who works here); profiles is login accounts only. profile_id
 // optionally links a row to its login, when one exists.
 const STAFF_MEMBER_COLUMNS =
-  'id, center_id, profile_id, full_name, display_name, job_title, job_title_id, zoho_account_id, in_duty_roster, in_directory, photo_path, active, notes, created_at'
+  'id, center_id, profile_id, full_name, display_name, job_title, job_title_id, in_duty_roster, in_directory, photo_path, active, created_at'
 
 // staff_members.phone/email are column-grant-revoked for anon/authenticated
 // (see H3 migration) — contacts are fetched separately via the staff_contacts()
@@ -155,7 +155,6 @@ export interface CreateStaffMemberPayload {
   phone?: string
   email?: string
   in_duty_roster?: boolean
-  notes?: string
 }
 
 export function createStaffMember(centerId: string, payload: CreateStaffMemberPayload) {
@@ -174,7 +173,6 @@ export interface UpdateStaffMemberPatch {
   email?: string
   in_duty_roster?: boolean
   active?: boolean
-  notes?: string
   profile_id?: string | null
   photo_path?: string | null
 }

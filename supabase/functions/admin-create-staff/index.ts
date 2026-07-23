@@ -93,7 +93,6 @@ Deno.serve(async (req) => {
       full_name: fullName,
       role,
       title,
-      email,
       phone,
       active: true,
       must_change_password: true,
