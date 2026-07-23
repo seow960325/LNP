@@ -8,7 +8,7 @@ import { LoadingState, ErrorState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { fetchShareholderById, updateShareholding } from '../lib/shareholdingsApi'
 import type { ShareholderDirectoryEntry } from '../lib/shareholdingsApi'
-import { fetchStaffMembers, updateStaffMember } from '../lib/profileApi'
+import { fetchStaffMembers, updateStaffMember, resolveAvatarUrl } from '../lib/profileApi'
 import type { StaffMember } from '../types'
 import { getDirectoryPhotoSignedUrl } from '../lib/directoryPhotoApi'
 import { formatMYR } from '../lib/zohoFinance'
@@ -68,14 +68,28 @@ export function ShareholderDetailPage() {
 
   const photoPath = shareholding?.linked_staff ? shareholding.linked_staff.photo_path : shareholding?.photo_path ?? null
 
+  // staff-photos and avatars are both private buckets — linked_staff's own
+  // photo_path wins, falling back to their login's avatar (path or legacy
+  // public URL, resolveAvatarUrl handles both) only when there's no own photo.
   useEffect(() => {
-    if (!photoPath) {
-      setPhotoUrl(shareholding?.linked_staff?.profile_avatar_url ?? null)
-      return
-    }
     let cancelled = false
+    if (!photoPath) {
+      resolveAvatarUrl(shareholding?.linked_staff?.profile_avatar_url ?? null).then((url) => {
+        if (!cancelled) setPhotoUrl(url)
+      })
+      return () => {
+        cancelled = true
+      }
+    }
     getDirectoryPhotoSignedUrl(photoPath).then((url) => {
-      if (!cancelled) setPhotoUrl(url ?? shareholding?.linked_staff?.profile_avatar_url ?? null)
+      if (cancelled) return
+      if (url) {
+        setPhotoUrl(url)
+        return
+      }
+      resolveAvatarUrl(shareholding?.linked_staff?.profile_avatar_url ?? null).then((fallbackUrl) => {
+        if (!cancelled) setPhotoUrl(fallbackUrl)
+      })
     })
     return () => {
       cancelled = true

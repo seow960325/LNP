@@ -58,25 +58,69 @@ it ever reached this code, since a random hex string isn't a valid signed JWT.
   upsert-only incremental sync can never see. `?mode=full` is rejected with 403 for any caller
   that isn't the trusted `ZOHO_SYNC_TOKEN` bearer.
 
-### Scheduling nightly (incremental) + weekly (full reconcile)
+### Scheduling: two daily + one weekly (full reconcile)
 
-Run in the Supabase SQL editor (privileged — David runs this, not the function):
+**WARNING — these are rows in `cron.job`, not schema.** No migration creates or
+recreates them (`create extension pg_cron`/`pg_net` only installs the
+extensions — an empty scheduler, no jobs). A database rebuilt from migrations
+alone has the extensions and zero scheduled jobs; Zoho sync will silently
+never run again until these three `cron.schedule(...)` calls are re-run by
+hand in the SQL editor. There is no drift-capture migration for this by
+design (see `20260723200000_capture_live_drift.sql`'s header) — this README
+section is the only record, so keep it accurate.
+
+Confirmed against live `cron.job` on 2026-07-23 (jobname, schedule, command,
+active — via `supabase db query --linked`). There are three active jobs, not
+two:
+
+**Never paste the token into this file or into a SQL editor tab you might
+save/commit.** Store it in Vault by supplying it at runtime instead — run this
+once, in a terminal, using the SAME value you set via
+`supabase secrets set ZOHO_SYNC_TOKEN=...` above:
+
+```bash
+read -rsp 'ZOHO_SYNC_TOKEN: ' ZOHO_SYNC_TOKEN
+echo
+tmp_sql=$(mktemp)
+printf "select vault.create_secret('%s', 'zoho_sync_token');\n" "$ZOHO_SYNC_TOKEN" > "$tmp_sql"
+supabase db query --linked -f "$tmp_sql"   # or: psql "$DB_URL" -f "$tmp_sql"
+rm -f "$tmp_sql"
+unset ZOHO_SYNC_TOKEN
+```
+
+`read -rsp` reads silently (no echo, not saved to shell history); the value is
+only ever written to a private temp file (`mktemp` defaults to mode 600,
+readable only by you) that's deleted immediately after use, and the shell
+variable is unset at the end so nothing lingers in this session's environment.
+
+Then, in the Supabase SQL editor (privileged — David runs this, not the function):
 
 ```sql
 -- one-time: enable the extensions if not already on
-create extension if not exists pg_cron with schema extensions;
-create extension if not exists pg_net with schema extensions;
-
--- store ZOHO_SYNC_TOKEN in Vault rather than pasting it into the cron job body.
--- Use the SAME value you set via `supabase secrets set ZOHO_SYNC_TOKEN=...` above.
-select vault.create_secret('<ZOHO_SYNC_TOKEN value>', 'zoho_sync_token');
+create extension if not exists pg_cron with schema pg_catalog;
+create extension if not exists pg_net with schema public;
 
 select cron.schedule(
-  'zoho-sync-nightly',
-  '0 20 * * *',  -- 20:00 UTC = 04:00 MYT; adjust to taste
+  'zoho-sync-daily-0000',
+  '0 16 * * *',  -- 16:00 UTC = 00:00 MYT
   $$
   select net.http_post(
-    url := 'https://<project-ref>.supabase.co/functions/v1/zoho-sync',
+    url := 'https://nrioqwrhqczwomwgzmgp.supabase.co/functions/v1/zoho-sync',
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'zoho_sync_token'),
+      'Content-Type', 'application/json'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+
+select cron.schedule(
+  'zoho-sync-daily-1200',
+  '0 4 * * *',  -- 04:00 UTC = 12:00 MYT
+  $$
+  select net.http_post(
+    url := 'https://nrioqwrhqczwomwgzmgp.supabase.co/functions/v1/zoho-sync',
     headers := jsonb_build_object(
       'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'zoho_sync_token'),
       'Content-Type', 'application/json'
@@ -88,10 +132,10 @@ select cron.schedule(
 
 select cron.schedule(
   'zoho-sync-weekly-full',
-  '30 20 * * 0',  -- Sundays 20:30 UTC = 04:30 MYT Monday; after the nightly incremental run
+  '30 16 * * 6',  -- Saturdays 16:30 UTC = 00:30 MYT Sunday; after the daily-0000 incremental run
   $$
   select net.http_post(
-    url := 'https://<project-ref>.supabase.co/functions/v1/zoho-sync?mode=full',
+    url := 'https://nrioqwrhqczwomwgzmgp.supabase.co/functions/v1/zoho-sync?mode=full',
     headers := jsonb_build_object(
       'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'zoho_sync_token'),
       'Content-Type', 'application/json'
@@ -102,7 +146,9 @@ select cron.schedule(
 );
 ```
 
-To inspect/remove: `select * from cron.job;` / `select cron.unschedule('zoho-sync-nightly');` /
+To inspect/remove: `select jobname, schedule, active from cron.job;` /
+`select cron.unschedule('zoho-sync-daily-0000');` /
+`select cron.unschedule('zoho-sync-daily-1200');` /
 `select cron.unschedule('zoho-sync-weekly-full');`
 
 ## Response shape

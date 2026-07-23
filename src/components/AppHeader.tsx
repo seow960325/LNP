@@ -1,11 +1,26 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Avatar } from './Avatar'
 import { firstName } from '../lib/helpers'
+import { resolveAvatarUrl } from '../lib/profileApi'
 
 export function AppHeader() {
   const { profile, signOut } = useAuth()
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+
+  // avatars is a private bucket — profile.avatar_url may be a path (new
+  // uploads) or a legacy public URL (old rows); resolveAvatarUrl handles both.
+  useEffect(() => {
+    let cancelled = false
+    resolveAvatarUrl(profile?.avatar_url ?? null).then((url) => {
+      if (!cancelled) setAvatarUrl(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.avatar_url])
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-white px-4 py-2 shadow-card">
@@ -21,7 +36,7 @@ export function AppHeader() {
             aria-label="Your profile"
             className="flex min-h-tap items-center gap-2 rounded-xl px-2 text-sm text-muted hover:bg-cream"
           >
-            <Avatar fullName={profile.full_name} avatarUrl={profile.avatar_url} size="sm" />
+            <Avatar fullName={profile.full_name} avatarUrl={avatarUrl} size="sm" />
             <span className="hidden font-semibold sm:inline">{firstName(profile.full_name)}</span>
           </Link>
         )}

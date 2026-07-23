@@ -5,7 +5,7 @@ import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { StaffCard } from '../components/StaffCard'
-import { fetchStaffDirectoryMembers, toggleStaffMemberActive, deleteStaffMember } from '../lib/profileApi'
+import { fetchStaffDirectoryMembers, toggleStaffMemberActive, deleteStaffMember, resolveAvatarUrl } from '../lib/profileApi'
 import type { StaffDirectoryMember } from '../lib/profileApi'
 import { getDirectoryPhotoSignedUrl } from '../lib/directoryPhotoApi'
 import { withTimeout } from '../lib/withTimeout'
@@ -56,17 +56,23 @@ export function PastStaffPage() {
     .filter((m) => !m.active)
     .sort((a, b) => a.full_name.localeCompare(b.full_name))
 
+  // staff-photos and avatars are both private buckets — own photo_path wins,
+  // falling back to the linked login's avatar (path or legacy public URL,
+  // resolveAvatarUrl handles both) only when there's no own photo.
   useEffect(() => {
-    const withOwnPhoto = pastMembers.filter((m) => m.photo_path)
-    if (withOwnPhoto.length === 0) return
+    const withPhoto = pastMembers.filter((m) => m.photo_path || m.linked_avatar_url)
+    if (withPhoto.length === 0) return
     let cancelled = false
 
-    Promise.all(withOwnPhoto.map(async (m) => [m.id, await getDirectoryPhotoSignedUrl(m.photo_path)] as const)).then(
-      (entries) => {
-        if (cancelled) return
-        setPhotoUrls((current) => ({ ...current, ...Object.fromEntries(entries) }))
-      },
-    )
+    Promise.all(
+      withPhoto.map(async (m) => {
+        const url = m.photo_path ? await getDirectoryPhotoSignedUrl(m.photo_path) : await resolveAvatarUrl(m.linked_avatar_url)
+        return [m.id, url] as const
+      }),
+    ).then((entries) => {
+      if (cancelled) return
+      setPhotoUrls((current) => ({ ...current, ...Object.fromEntries(entries) }))
+    })
     return () => {
       cancelled = true
     }
@@ -74,7 +80,7 @@ export function PastStaffPage() {
   }, [members])
 
   function resolvePhotoUrl(member: StaffDirectoryMember): string | null {
-    return (member.photo_path ? photoUrls[member.id] : undefined) ?? member.linked_avatar_url ?? null
+    return photoUrls[member.id] ?? null
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {

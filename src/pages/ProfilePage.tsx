@@ -6,7 +6,7 @@ import { Avatar } from '../components/Avatar'
 import { AvatarCropModal } from '../components/AvatarCropModal'
 import { PageHeader } from '../components/PageHeader'
 import { supabase } from '../lib/supabaseClient'
-import { validateAvatarFile, uploadAvatar, updateOwnProfile } from '../lib/profileApi'
+import { validateAvatarFile, uploadAvatar, updateOwnProfile, resolveAvatarUrl } from '../lib/profileApi'
 
 export function ProfilePage() {
   const { profile, refreshProfile } = useAuth()
@@ -26,10 +26,21 @@ export function ProfilePage() {
   useEffect(() => {
     if (profile && !initialized.current) {
       setFullName(profile.full_name)
-      setAvatarUrl(profile.avatar_url)
       initialized.current = true
     }
   }, [profile])
+
+  // avatars is a private bucket — profile.avatar_url may be a path (new
+  // uploads) or a legacy public URL (old rows); resolveAvatarUrl handles both.
+  useEffect(() => {
+    let cancelled = false
+    resolveAvatarUrl(profile?.avatar_url ?? null).then((url) => {
+      if (!cancelled) setAvatarUrl(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.avatar_url])
 
   useEffect(() => {
     let cancelled = false
@@ -83,21 +94,21 @@ export function ProfilePage() {
     setUploading(true)
 
     const croppedFile = new File([blob], 'avatar.jpg', { type: blob.type })
-    const { publicUrl, error } = await uploadAvatar(profile.id, croppedFile)
-    if (error || !publicUrl) {
+    const { path, error } = await uploadAvatar(profile.id, croppedFile)
+    if (error || !path) {
       setUploading(false)
       toast.error('Could not upload the photo. Please try again.')
       return
     }
 
-    const { error: saveError } = await updateOwnProfile(profile.id, { avatar_url: publicUrl })
+    const { error: saveError } = await updateOwnProfile(profile.id, { avatar_url: path })
     setUploading(false)
     if (saveError) {
       toast.error('Photo uploaded but could not be saved. Please try again.')
       return
     }
 
-    setAvatarUrl(publicUrl)
+    setAvatarUrl(await resolveAvatarUrl(path))
     await refreshProfile()
     toast.success('Photo updated')
   }

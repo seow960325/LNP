@@ -22,10 +22,22 @@ export async function uploadAvatar(userId: string, file: File) {
     .from('avatars')
     .upload(path, file, { upsert: true, contentType: file.type })
 
-  if (uploadError) return { publicUrl: null, error: uploadError }
+  if (uploadError) return { path: null, error: uploadError }
+  return { path, error: null }
+}
 
-  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-  return { publicUrl: data.publicUrl, error: null }
+// avatars is a private bucket — profiles.avatar_url stores a storage path for
+// every upload going forward, but rows written before the bucket went private
+// still hold a full public URL. Detect which by shape: a path never starts
+// with a scheme, so `http(s)://` is the discriminator — pass it through
+// as-is, otherwise sign it fresh (matches getDirectoryPhotoSignedUrl's
+// pattern for the same private-bucket problem on staff/shareholder photos).
+export async function resolveAvatarUrl(avatarValue: string | null): Promise<string | null> {
+  if (!avatarValue) return null
+  if (/^https?:\/\//i.test(avatarValue)) return avatarValue
+  const { data, error } = await supabase.storage.from('avatars').createSignedUrl(avatarValue, 3600)
+  if (error) return null
+  return data?.signedUrl ?? null
 }
 
 export interface ProfilePatch {

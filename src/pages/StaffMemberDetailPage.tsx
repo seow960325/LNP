@@ -9,7 +9,7 @@ import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { StaffDocPanel } from '../components/StaffDocPanel'
 import { EDITABLE_ROLES, TempPasswordModal } from '../components/RegisterStaffForm'
-import { fetchStaffMemberById, fetchProfileById, updateStaffMember, PROFILE_COLUMNS } from '../lib/profileApi'
+import { fetchStaffMemberById, fetchProfileById, updateStaffMember, PROFILE_COLUMNS, resolveAvatarUrl } from '../lib/profileApi'
 import type { StaffDirectoryMember, ProfileSummary } from '../lib/profileApi'
 import { getDirectoryPhotoSignedUrl } from '../lib/directoryPhotoApi'
 import { supabase } from '../lib/supabaseClient'
@@ -270,15 +270,28 @@ export function StaffMemberDetailPage() {
     }
   }, [id, retryKey])
 
-  // staff-photos is a private bucket — mint a fresh signed URL each load.
+  // staff-photos and avatars are both private buckets — mint a fresh signed
+  // URL each load. linked_avatar_url may be a path (new uploads) or a
+  // legacy public URL (old rows); resolveAvatarUrl handles both.
   useEffect(() => {
-    if (!staffMember?.photo_path) {
-      setPhotoUrl(staffMember?.linked_avatar_url ?? null)
-      return
-    }
     let cancelled = false
+    if (!staffMember?.photo_path) {
+      resolveAvatarUrl(staffMember?.linked_avatar_url ?? null).then((url) => {
+        if (!cancelled) setPhotoUrl(url)
+      })
+      return () => {
+        cancelled = true
+      }
+    }
     getDirectoryPhotoSignedUrl(staffMember.photo_path).then((url) => {
-      if (!cancelled) setPhotoUrl(url ?? staffMember.linked_avatar_url ?? null)
+      if (cancelled) return
+      if (url) {
+        setPhotoUrl(url)
+        return
+      }
+      resolveAvatarUrl(staffMember.linked_avatar_url ?? null).then((fallbackUrl) => {
+        if (!cancelled) setPhotoUrl(fallbackUrl)
+      })
     })
     return () => {
       cancelled = true

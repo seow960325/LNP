@@ -6,6 +6,7 @@ import { ShareholderCard } from '../components/ShareholderCard'
 import { fetchShareholdingsDirectory } from '../lib/shareholdingsApi'
 import type { ShareholderDirectoryEntry } from '../lib/shareholdingsApi'
 import { getDirectoryPhotoSignedUrl } from '../lib/directoryPhotoApi'
+import { resolveAvatarUrl } from '../lib/profileApi'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
 
@@ -13,15 +14,18 @@ type LoadState = 'loading' | 'ready' | 'error'
 
 // Photo priority per the spec: linked shareholders show their staff photo
 // (falling back to that login's avatar), pure shareholders show their own
-// shareholdings.photo_path — initials otherwise. photo_path is a private
-// staff-photos path needing a signed URL; avatar_url is already public.
+// shareholdings.photo_path — initials otherwise. Both photo_path (staff-photos)
+// and avatar_url (avatars) are private buckets needing a signed URL — avatar_url
+// may also be a legacy public URL from before the bucket went private, which
+// resolveAvatarUrl passes through as-is.
 export function resolveShareholderPhotoUrl(
   entry: ShareholderDirectoryEntry,
   signedUrls: Record<string, string | null>,
 ): string | null {
   if (entry.linked_staff) {
     if (entry.linked_staff.photo_path) return signedUrls[`staff:${entry.linked_staff.id}`] ?? null
-    return entry.linked_staff.profile_avatar_url ?? null
+    if (entry.linked_staff.profile_avatar_url) return signedUrls[`avatar:${entry.linked_staff.id}`] ?? null
+    return null
   }
   if (entry.photo_path) return signedUrls[`own:${entry.id}`] ?? null
   return null
@@ -68,6 +72,8 @@ export function DirectoryShareholderTilesPage() {
     for (const sh of shareholdings) {
       if (sh.linked_staff?.photo_path) {
         jobs.push(getDirectoryPhotoSignedUrl(sh.linked_staff.photo_path).then((url) => [`staff:${sh.linked_staff!.id}`, url] as const))
+      } else if (sh.linked_staff?.profile_avatar_url) {
+        jobs.push(resolveAvatarUrl(sh.linked_staff.profile_avatar_url).then((url) => [`avatar:${sh.linked_staff!.id}`, url] as const))
       } else if (!sh.linked_staff && sh.photo_path) {
         jobs.push(getDirectoryPhotoSignedUrl(sh.photo_path).then((url) => [`own:${sh.id}`, url] as const))
       }

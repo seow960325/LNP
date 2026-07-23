@@ -2,8 +2,8 @@
 -- shareholder contact + dual-identity link.
 --
 -- NOTE: the storage bucket `directory-photos` and its storage.objects policies
--- are dashboard-managed (same convention as student-photos / avatars) and are
--- intentionally NOT captured here.
+-- are captured in 20260723210000_capture_storage_buckets_and_policies.sql,
+-- not here.
 -- One-time LIVE data backfills are also intentionally omitted (they depend on
 -- live UUIDs and are not schema):
 --   * staff_members.job_title_id from the legacy free-text job_title column

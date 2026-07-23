@@ -12,6 +12,7 @@ import {
   updateStaffMember,
   toggleStaffMemberActive,
   fetchProfilesForLinking,
+  resolveAvatarUrl,
 } from '../lib/profileApi'
 import type { LinkableProfile, UpdateStaffMemberPatch, StaffDirectoryMember } from '../lib/profileApi'
 import { fetchJobTitles } from '../lib/jobTitlesApi'
@@ -100,19 +101,23 @@ export function StaffJobTitleMembersPage() {
   const tileName =
     jobTitleId === 'unassigned' ? 'Unassigned' : jobTitles.find((jt) => jt.id === jobTitleId)?.name ?? 'Staff'
 
-  // staff-photos is a private bucket — mint fresh signed URLs each load, and
-  // fall back to the linked login's (public) avatar when there's no own photo.
+  // staff-photos and avatars are both private buckets — mint fresh signed
+  // URLs each load, falling back to the linked login's avatar (path or
+  // legacy public URL, resolveAvatarUrl handles both) when there's no own photo.
   useEffect(() => {
-    const withOwnPhoto = activeMembers.filter((m) => m.photo_path)
-    if (withOwnPhoto.length === 0) return
+    const withPhoto = activeMembers.filter((m) => m.photo_path || m.linked_avatar_url)
+    if (withPhoto.length === 0) return
     let cancelled = false
 
-    Promise.all(withOwnPhoto.map(async (m) => [m.id, await getDirectoryPhotoSignedUrl(m.photo_path)] as const)).then(
-      (entries) => {
-        if (cancelled) return
-        setPhotoUrls((current) => ({ ...current, ...Object.fromEntries(entries) }))
-      },
-    )
+    Promise.all(
+      withPhoto.map(async (m) => {
+        const url = m.photo_path ? await getDirectoryPhotoSignedUrl(m.photo_path) : await resolveAvatarUrl(m.linked_avatar_url)
+        return [m.id, url] as const
+      }),
+    ).then((entries) => {
+      if (cancelled) return
+      setPhotoUrls((current) => ({ ...current, ...Object.fromEntries(entries) }))
+    })
     return () => {
       cancelled = true
     }
@@ -120,7 +125,7 @@ export function StaffJobTitleMembersPage() {
   }, [members])
 
   function resolvePhotoUrl(member: StaffDirectoryMember): string | null {
-    return (member.photo_path ? photoUrls[member.id] : undefined) ?? member.linked_avatar_url ?? null
+    return photoUrls[member.id] ?? null
   }
 
   function closeForm() {

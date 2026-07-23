@@ -16,6 +16,7 @@ import {
   fetchKudosReceivedBy,
   fetchTopRecipient,
 } from '../lib/kudosApi'
+import { resolveAvatarUrl } from '../lib/profileApi'
 import type { TopRecipient } from '../lib/kudosApi'
 import { KudosSendPanel } from './KudosSendPage'
 import { withTimeout } from '../lib/withTimeout'
@@ -90,8 +91,17 @@ export function KudosWallPanel() {
           return
         }
 
-        const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
         const valueById = new Map((values ?? []).map((v) => [v.id, v]))
+
+        // avatars is a private bucket — profiles.avatar_url may be a path (new
+        // uploads) or a legacy public URL (old rows). Resolve once per unique
+        // profile rather than per feed row, since the same recipient can
+        // recur many times in the feed.
+        const resolvedAvatarById = new Map(
+          await Promise.all((profiles ?? []).map(async (p) => [p.id, await resolveAvatarUrl(p.avatar_url)] as const)),
+        )
+        const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
+        if (cancelled) return
 
         const items: FeedItem[] = rows.map((row) => {
           const value = valueById.get(row.value_id)
@@ -99,7 +109,7 @@ export function KudosWallPanel() {
           return {
             id: row.id,
             recipientName: recipient?.full_name ?? 'Someone',
-            recipientAvatarUrl: recipient?.avatar_url ?? null,
+            recipientAvatarUrl: resolvedAvatarById.get(row.to_user_id) ?? null,
             senderName: profileById.get(row.from_user_id)?.full_name ?? 'Someone',
             valueName: value?.name ?? 'Kudos',
             iconKey: value?.icon_key ?? '',
