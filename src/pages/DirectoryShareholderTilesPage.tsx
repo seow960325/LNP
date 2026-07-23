@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
@@ -82,6 +82,10 @@ export function DirectoryShareholderTilesPage() {
     }
   }, [shareholdings])
 
+  // Ownership % denominator — sum of every fetched shareholder's capital
+  // (already the full center roster, not just the current page).
+  const totalCapital = useMemo(() => shareholdings.reduce((sum, sh) => sum + sh.capital, 0), [shareholdings])
+
   if (!profile) return null
 
   return (
@@ -96,7 +100,12 @@ export function DirectoryShareholderTilesPage() {
         {loadState === 'ready' && shareholdings.length > 0 && (
           <ul className="space-y-3">
             {shareholdings.map((sh) => (
-              <ShareholderCard key={sh.id} shareholding={sh} photoUrl={resolveShareholderPhotoUrl(sh, signedUrls)} />
+              <ShareholderCard
+                key={sh.id}
+                shareholding={sh}
+                photoUrl={resolveShareholderPhotoUrl(sh, signedUrls)}
+                totalCapital={totalCapital}
+              />
             ))}
           </ul>
         )}

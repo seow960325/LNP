@@ -388,7 +388,7 @@ export function StaffMemberDetailPage() {
                     </span>
                   )}
                 </p>
-                <p className="text-sm text-muted">{staffMember.job_title || 'Staff'}</p>
+                <p className="text-sm text-muted">{staffMember.job_title_name || 'Staff'}</p>
                 {staffMember.email && <p className="mt-1 truncate text-xs text-muted">{staffMember.email}</p>}
                 {staffMember.phone && <p className="text-xs text-muted">{staffMember.phone}</p>}
               </div>

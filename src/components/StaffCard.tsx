@@ -53,7 +53,7 @@ export function StaffCard({
                 {member.full_name || member.display_name}
                 <LoginBadge profileId={member.profile_id} mustChangePassword={member.must_change_password} />
               </p>
-              {member.job_title && <p className="mt-1 text-sm text-muted">{member.job_title}</p>}
+              {member.job_title_name && <p className="mt-1 text-sm text-muted">{member.job_title_name}</p>}
               {member.phone && <p className="mt-1 text-xs text-muted">{member.phone}</p>}
               {member.email && <p className="text-xs text-muted">{member.email}</p>}
             </div>

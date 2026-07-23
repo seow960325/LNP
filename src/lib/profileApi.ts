@@ -87,18 +87,26 @@ export function fetchStaffMembers(centerId: string) {
 export interface StaffDirectoryMember extends StaffMember {
   linked_avatar_url: string | null
   must_change_password: boolean | null
+  // Resolved via job_title_id -> job_titles.name — the same authoritative
+  // source the job-title tiles group/label by. The legacy free-text
+  // job_title column is populated independently and can be null for staff
+  // assigned a job title through the UI (which only sets job_title_id), so
+  // display must never read job_title directly.
+  job_title_name: string | null
 }
 
 interface StaffDirectoryRow extends StaffMember {
   profiles: { avatar_url: string | null; must_change_password: boolean } | null
+  job_titles: { name: string } | null
 }
 
 function toDirectoryMember(row: StaffDirectoryRow): StaffDirectoryMember {
-  const { profiles, ...rest } = row
+  const { profiles, job_titles, ...rest } = row
   return {
     ...rest,
     linked_avatar_url: profiles?.avatar_url ?? null,
     must_change_password: profiles?.must_change_password ?? null,
+    job_title_name: job_titles?.name ?? null,
   }
 }
 
@@ -110,7 +118,7 @@ function toDirectoryMember(row: StaffDirectoryRow): StaffDirectoryMember {
 export async function fetchStaffDirectoryMembers(centerId: string, forTiles: boolean) {
   let query = supabase
     .from('staff_members')
-    .select(`${STAFF_MEMBER_COLUMNS}, profiles(avatar_url, must_change_password)`)
+    .select(`${STAFF_MEMBER_COLUMNS}, profiles(avatar_url, must_change_password), job_titles(name)`)
     .eq('center_id', centerId)
   if (forTiles) query = query.eq('in_directory', true).eq('active', true)
 
@@ -123,7 +131,7 @@ export async function fetchStaffDirectoryMembers(centerId: string, forTiles: boo
 export async function fetchStaffMemberById(id: string) {
   const { data, error } = await supabase
     .from('staff_members')
-    .select(`${STAFF_MEMBER_COLUMNS}, profiles(avatar_url, must_change_password)`)
+    .select(`${STAFF_MEMBER_COLUMNS}, profiles(avatar_url, must_change_password), job_titles(name)`)
     .eq('id', id)
     .maybeSingle<StaffDirectoryRow>()
 
