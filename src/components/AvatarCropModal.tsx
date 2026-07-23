@@ -109,7 +109,7 @@ export function AvatarCropModal({ file, onCancel, onConfirm }: AvatarCropModalPr
   }
 
   async function handleConfirm() {
-    if (!objectUrl || !naturalSize) return
+    if (!objectUrl || !naturalSize || exporting) return
     setExporting(true)
 
     // Draw from a fresh decode of the original file in NATURAL pixel space,

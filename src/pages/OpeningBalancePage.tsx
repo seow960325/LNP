@@ -67,6 +67,7 @@ export function OpeningBalancePage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [rows, setRows] = useState<RowState[]>([])
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     if (!profile) return
@@ -110,7 +111,7 @@ export function OpeningBalancePage() {
     return () => {
       cancelled = true
     }
-  }, [profile, year])
+  }, [profile, year, retryKey])
 
   if (!profile) return null
 
@@ -123,7 +124,7 @@ export function OpeningBalancePage() {
   }
 
   async function handleSave(row: RowState) {
-    if (!profile) return
+    if (!profile || row.saving) return
     updateRow(row.employeeId, (r) => ({ ...r, saving: true }))
 
     const { data, error } = await upsertYtdOpening({
@@ -171,7 +172,9 @@ export function OpeningBalancePage() {
         </div>
 
         {loadState === 'loading' && <LoadingState label="Loading opening balances…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && rows.length === 0 && (
           <EmptyState message="No active staff in this center yet." />

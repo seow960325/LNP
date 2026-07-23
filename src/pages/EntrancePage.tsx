@@ -56,12 +56,14 @@ export function EntrancePage() {
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const [classes, setClasses] = useState<ClassRow[]>([])
   const [conditions, setConditions] = useState<AttendanceCondition[]>([])
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
   const [attendanceByStudent, setAttendanceByStudent] = useState<Map<string, StudentAttendance>>(new Map())
 
   const [studentsLoadState, setStudentsLoadState] = useState<LoadState>('loading')
+  const [studentsRetryKey, setStudentsRetryKey] = useState(0)
   const [students, setStudents] = useState<AttendanceStudent[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({})
 
@@ -100,7 +102,7 @@ export function EntrancePage() {
         setLoadError(getUserErrorMessage(err))
         setLoadState('error')
       })
-  }, [profile, today])
+  }, [profile, today, retryKey])
 
   useEffect(() => {
     if (!profile || !selectedClassId) {
@@ -120,7 +122,7 @@ export function EntrancePage() {
       .catch(() => {
         setStudentsLoadState('error')
       })
-  }, [profile, selectedClassId])
+  }, [profile, selectedClassId, studentsRetryKey])
 
   // student-photos is a private bucket — the stored photo_url needs a fresh
   // signed URL minted on every load rather than being used as-is.
@@ -168,7 +170,9 @@ export function EntrancePage() {
         </PageHeader>
 
         {loadState === 'loading' && <LoadingState label="Loading Entrance…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && classes.length === 0 && (
           <EmptyState message="No classes set up yet. Ask an admin to add one." />
@@ -194,7 +198,12 @@ export function EntrancePage() {
             </div>
 
             {studentsLoadState === 'loading' && <LoadingState label="Loading students…" />}
-            {studentsLoadState === 'error' && <ErrorState message="Could not load students for this class." />}
+            {studentsLoadState === 'error' && (
+              <ErrorState
+                message="Could not load students for this class."
+                onRetry={() => setStudentsRetryKey((k) => k + 1)}
+              />
+            )}
 
             {studentsLoadState === 'ready' && students.length === 0 && (
               <EmptyState message="No students in this class yet." />

@@ -41,15 +41,22 @@ export function DirectoryPhotoUpload({
   }
 
   async function handleCropConfirm(blob: Blob) {
+    if (uploading) return
     setCropFile(null)
     setUploading(true)
     const { path, error } = await uploadDirectoryPhoto(scope, id, blob)
-    setUploading(false)
     if (error || !path) {
+      setUploading(false)
       toast.error('Could not upload the photo. Please try again.')
       return
     }
+    // uploading stays true through onUploaded (the caller's save into
+    // staff_members/shareholdings) — clearing it right after the storage
+    // upload would re-enable the camera button while that save is still in
+    // flight, letting a fast second crop-confirm call onUploaded again
+    // concurrently.
     await onUploaded(path)
+    setUploading(false)
     toast.success('Photo updated')
   }
 

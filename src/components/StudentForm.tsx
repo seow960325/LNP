@@ -72,6 +72,7 @@ export function StudentForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (submitting) return
     if (!formName.trim()) {
       toast.error('Student name is required')
       return
@@ -132,7 +133,7 @@ export function StudentForm({
 
   async function handlePhotoCropConfirm(blob: Blob) {
     setCropFile(null)
-    if (!editingStudent) return
+    if (!editingStudent || uploadingPhoto) return
 
     setUploadingPhoto(true)
 

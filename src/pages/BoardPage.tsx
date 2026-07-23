@@ -337,7 +337,7 @@ export function BoardPage() {
   }
 
   async function handleCreate(values: BoardItemFormValues) {
-    if (!profile) return
+    if (!profile || saving) return
     setSaving(true)
     const payload: CreateBoardItemPayload = {
       center_id: profile.center_id,
@@ -362,6 +362,7 @@ export function BoardPage() {
   }
 
   async function handleUpdate(item: BoardItemRow, values: BoardItemFormValues) {
+    if (saving) return
     setSaving(true)
     const patch: UpdateBoardItemPatch = {
       title: values.title.trim(),
@@ -383,6 +384,7 @@ export function BoardPage() {
   }
 
   async function handleMarkDone(id: string) {
+    if (markingId === id) return
     setMarkingId(id)
     const { error } = await markDone(id)
     setMarkingId(null)
@@ -395,7 +397,7 @@ export function BoardPage() {
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
 
     const { error } = await supabase.from('board_items').delete().eq('id', deleteTarget.id)
@@ -487,7 +489,9 @@ export function BoardPage() {
         )}
 
         {itemsState === 'loading' && <LoadingState label="Loading the board…" />}
-        {itemsState === 'error' && <ErrorState message={itemsError ?? 'Something went wrong.'} />}
+        {itemsState === 'error' && (
+          <ErrorState message={itemsError ?? 'Something went wrong.'} onRetry={() => setRefreshKey((k) => k + 1)} />
+        )}
 
         {itemsState === 'ready' && sortedItems.length === 0 && (
           <EmptyState message={`Nothing on the board for ${formatDate(selectedDate)}.`} />

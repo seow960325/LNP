@@ -63,6 +63,7 @@ export function JobTitlesPage() {
 
   async function handleAdd(event: React.FormEvent) {
     event.preventDefault()
+    if (submitting) return
     if (!addName.trim()) {
       toast.error('Name is required')
       return
@@ -101,7 +102,7 @@ export function JobTitlesPage() {
   }
 
   async function handleSaveRename() {
-    if (!profile || !editingId) return
+    if (!profile || !editingId || submitting) return
     if (!editName.trim()) {
       toast.error('Name is required')
       return
@@ -122,7 +123,7 @@ export function JobTitlesPage() {
   }
 
   async function handleToggleActive(jt: JobTitle) {
-    if (!profile) return
+    if (!profile || submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleJobTitleActive(jt.id, profile.center_id, !jt.active)
@@ -138,7 +139,7 @@ export function JobTitlesPage() {
   }
 
   async function handleMove(index: number, direction: 'up' | 'down') {
-    if (!profile) return
+    if (!profile || submitting) return
     const neighborIndex = direction === 'up' ? index - 1 : index + 1
     const current = jobTitles[index]
     const neighbor = jobTitles[neighborIndex]
@@ -158,7 +159,7 @@ export function JobTitlesPage() {
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
     try {
       const result = await deleteJobTitle(deleteTarget.id)
@@ -229,7 +230,7 @@ export function JobTitlesPage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading job titles…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadJobTitles} />}
 
         {loadState === 'ready' && jobTitles.length === 0 && (
           <EmptyState message="No job titles yet. Add one to get started." />

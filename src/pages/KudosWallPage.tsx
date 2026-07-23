@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { KudosValueBadge } from '../components/KudosValueCard'
 import { Avatar } from '../components/Avatar'
-import { LoadingState, ErrorState } from '../components/AsyncState'
+import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { supabase } from '../lib/supabaseClient'
@@ -43,6 +43,7 @@ export function KudosWallPanel() {
   const [feedState, setFeedState] = useState<FeedState>('loading')
   const [feedError, setFeedError] = useState<string | null>(null)
   const [feedItems, setFeedItems] = useState<FeedItem[]>([])
+  const [retryKey, setRetryKey] = useState(0)
 
   const [monthlyCount, setMonthlyCount] = useState<number | null>(null)
   const [monthlyError, setMonthlyError] = useState<string | null>(null)
@@ -120,7 +121,7 @@ export function KudosWallPanel() {
     return () => {
       cancelled = true
     }
-  }, [profile])
+  }, [profile, retryKey])
 
   useEffect(() => {
     if (!profile) return
@@ -160,7 +161,7 @@ export function KudosWallPanel() {
   }, [])
 
   async function handleDeleteConfirm() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
 
     const { error } = await supabase.from('kudos').delete().eq('id', deleteTarget.id)
@@ -199,12 +200,12 @@ export function KudosWallPanel() {
       </div>
 
       {feedState === 'loading' && <LoadingState label="Loading the wall…" />}
-      {feedState === 'error' && <ErrorState message={feedError ?? 'Something went wrong.'} />}
+      {feedState === 'error' && (
+        <ErrorState message={feedError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+      )}
 
       {feedState === 'ready' && feedItems.length === 0 && (
-        <div className="space-y-3 rounded-xl bg-white p-8 text-center shadow-card">
-          <p className="text-muted">No kudos yet — be the first!</p>
-        </div>
+        <EmptyState message="No kudos yet. Send one to get started." />
       )}
 
       {feedState === 'ready' && feedItems.length > 0 && (

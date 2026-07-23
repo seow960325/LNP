@@ -78,7 +78,7 @@ export function ProfilePage() {
 
   async function handleCropConfirm(blob: Blob) {
     setCropFile(null)
-    if (!profile) return
+    if (!profile || uploading) return
 
     setUploading(true)
 

@@ -34,10 +34,12 @@ export function StudentDetailPage() {
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const [student, setStudent] = useState<StudentWithPackage | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
 
   const [billingState, setBillingState] = useState<LoadState>('loading')
+  const [billingRetryKey, setBillingRetryKey] = useState(0)
   const [recurring, setRecurring] = useState<ZohoRecurringInvoice | null>(null)
   const [invoices, setInvoices] = useState<ZohoInvoice[]>([])
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
@@ -67,7 +69,7 @@ export function StudentDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, retryKey])
 
   // student-photos is a private bucket — mint a fresh signed URL each load.
   useEffect(() => {
@@ -121,7 +123,7 @@ export function StudentDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [canSeeBilling, student])
+  }, [canSeeBilling, student, billingRetryKey])
 
   async function handleViewPdf(invoiceId: string) {
     setDownloadingId(invoiceId)
@@ -156,7 +158,9 @@ export function StudentDetailPage() {
         />
 
         {loadState === 'loading' && <LoadingState label="Loading…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && student && (
           <>
@@ -188,7 +192,10 @@ export function StudentDetailPage() {
                   <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted">Billing schedule</h3>
                   {billingState === 'loading' && <LoadingState label="Loading billing schedule…" />}
                   {billingState === 'error' && (
-                    <ErrorState message="Could not load the billing schedule. Please try again." />
+                    <ErrorState
+                      message="Could not load the billing schedule. Please try again."
+                      onRetry={() => setBillingRetryKey((k) => k + 1)}
+                    />
                   )}
                   {billingState === 'ready' && !recurring && <p className="text-sm text-muted">No recurring billing</p>}
                   {billingState === 'ready' && recurring && (
@@ -211,7 +218,10 @@ export function StudentDetailPage() {
                   <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted">Invoice history</h3>
                   {billingState === 'loading' && <LoadingState label="Loading invoices…" />}
                   {billingState === 'error' && (
-                    <ErrorState message="Could not load invoice history. Please try again." />
+                    <ErrorState
+                      message="Could not load invoice history. Please try again."
+                      onRetry={() => setBillingRetryKey((k) => k + 1)}
+                    />
                   )}
                   {billingState === 'ready' && invoices.length === 0 && <p className="text-sm text-muted">No invoices</p>}
                   {billingState === 'ready' && invoices.length > 0 && (

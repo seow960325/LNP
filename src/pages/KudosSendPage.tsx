@@ -42,9 +42,11 @@ function WhoStep({
 }) {
   const [members, setMembers] = useState<CenterMember[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    setError(null)
     fetchCenterMembers(centerId, currentUserId).then(({ data, error }) => {
       if (cancelled) return
       if (error) {
@@ -56,12 +58,12 @@ function WhoStep({
     return () => {
       cancelled = true
     }
-  }, [centerId, currentUserId])
+  }, [centerId, currentUserId, retryKey])
 
   return (
     <div className="space-y-3">
       <h1 className="font-semibold text-xl text-ink">Who do you want to praise?</h1>
-      {error && <ErrorState message={error} />}
+      {error && <ErrorState message={error} onRetry={() => setRetryKey((k) => k + 1)} />}
       {!error && members === null && <LoadingState label="Loading people…" />}
       {!error && members !== null && members.length === 0 && (
         <EmptyState message="No one else in your center to praise yet." />
@@ -103,9 +105,11 @@ function WhatStep({
 }) {
   const [values, setValues] = useState<KudosValueOption[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    setError(null)
     fetchActiveKudosValues(centerId).then(({ data, error }) => {
       if (cancelled) return
       if (error) {
@@ -117,13 +121,13 @@ function WhatStep({
     return () => {
       cancelled = true
     }
-  }, [centerId])
+  }, [centerId, retryKey])
 
   return (
     <div className="space-y-3">
       <BackButton onClick={onBack} />
       <h1 className="font-semibold text-xl text-ink">What are you recognizing?</h1>
-      {error && <ErrorState message={error} />}
+      {error && <ErrorState message={error} onRetry={() => setRetryKey((k) => k + 1)} />}
       {!error && values === null && <LoadingState label="Loading kudos values…" />}
       {!error && values !== null && values.length === 0 && (
         <EmptyState message="No kudos values are set up for your center yet." />
@@ -281,7 +285,7 @@ export function KudosSendPanel({ onViewWall }: { onViewWall: () => void }) {
   }
 
   async function handleSend() {
-    if (!profile || !recipient || !value) return
+    if (!profile || !recipient || !value || sending) return
     setSending(true)
     const trimmed = message.trim()
     const { error } = await sendKudos({

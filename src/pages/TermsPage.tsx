@@ -87,7 +87,7 @@ export function TermsPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (!profile) return
+    if (!profile || submitting) return
     if (!formName.trim() || !formStart || !formEnd) {
       toast.error('Name, start date, and end date are required')
       return
@@ -144,7 +144,7 @@ export function TermsPage() {
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
     const { error } = await deleteTerm(deleteTarget.id)
     setDeleting(false)
@@ -160,7 +160,7 @@ export function TermsPage() {
   }
 
   async function handleRequestDeletion() {
-    if (!pendingDeletionTerm || !profile) return
+    if (!pendingDeletionTerm || !profile || requestSubmitting) return
     setRequestSubmitting(true)
     try {
       const { error } = await createDeletionRequest({
@@ -183,7 +183,7 @@ export function TermsPage() {
   }
 
   async function handleApprove() {
-    if (!approveTarget || !profile) return
+    if (!approveTarget || !profile || approving) return
     setApproving(true)
     try {
       const result = await approveAndPurge(approveTarget, profile.id)
@@ -202,7 +202,7 @@ export function TermsPage() {
   }
 
   async function handleReject(request: EnrichedTermDeletionRequest) {
-    if (!profile) return
+    if (!profile || rejectingId) return
     setRejectingId(request.id)
     try {
       const { error } = await rejectRequest(request.id, profile.id)
@@ -305,7 +305,7 @@ export function TermsPage() {
           )}
 
           {loadState === 'loading' && <LoadingState label="Loading terms…" />}
-          {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+          {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadData} />}
 
           {loadState === 'ready' && terms.length === 0 && (
             <EmptyState message="No terms yet. Add one to get started." />

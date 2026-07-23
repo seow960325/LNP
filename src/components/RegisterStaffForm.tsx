@@ -103,7 +103,7 @@ export function RegisterStaffForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (!fullName.trim() || !email.trim()) return
+    if (submitting || !fullName.trim() || !email.trim()) return
 
     setSubmitting(true)
 

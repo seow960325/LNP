@@ -110,7 +110,7 @@ export function ShareholderDetailPage() {
   }
 
   async function handleSaveContact() {
-    if (!shareholding) return
+    if (!shareholding || savingContact) return
     setSavingContact(true)
     const { error } = await updateShareholding(shareholding.id, {
       phone: phoneDraft.trim() || null,
@@ -126,7 +126,7 @@ export function ShareholderDetailPage() {
   }
 
   async function handleLinkStaff() {
-    if (!shareholding || !linkChoice) return
+    if (!shareholding || !linkChoice || linking) return
     setLinking(true)
     const { error } = await updateShareholding(shareholding.id, { staff_member_id: linkChoice })
     setLinking(false)
@@ -140,7 +140,7 @@ export function ShareholderDetailPage() {
   }
 
   async function handleUnlinkStaff() {
-    if (!shareholding) return
+    if (!shareholding || linking) return
     setLinking(true)
     const { error } = await updateShareholding(shareholding.id, { staff_member_id: null })
     setLinking(false)
@@ -158,7 +158,7 @@ export function ShareholderDetailPage() {
         <PageHeader title="Shareholder" parentOverride="/directory/shareholder" />
 
         {loadState === 'loading' && <LoadingState label="Loading…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={load} />}
 
         {loadState === 'ready' && shareholding && (
           <>

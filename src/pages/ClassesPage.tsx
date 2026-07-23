@@ -51,6 +51,7 @@ export function ClassesPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (submitting) return
     if (!formName.trim()) {
       toast.error('Class name is required')
       return
@@ -115,7 +116,7 @@ export function ClassesPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
-    if (!profile) return
+    if (!profile || submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleClassActive(id, profile.center_id, !currentActive)
@@ -212,7 +213,7 @@ export function ClassesPage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading classes…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadClasses} />}
 
         {loadState === 'ready' && classes.length === 0 && (
           <EmptyState message="No classes yet. Add one to get started." />

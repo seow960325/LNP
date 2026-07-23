@@ -167,6 +167,7 @@ export function ReorderableTileGrid({
   }
 
   async function handleSave() {
+    if (saving) return
     setSaving(true)
     try {
       const order = orderedTiles.map((tile) => tile.key)

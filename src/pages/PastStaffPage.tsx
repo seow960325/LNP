@@ -78,6 +78,7 @@ export function PastStaffPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
+    if (submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleStaffMemberActive(id, !currentActive)
@@ -93,7 +94,7 @@ export function PastStaffPage() {
   }
 
   async function handleDelete() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
 
     const { error } = await deleteStaffMember(deleteTarget.id)
@@ -121,7 +122,7 @@ export function PastStaffPage() {
         <PageHeader title="Past Staff" />
 
         {loadState === 'loading' && <LoadingState label="Loading past staff…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadMembers} />}
 
         {loadState === 'ready' && pastMembers.length === 0 && <EmptyState message="No past staff members." />}
 

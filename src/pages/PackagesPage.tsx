@@ -60,6 +60,7 @@ export function PackagesPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (submitting) return
     if (!formName.trim() || !formPrice.trim()) {
       toast.error('Name and price are required')
       return
@@ -128,6 +129,7 @@ export function PackagesPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
+    if (submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleFeePackageActive(id, !currentActive)
@@ -147,7 +149,7 @@ export function PackagesPage() {
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
 
     const { error } = await deleteFeePackage(deleteTarget.id)
@@ -251,7 +253,7 @@ export function PackagesPage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading packages…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadPackages} />}
 
         {loadState === 'ready' && packages.length === 0 && (
           <EmptyState message="No packages yet. Add one to get started." />

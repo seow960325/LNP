@@ -508,6 +508,7 @@ export function PayrollPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [ytdWarning, setYtdWarning] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const [settings, setSettings] = useState<PayrollSettings | null>(null)
   const [rows, setRows] = useState<RowState[]>([])
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -588,7 +589,7 @@ export function PayrollPage() {
     return () => {
       cancelled = true
     }
-  }, [profile, year, month, includeInactive])
+  }, [profile, year, month, includeInactive, retryKey])
 
   if (!profile) return null
 
@@ -641,7 +642,7 @@ export function PayrollPage() {
   // The standalone per-row "Save" button uses handleSaveRowClick below,
   // which is the only caller that toasts on this specific operation.
   async function saveRow(row: RowState): Promise<RowState | null> {
-    if (!profile) return null
+    if (!profile || row.saving) return null
     updateRow(row.employeeId, (r) => ({ ...r, saving: true }))
 
     const input = buildPayslipInput(row, year, month, profile.center_id, profile.id)
@@ -713,6 +714,7 @@ export function PayrollPage() {
   }
 
   async function handleSaveAll() {
+    if (savingAll) return
     setSavingAll(true)
     const draftRows = rows.filter((r) => r.status === 'draft')
     const results = await Promise.all(draftRows.map((r) => saveRow(r)))
@@ -732,7 +734,7 @@ export function PayrollPage() {
   async function confirmFinalize() {
     if (!finalizeTarget || !profile) return
     const row = rows.find((r) => r.employeeId === finalizeTarget)
-    if (!row) {
+    if (!row || row.finalizing) {
       setFinalizeTarget(null)
       return
     }
@@ -775,7 +777,7 @@ export function PayrollPage() {
   }
 
   async function confirmBulkFinalize() {
-    if (!profile) return
+    if (!profile || bulkFinalizing) return
     setBulkFinalizing(true)
 
     const draftRows = rows.filter((r) => r.status === 'draft')
@@ -829,7 +831,7 @@ export function PayrollPage() {
   }
 
   async function confirmRegenerate() {
-    if (!profile) return
+    if (!profile || regenerating) return
     setRegenerating(true)
 
     try {
@@ -861,7 +863,7 @@ export function PayrollPage() {
   async function confirmReopen() {
     if (!reopenTarget) return
     const row = rows.find((r) => r.employeeId === reopenTarget)
-    if (!row || !row.payslipId) {
+    if (!row || !row.payslipId || row.reopening) {
       setReopenTarget(null)
       return
     }
@@ -955,7 +957,9 @@ export function PayrollPage() {
         {ytdWarning && <ErrorState message={ytdWarning} />}
 
         {loadState === 'loading' && <LoadingState label="Loading payroll…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && rows.length === 0 && (
           <EmptyState message="No active staff in this center yet." />

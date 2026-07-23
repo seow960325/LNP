@@ -319,7 +319,9 @@ function MyClaimsView() {
       )}
 
       {loadState === 'loading' && <LoadingState label="Loading your claims…" />}
-      {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+      {loadState === 'error' && (
+        <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRefreshKey((k) => k + 1)} />
+      )}
 
       {loadState === 'ready' && claims.length === 0 && !showCreate && (
         <EmptyState message="No claims yet. Submit one to get started." />
@@ -601,7 +603,9 @@ function AdminClaimsView() {
       </div>
 
       {loadState === 'loading' && <LoadingState label="Loading claims…" />}
-      {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+      {loadState === 'error' && (
+        <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRefreshKey((k) => k + 1)} />
+      )}
 
       {loadState === 'ready' && visibleClaims.length === 0 && (
         <EmptyState message="No claims match these filters." />

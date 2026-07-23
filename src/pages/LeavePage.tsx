@@ -374,7 +374,9 @@ function MyLeaveView() {
       )}
 
       {loadState === 'loading' && <LoadingState label="Loading your leave requests…" />}
-      {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+      {loadState === 'error' && (
+        <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRefreshKey((k) => k + 1)} />
+      )}
 
       {loadState === 'ready' && requests.length === 0 && !showCreate && (
         <EmptyState message="No leave requests yet. Apply for leave to get started." />
@@ -622,7 +624,9 @@ function AdminLeaveView() {
       </div>
 
       {loadState === 'loading' && <LoadingState label="Loading leave requests…" />}
-      {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+      {loadState === 'error' && (
+        <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRefreshKey((k) => k + 1)} />
+      )}
 
       {loadState === 'ready' && visibleRequests.length === 0 && (
         <EmptyState message="No leave requests match these filters." />

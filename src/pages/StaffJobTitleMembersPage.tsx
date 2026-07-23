@@ -162,6 +162,7 @@ export function StaffJobTitleMembersPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (submitting) return
     if (!formName.trim()) {
       toast.error('Name is required')
       return
@@ -214,6 +215,7 @@ export function StaffJobTitleMembersPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
+    if (submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleStaffMemberActive(id, !currentActive)
@@ -286,7 +288,7 @@ export function StaffJobTitleMembersPage() {
   }, [linkTarget, profile, members])
 
   async function handleLinkProfile(profileId: string) {
-    if (!linkTarget) return
+    if (!linkTarget || linking) return
     setLinking(true)
     const { error } = await updateStaffMember(linkTarget.id, { profile_id: profileId })
     setLinking(false)
@@ -496,7 +498,7 @@ export function StaffJobTitleMembersPage() {
         {isAdmin && showAddForm && renderStaffForm()}
 
         {loadState === 'loading' && <LoadingState label="Loading staff…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadMembers} />}
 
         {loadState === 'ready' && activeMembers.length === 0 && (
           <EmptyState message="No active staff members in this group yet." />

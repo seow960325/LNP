@@ -57,6 +57,7 @@ export function ClaimCategoriesPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (submitting) return
     if (!formName.trim()) {
       toast.error('Category name is required')
       return
@@ -119,6 +120,7 @@ export function ClaimCategoriesPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
+    if (submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleClaimCategoryActive(id, !currentActive)
@@ -219,7 +221,7 @@ export function ClaimCategoriesPage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading categories…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadCategories} />}
 
         {loadState === 'ready' && categories.length === 0 && (
           <EmptyState message="No categories yet. Add one to get started." />

@@ -62,6 +62,7 @@ export function RosterSettingsPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (submitting) return
     if (!formName.trim()) {
       toast.error('Duty name is required')
       return
@@ -134,6 +135,7 @@ export function RosterSettingsPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
+    if (submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleDutyTypeActive(id, !currentActive)
@@ -265,7 +267,7 @@ export function RosterSettingsPage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading duty types…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadData} />}
 
         {loadState === 'ready' && dutyTypes.length === 0 && (
           <EmptyState message="No duty types yet. Add one to get started." />

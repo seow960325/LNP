@@ -26,7 +26,7 @@ export function ForceChangePasswordPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (!profile) return
+    if (!profile || saving) return
     const validationError = validate()
     if (validationError) {
       toast.error(validationError)

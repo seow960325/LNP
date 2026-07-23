@@ -60,6 +60,7 @@ function ManagementSection({
   const dirty = draftRole !== member.role || draftTitle !== (member.title ?? '')
 
   async function handleSave() {
+    if (saving) return
     setSaving(true)
 
     // Role is only ever included in the patch when canEditRole is true, so
@@ -86,6 +87,7 @@ function ManagementSection({
   }
 
   async function handleToggleActive(nextActive: boolean) {
+    if (togglingActive) return
     setTogglingActive(true)
 
     const { data, error } = await supabase
@@ -106,6 +108,7 @@ function ManagementSection({
   }
 
   async function handleTogglePaid(nextPaid: boolean) {
+    if (togglingPaid) return
     setTogglingPaid(true)
 
     const { data, error } = await supabase
@@ -223,6 +226,7 @@ export function StaffMemberDetailPage() {
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const [staffMember, setStaffMember] = useState<StaffDirectoryMember | null>(null)
   const [linkedProfile, setLinkedProfile] = useState<ProfileSummary | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -264,7 +268,7 @@ export function StaffMemberDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, retryKey])
 
   // staff-photos is a private bucket — mint a fresh signed URL each load.
   useEffect(() => {
@@ -303,7 +307,7 @@ export function StaffMemberDetailPage() {
   const canEditRole = viewerIsSuperAdmin && !isSelf && !targetIsOwner
 
   async function handleResetConfirm() {
-    if (!linkedProfile) return
+    if (!linkedProfile || resetting) return
     setResetting(true)
 
     const { data, error } = await supabase.functions.invoke('admin-reset-password', {
@@ -350,7 +354,9 @@ export function StaffMemberDetailPage() {
         <PageHeader title="Staff Member" parentOverride={parentOverride} />
 
         {loadState === 'loading' && <LoadingState label="Loading…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && staffMember && (
           <>

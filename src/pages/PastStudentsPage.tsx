@@ -105,6 +105,7 @@ export function PastStudentsPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
+    if (submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleStudentActive(id, !currentActive)
@@ -120,7 +121,7 @@ export function PastStudentsPage() {
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
 
     const { error } = await deleteStudent(deleteTarget.id)
@@ -165,7 +166,7 @@ export function PastStudentsPage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading past students…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadData} />}
 
         {loadState === 'ready' && students.length === 0 && <EmptyState message="No past students." />}
 

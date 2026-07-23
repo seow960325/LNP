@@ -112,6 +112,7 @@ export function StudentClassListPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
+    if (submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleStudentActive(id, !currentActive)
@@ -127,7 +128,7 @@ export function StudentClassListPage() {
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
 
     const { error } = await deleteStudent(deleteTarget.id)
@@ -202,7 +203,7 @@ export function StudentClassListPage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading students…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadData} />}
 
         {loadState === 'ready' && students.length === 0 && (
           <EmptyState message="No active students in this class." />

@@ -34,6 +34,7 @@ export function DirectoryShareholderTilesPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [shareholdings, setShareholdings] = useState<ShareholderDirectoryEntry[]>([])
   const [signedUrls, setSignedUrls] = useState<Record<string, string | null>>({})
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     if (!profile) return
@@ -60,7 +61,7 @@ export function DirectoryShareholderTilesPage() {
     return () => {
       cancelled = true
     }
-  }, [profile])
+  }, [profile, retryKey])
 
   useEffect(() => {
     const jobs: Promise<readonly [string, string | null]>[] = []
@@ -94,7 +95,9 @@ export function DirectoryShareholderTilesPage() {
         <PageHeader title="Shareholder" />
 
         {loadState === 'loading' && <LoadingState label="Loading shareholders…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
         {loadState === 'ready' && shareholdings.length === 0 && <EmptyState message="No shareholders yet." />}
 
         {loadState === 'ready' && shareholdings.length > 0 && (

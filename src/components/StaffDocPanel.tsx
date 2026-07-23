@@ -53,7 +53,7 @@ function UploadForm({
   }
 
   async function handleSubmit() {
-    if (!file) return
+    if (uploading || !file) return
     const fileError = validateStaffDocFile(file)
     if (fileError) {
       setValidationError(fileError)
@@ -215,7 +215,7 @@ export function StaffDocPanel({ ownerId, canManage }: { ownerId: string; canMana
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
 
     const { error } = await deleteStaffDocument(deleteTarget)

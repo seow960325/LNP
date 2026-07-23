@@ -326,6 +326,7 @@ export function ShareholderHomePage() {
   }
 
   async function handleSyncNow() {
+    if (syncing) return
     setSyncing(true)
     const { data, error } = await triggerZohoSync()
     setSyncing(false)
@@ -814,7 +815,7 @@ export function ShareholderHomePage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading financial data…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadBase} />}
 
         {loadState === 'ready' && (
           <>

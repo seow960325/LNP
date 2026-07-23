@@ -135,7 +135,9 @@ export function LeaveBalancesPage() {
         </div>
 
         {loadState === 'loading' && <LoadingState label="Loading leave balances…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRefreshKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && members.length === 0 && (
           <EmptyState message="No active staff found." />

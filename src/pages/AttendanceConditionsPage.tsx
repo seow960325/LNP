@@ -51,6 +51,7 @@ export function AttendanceConditionsPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (submitting) return
     if (!formName.trim()) {
       toast.error('Condition name is required')
       return
@@ -113,6 +114,7 @@ export function AttendanceConditionsPage() {
   }
 
   async function handleToggleActive(id: string, currentActive: boolean) {
+    if (submitting) return
     setSubmitting(true)
     try {
       const { error } = await toggleConditionActive(id, !currentActive)
@@ -211,7 +213,7 @@ export function AttendanceConditionsPage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading conditions…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadConditions} />}
 
         {loadState === 'ready' && conditions.length === 0 && (
           <EmptyState message="No conditions yet. Add one to get started." />

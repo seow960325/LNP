@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
-import { LoadingState, ErrorState } from '../components/AsyncState'
+import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { fetchStudents, createInvoice, fetchFeePackages } from '../lib/billingApi'
 import type { StudentWithPackage, CreateInvoiceLineItemPayload, FeePackage } from '../lib/billingApi'
@@ -36,6 +36,7 @@ export function NewInvoicePage() {
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const [students, setStudents] = useState<StudentWithPackage[]>([])
   const [packages, setPackages] = useState<FeePackage[]>([])
 
@@ -70,7 +71,7 @@ export function NewInvoicePage() {
         setLoadError(getUserErrorMessage(err))
         setLoadState('error')
       })
-  }, [profile])
+  }, [profile, retryKey])
 
   if (!profile || !isAdmin) return null
 
@@ -145,6 +146,7 @@ export function NewInvoicePage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (submitting) return
 
     if (!selectedStudentId) {
       toast.error('Please select a student')
@@ -199,9 +201,15 @@ export function NewInvoicePage() {
         <PageHeader title="New Invoice" />
 
         {loadState === 'loading' && <LoadingState label="Loading students…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
 
-        {loadState === 'ready' && (
+        {loadState === 'ready' && students.length === 0 && (
+          <EmptyState message="No active students yet. Add a student before creating an invoice." />
+        )}
+
+        {loadState === 'ready' && students.length > 0 && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="rounded-xl bg-white p-5 shadow-card">
               <p className="mb-3 font-semibold text-sm text-ink">Student</p>

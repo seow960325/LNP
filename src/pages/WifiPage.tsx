@@ -32,6 +32,7 @@ export function WifiPage() {
   const { profile } = useAuth()
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [retryKey, setRetryKey] = useState(0)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [wifi, setWifi] = useState<WifiInfo>({ ssid: '', password: '' })
 
@@ -64,7 +65,7 @@ export function WifiPage() {
     return () => {
       cancelled = true
     }
-  }, [profile])
+  }, [profile, retryKey])
 
   if (!profile) return null
 
@@ -111,7 +112,9 @@ export function WifiPage() {
         <PageHeader title="WiFi Password" />
 
         {loadState === 'loading' && <LoadingState label="Loading WiFi details…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && (
           <>

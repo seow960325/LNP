@@ -177,7 +177,7 @@ export function InvoicesPage() {
   }
 
   async function handleConfirmDelete() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     setDeleting(true)
     const { data, error } = await deleteZohoInvoice(deleteTarget.invoice_id)
     setDeleting(false)
@@ -220,7 +220,7 @@ export function InvoicesPage() {
         </div>
 
         {loadState === 'loading' && <LoadingState label="Loading invoices…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={loadInvoices} />}
 
         {loadState === 'ready' && invoices.length === 0 && (
           <EmptyState message="No invoices yet." />

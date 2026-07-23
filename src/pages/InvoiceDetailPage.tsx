@@ -27,6 +27,7 @@ export function InvoiceDetailPage() {
   const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin'
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [retryKey, setRetryKey] = useState(0)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [invoice, setInvoice] = useState<InvoiceWithDetails | null>(null)
 
@@ -82,7 +83,7 @@ export function InvoiceDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, retryKey])
 
   if (!profile || !isAdmin || !id) return null
 
@@ -93,7 +94,7 @@ export function InvoiceDetailPage() {
   const formatCurrency = (amount: number) => `RM ${amount.toFixed(2)}`
 
   async function handleSave() {
-    if (!invoice) return
+    if (!invoice || saving) return
 
     const validLineItems = editingLineItems.filter((item) => item.description.trim() !== '' || item.amount !== 0)
     if (validLineItems.length === 0) {
@@ -142,6 +143,7 @@ export function InvoiceDetailPage() {
   }
 
   async function handleMarkPaid() {
+    if (confirming) return
     if (!invoice || !paymentMethodForPaid.trim()) {
       toast.error('Please select a payment method')
       return
@@ -163,7 +165,7 @@ export function InvoiceDetailPage() {
   }
 
   async function handleVoid() {
-    if (!invoice) return
+    if (!invoice || confirming) return
     setConfirming(true)
 
     const { data, error } = await voidInvoice(invoice.id)
@@ -180,7 +182,7 @@ export function InvoiceDetailPage() {
   }
 
   async function handleDelete() {
-    if (!invoice) return
+    if (!invoice || confirming) return
     setConfirming(true)
 
     const { error } = await deleteInvoice(invoice.id)
@@ -237,7 +239,9 @@ export function InvoiceDetailPage() {
         <PageHeader title="Invoice" />
 
         {loadState === 'loading' && <LoadingState label="Loading invoice…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && invoice && (
           <>

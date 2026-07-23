@@ -25,6 +25,7 @@ export function StaffJobTitlesPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [tiles, setTiles] = useState<Tile[]>([])
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     if (!profile) return
@@ -73,7 +74,7 @@ export function StaffJobTitlesPage() {
     return () => {
       cancelled = true
     }
-  }, [profile])
+  }, [profile, retryKey])
 
   if (!profile) return null
 
@@ -92,7 +93,9 @@ export function StaffJobTitlesPage() {
         </PageHeader>
 
         {loadState === 'loading' && <LoadingState label="Loading staff…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRetryKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && tiles.length === 0 && (
           <EmptyState message="No job titles set up yet. Ask an admin to add one." />

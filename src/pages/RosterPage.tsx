@@ -304,7 +304,9 @@ export function RosterPage() {
         )}
 
         {loadState === 'loading' && <LoadingState label="Loading the roster…" />}
-        {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
+        {loadState === 'error' && (
+          <ErrorState message={loadError ?? 'Something went wrong.'} onRetry={() => setRefreshKey((k) => k + 1)} />
+        )}
 
         {loadState === 'ready' && dutyTypes.length === 0 && (
           <EmptyState message="No active duty types configured yet." />
