@@ -50,7 +50,7 @@ export function StaffCard({
             <Avatar fullName={member.display_name || member.full_name} avatarUrl={photoUrl} size="lg" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-base font-bold text-ink">
-                {member.full_name}
+                {member.full_name || member.display_name}
                 <LoginBadge profileId={member.profile_id} mustChangePassword={member.must_change_password} />
               </p>
               {member.job_title && <p className="mt-1 text-sm text-muted">{member.job_title}</p>}

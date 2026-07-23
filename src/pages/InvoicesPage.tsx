@@ -162,14 +162,18 @@ export function InvoicesPage() {
 
         <TabNav tabs={BILLING_TABS} />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            to="/invoices/new"
-            className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 py-2 font-semibold text-sm text-white shadow-card hover:bg-accent-hover"
-          >
-            + New Invoice
-          </Link>
-        </div>
+        {/* TODO: re-enable when the app→Zoho invoice write path (item B) is ready.
+            Still writes to the unused local `invoices` table until then. */}
+        {false && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/invoices/new"
+              className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 py-2 font-semibold text-sm text-white shadow-card hover:bg-accent-hover"
+            >
+              + New Invoice
+            </Link>
+          </div>
+        )}
 
         {loadState === 'loading' && <LoadingState label="Loading invoices…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
