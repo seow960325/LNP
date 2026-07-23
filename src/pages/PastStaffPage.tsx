@@ -3,8 +3,9 @@ import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { StaffCard } from '../components/StaffCard'
-import { fetchStaffDirectoryMembers, toggleStaffMemberActive } from '../lib/profileApi'
+import { fetchStaffDirectoryMembers, toggleStaffMemberActive, deleteStaffMember } from '../lib/profileApi'
 import type { StaffDirectoryMember } from '../lib/profileApi'
 import { getDirectoryPhotoSignedUrl } from '../lib/directoryPhotoApi'
 import { withTimeout } from '../lib/withTimeout'
@@ -15,12 +16,16 @@ type LoadState = 'loading' | 'ready' | 'error'
 export function PastStaffPage() {
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin'
+  const isSuperAdmin = profile?.role === 'super_admin'
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [members, setMembers] = useState<StaffDirectoryMember[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({})
   const [submitting, setSubmitting] = useState(false)
+
+  const [deleteTarget, setDeleteTarget] = useState<StaffDirectoryMember | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   function loadMembers() {
     if (!profile) return
@@ -87,6 +92,27 @@ export function PastStaffPage() {
     }
   }
 
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+
+    const { error } = await deleteStaffMember(deleteTarget.id)
+
+    setDeleting(false)
+    if (error) {
+      // The BEFORE DELETE trigger raises a specific Postgres exception for
+      // linked-login/duty-history rows (e.g. "Cannot delete a staff member
+      // with a linked login. Deactivate instead.") — surface it verbatim
+      // rather than a generic message, since it's the actual reason.
+      toast.error(error.message || 'Could not delete this staff member. Please try again.')
+      return
+    }
+
+    setDeleteTarget(null)
+    setMembers((current) => current.filter((m) => m.id !== deleteTarget.id))
+    toast.success('Staff member deleted')
+  }
+
   if (!profile) return null
 
   return (
@@ -109,11 +135,22 @@ export function PastStaffPage() {
                 isAdmin={isAdmin}
                 submitting={submitting}
                 onToggleActive={handleToggleActive}
+                onDelete={isSuperAdmin ? setDeleteTarget : undefined}
               />
             ))}
           </ul>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete this staff member?"
+        message={`${deleteTarget?.full_name ?? 'This staff member'} will be permanently removed. This only succeeds for empty placeholder rows — anyone with a linked login or duty history cannot be deleted.`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+      />
     </div>
   )
 }

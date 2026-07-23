@@ -32,6 +32,7 @@ export function StaffCard({
   onToggleActive,
   onCreateLogin,
   onLinkLogin,
+  onDelete,
 }: {
   member: StaffDirectoryMember
   photoUrl: string | null
@@ -41,6 +42,10 @@ export function StaffCard({
   onToggleActive: (id: string, currentActive: boolean) => void
   onCreateLogin?: (staffId: string) => void
   onLinkLogin?: (member: StaffDirectoryMember) => void
+  // Only ever passed by a caller that has already checked
+  // profile.role === 'super_admin' — every other role never sees this
+  // button, regardless of isAdmin.
+  onDelete?: (member: StaffDirectoryMember) => void
 }) {
   return (
     <li className="rounded-xl bg-white p-5 shadow-card">
@@ -99,6 +104,16 @@ export function StaffCard({
                   Link login
                 </button>
               </>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(member)}
+                disabled={submitting}
+                className="min-h-tap flex-1 rounded-xl border border-danger/20 text-2xs text-danger hover:bg-danger/10 disabled:opacity-60"
+              >
+                Delete
+              </button>
             )}
           </div>
         )}

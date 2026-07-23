@@ -185,6 +185,14 @@ export function toggleStaffMemberActive(id: string, active: boolean) {
   return supabase.from('staff_members').update({ active }).eq('id', id)
 }
 
+// super_admin only at the DB level (staff_members_delete RLS policy) — a
+// BEFORE DELETE trigger also raises if the row has a linked login or any
+// duty_assignments, so this only ever succeeds for empty placeholder rows.
+// The DB is the sole authority here; no client-side eligibility check.
+export function deleteStaffMember(id: string) {
+  return supabase.from('staff_members').delete().eq('id', id)
+}
+
 // Candidates for the "Link login" picker — the caller (StaffJobTitleMembersPage)
 // already has the full staff_members list loaded and filters out any
 // profile_id already claimed by another row client-side.
