@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, Sparkles, Trash2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
@@ -267,12 +267,14 @@ export function InvoicesPage() {
                           return (
                             <tr key={invoice.invoice_id} className="border-t border-line hover:bg-cream transition-colors">
                               <td className="px-4 py-3 font-bold text-ink">
-                                {invoice.invoice_number ?? invoice.invoice_id}
-                                {isAppOrigin && (
-                                  <span className="ml-2 inline-block rounded-full bg-accent-soft px-2 py-0.5 align-middle text-2xs font-semibold text-accent-hover">
-                                    Created in app
-                                  </span>
-                                )}
+                                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                  {invoice.invoice_number ?? invoice.invoice_id}
+                                  {isAppOrigin && (
+                                    <span title="Created in app" aria-label="Created in app" className="inline-flex shrink-0">
+                                      <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                                    </span>
+                                  )}
+                                </span>
                               </td>
                               <td className="px-4 py-3 text-ink">{invoice.customer_name ?? '—'}</td>
                               <td className="px-4 py-3 text-right font-bold text-ink">{formatMYR(invoice.total)}</td>
