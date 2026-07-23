@@ -38,38 +38,38 @@ export function updateOwnProfile(userId: string, patch: ProfilePatch) {
   return supabase.from('profiles').update(patch).eq('id', userId)
 }
 
-export interface StaffDirectoryEntry {
-  id: string
-  full_name: string
-  role: UserRole
-  title: string | null
-  phone: string | null
-  avatar_url: string | null
-  // Internal protection flag only — never render an "owner" label/badge
-  // anywhere. David's displayed title stays "Shareholder" as normal.
-  is_app_owner: boolean
-}
+// profiles select excludes phone/email — column-level grants (see H3
+// migration) revoke SELECT on those columns for anon/authenticated. Only
+// get_own_profile() (AuthContext) can see the caller's own contact fields.
+export const PROFILE_COLUMNS =
+  'id, center_id, full_name, role, title, avatar_url, active, created_at, must_change_password, is_paid_employee, is_app_owner, in_duty_roster'
 
-export function fetchStaffDirectory(centerId: string) {
-  return supabase
-    .from('profiles')
-    .select('id, full_name, role, title, phone, avatar_url, is_app_owner')
-    .eq('center_id', centerId)
-    .eq('active', true)
-    .order('full_name')
-    .returns<StaffDirectoryEntry[]>()
-}
+export type ProfileSummary = Omit<Profile, 'phone' | 'email'>
 
 export async function fetchProfileById(id: string) {
-  const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
-  return { data: data as Profile | null, error }
+  const { data, error } = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', id).maybeSingle()
+  return { data: data as ProfileSummary | null, error }
 }
 
 // staff_members is the directory of record (name/job title/contact info for
 // everyone who works here); profiles is login accounts only. profile_id
 // optionally links a row to its login, when one exists.
 const STAFF_MEMBER_COLUMNS =
-  'id, center_id, profile_id, full_name, display_name, job_title, job_title_id, phone, email, zoho_account_id, in_duty_roster, in_directory, photo_path, active, notes, created_at'
+  'id, center_id, profile_id, full_name, display_name, job_title, job_title_id, zoho_account_id, in_duty_roster, in_directory, photo_path, active, notes, created_at'
+
+// staff_members.phone/email are column-grant-revoked for anon/authenticated
+// (see H3 migration) — contacts are fetched separately via the staff_contacts()
+// SECURITY DEFINER RPC, which applies its own role-based visibility, then
+// merged onto directory rows client-side.
+export async function fetchStaffContacts(
+  centerId: string,
+): Promise<Map<string, { phone: string | null; email: string | null }>> {
+  const { data, error } = await supabase.rpc('staff_contacts', { p_center_id: centerId })
+  if (error || !data) return new Map()
+
+  const contacts = data as { staff_member_id: string; phone: string | null; email: string | null }[]
+  return new Map(contacts.map((c) => [c.staff_member_id, { phone: c.phone, email: c.email }]))
+}
 
 export function fetchStaffMembers(centerId: string) {
   return supabase
@@ -100,10 +100,16 @@ interface StaffDirectoryRow extends StaffMember {
   job_titles: { name: string } | null
 }
 
-function toDirectoryMember(row: StaffDirectoryRow): StaffDirectoryMember {
+function toDirectoryMember(
+  row: StaffDirectoryRow,
+  contacts: Map<string, { phone: string | null; email: string | null }>,
+): StaffDirectoryMember {
   const { profiles, job_titles, ...rest } = row
+  const contact = contacts.get(row.id)
   return {
     ...rest,
+    phone: contact?.phone ?? null,
+    email: contact?.email ?? null,
     linked_avatar_url: profiles?.avatar_url ?? null,
     must_change_password: profiles?.must_change_password ?? null,
     job_title_name: job_titles?.name ?? null,
@@ -125,7 +131,8 @@ export async function fetchStaffDirectoryMembers(centerId: string, forTiles: boo
   const { data, error } = await query.order('full_name', { ascending: true }).returns<StaffDirectoryRow[]>()
 
   if (error || !data) return { data: null, error }
-  return { data: data.map(toDirectoryMember), error: null }
+  const contacts = await fetchStaffContacts(centerId)
+  return { data: data.map((row) => toDirectoryMember(row, contacts)), error: null }
 }
 
 export async function fetchStaffMemberById(id: string) {
@@ -136,7 +143,8 @@ export async function fetchStaffMemberById(id: string) {
     .maybeSingle<StaffDirectoryRow>()
 
   if (error || !data) return { data: null, error }
-  return { data: toDirectoryMember(data), error: null }
+  const contacts = await fetchStaffContacts(data.center_id)
+  return { data: toDirectoryMember(data, contacts), error: null }
 }
 
 export interface CreateStaffMemberPayload {

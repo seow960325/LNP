@@ -34,3 +34,4 @@ full_dump_*.sql
 .zs_token
 scripts/zoho_writeback_test.mjs
 ops/zoho.env
+ops/*.env*

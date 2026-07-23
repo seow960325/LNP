@@ -21,8 +21,6 @@ export interface Shareholding {
 export interface LinkedStaffContact {
   id: string
   full_name: string
-  phone: string | null
-  email: string | null
   photo_path: string | null
   profile_avatar_url: string | null
 }
@@ -34,8 +32,6 @@ export interface ShareholderDirectoryEntry extends Shareholding {
 interface LinkedStaffRow {
   id: string
   full_name: string
-  phone: string | null
-  email: string | null
   photo_path: string | null
   profiles: { avatar_url: string | null } | null
 }
@@ -52,7 +48,7 @@ function toDirectoryEntry(row: ShareholdingRow): ShareholderDirectoryEntry {
 }
 
 const SHAREHOLDING_COLUMNS = 'id, display_name, share_code, capital, profile_id, staff_member_id, phone, email, photo_path, active'
-const SHAREHOLDING_DIRECTORY_SELECT = `${SHAREHOLDING_COLUMNS}, linked_staff:staff_members(id, full_name, phone, email, photo_path, profiles(avatar_url))`
+const SHAREHOLDING_DIRECTORY_SELECT = `${SHAREHOLDING_COLUMNS}, linked_staff:staff_members(id, full_name, photo_path, profiles(avatar_url))`
 
 // No .returns()/.single() — the client has no Database generic to check the
 // cast against, so the assertion below is just as honest about that as

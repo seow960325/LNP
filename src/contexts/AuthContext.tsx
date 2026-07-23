@@ -25,12 +25,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileState, setProfileState] = useState<ProfileState>('loading')
   const [profileErrorMessage, setProfileErrorMessage] = useState<string | null>(null)
 
-  async function fetchProfile(uid: string) {
+  async function fetchProfile() {
     setProfileErrorMessage(null)
     try {
-      const { data, error } = await withTimeout(
-        supabase.from('profiles').select('*').eq('id', uid).maybeSingle(),
-      )
+      const { data, error } = (await withTimeout(supabase.rpc('get_own_profile'))) as {
+        data: Profile | null
+        error: { message: string } | null
+      }
 
       if (error) {
         // Distinct from not_found: a real query/connection failure, not a
@@ -69,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u) fetchProfile(u.id)
+      if (u) fetchProfile()
       else setProfileState('guest')
     })
 
@@ -78,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u)
       if (u) {
         setProfileState('loading')
-        fetchProfile(u.id)
+        fetchProfile()
       } else {
         setProfile(null)
         setProfileState('guest')
@@ -98,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // immediately instead of waiting for the next auth state change.
   async function refreshProfile() {
     if (!user) return
-    await fetchProfile(user.id)
+    await fetchProfile()
   }
 
   return (

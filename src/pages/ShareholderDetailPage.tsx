@@ -85,8 +85,8 @@ export function ShareholderDetailPage() {
 
   if (!profile || !id) return null
 
-  const contactPhone = shareholding?.linked_staff?.phone ?? shareholding?.phone ?? null
-  const contactEmail = shareholding?.linked_staff?.email ?? shareholding?.email ?? null
+  const contactPhone = shareholding?.phone ?? null
+  const contactEmail = shareholding?.email ?? null
 
   async function handlePhotoUploaded(newPhotoPath: string) {
     if (!shareholding) return

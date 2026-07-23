@@ -9,13 +9,13 @@ import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { StaffDocPanel } from '../components/StaffDocPanel'
 import { EDITABLE_ROLES, TempPasswordModal } from '../components/RegisterStaffForm'
-import { fetchStaffMemberById, fetchProfileById, updateStaffMember } from '../lib/profileApi'
-import type { StaffDirectoryMember } from '../lib/profileApi'
+import { fetchStaffMemberById, fetchProfileById, updateStaffMember, PROFILE_COLUMNS } from '../lib/profileApi'
+import type { StaffDirectoryMember, ProfileSummary } from '../lib/profileApi'
 import { getDirectoryPhotoSignedUrl } from '../lib/directoryPhotoApi'
 import { supabase } from '../lib/supabaseClient'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
-import type { Profile, UserRole } from '../types'
+import type { UserRole } from '../types'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -43,10 +43,10 @@ function ManagementSection({
   canEditRole,
   onChanged,
 }: {
-  member: Profile
+  member: ProfileSummary
   isSelf: boolean
   canEditRole: boolean
-  onChanged: (updated: Profile) => void
+  onChanged: (updated: ProfileSummary) => void
 }) {
   const [draftRole, setDraftRole] = useState<UserRole>(member.role)
   const [draftTitle, setDraftTitle] = useState(member.title ?? '')
@@ -73,7 +73,7 @@ function ManagementSection({
       .from('profiles')
       .update(patch)
       .eq('id', member.id)
-      .select()
+      .select(PROFILE_COLUMNS)
       .single()
 
     setSaving(false)
@@ -81,7 +81,7 @@ function ManagementSection({
       toast.error('Could not save changes. Please try again.')
       return
     }
-    onChanged(data as Profile)
+    onChanged(data as ProfileSummary)
     toast.success(roleChanged ? 'Role updated' : 'Title updated')
   }
 
@@ -92,7 +92,7 @@ function ManagementSection({
       .from('profiles')
       .update({ active: nextActive })
       .eq('id', member.id)
-      .select()
+      .select(PROFILE_COLUMNS)
       .single()
 
     setTogglingActive(false)
@@ -101,7 +101,7 @@ function ManagementSection({
       toast.error('Could not update this member. Please try again.')
       return
     }
-    onChanged(data as Profile)
+    onChanged(data as ProfileSummary)
     toast.success(nextActive ? 'Staff reactivated' : 'Staff deactivated')
   }
 
@@ -112,7 +112,7 @@ function ManagementSection({
       .from('profiles')
       .update({ is_paid_employee: nextPaid })
       .eq('id', member.id)
-      .select()
+      .select(PROFILE_COLUMNS)
       .single()
 
     setTogglingPaid(false)
@@ -120,7 +120,7 @@ function ManagementSection({
       toast.error('Could not update this member. Please try again.')
       return
     }
-    onChanged(data as Profile)
+    onChanged(data as ProfileSummary)
     toast.success(nextPaid ? 'Marked as paid employee' : 'Marked as non-paid employee')
   }
 
@@ -224,7 +224,7 @@ export function StaffMemberDetailPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [staffMember, setStaffMember] = useState<StaffDirectoryMember | null>(null)
-  const [linkedProfile, setLinkedProfile] = useState<Profile | null>(null)
+  const [linkedProfile, setLinkedProfile] = useState<ProfileSummary | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)

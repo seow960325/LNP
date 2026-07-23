@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom'
 import { Avatar } from './Avatar'
 import type { ShareholderDirectoryEntry } from '../lib/shareholdingsApi'
 
-// Directory-flavored shareholder row — mirrors StaffCard. Contact fields
-// come pre-resolved by the caller (linked staff_members row wins over the
-// shareholding's own phone/email/photo_path — see ShareholderDetailPage for
-// the same resolution used on the profile card).
+// Directory-flavored shareholder row — mirrors StaffCard. staff_members no
+// longer exposes phone/email to the frontend (column grants revoked, see H3
+// migration), so contact fields always come from the shareholding's own
+// phone/email — only photo_path/avatar still resolve through linked_staff.
 export function ShareholderCard({
   shareholding,
   photoUrl,
@@ -17,8 +17,8 @@ export function ShareholderCard({
   // no capital on record at all, not just for this one row.
   totalCapital: number
 }) {
-  const contactPhone = shareholding.linked_staff?.phone ?? shareholding.phone
-  const contactEmail = shareholding.linked_staff?.email ?? shareholding.email
+  const contactPhone = shareholding.phone
+  const contactEmail = shareholding.email
   const ownershipPct = totalCapital > 0 ? (shareholding.capital / totalCapital) * 100 : 0
 
   return (
