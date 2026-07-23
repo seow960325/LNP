@@ -6,7 +6,13 @@
 -- staff_contacts() returns phone/email for a center's staff_members, gated by
 -- the caller's own role (super_admin/admin/teacher/staff/shareholder, active)
 -- — it returns zero rows for callers who shouldn't see contacts (e.g. parent,
--- deactivated accounts). shareholder IS allowed.
+-- deactivated accounts). shareholder IS allowed. Resolution rule: a
+-- staff_members row with a linked login (profile_id set) takes phone from
+-- that person's own profile, since they maintain it themselves in My
+-- Profile; a row with no linked login uses the phone an admin entered
+-- directly on the staff_members row. Email always comes from staff_members —
+-- profiles.email is unused app-wide, so there's no profile value to fall
+-- back to.
 --
 -- WARNING: the grants below are COLUMN-level, not table-level. Any future
 -- `ALTER TABLE ... ADD COLUMN` on public.profiles or public.staff_members is
@@ -32,8 +38,8 @@ CREATE OR REPLACE FUNCTION "public"."staff_contacts"("p_center_id" "uuid") RETUR
     AS $$
   select
     sm.id,
-    coalesce(sm.phone, p.phone)::text,
-    coalesce(sm.email, p.email)::text
+    coalesce(p.phone, sm.phone)::text,
+    sm.email::text
   from public.staff_members sm
   left join public.profiles p on p.id = sm.profile_id
   where sm.center_id = p_center_id
