@@ -238,3 +238,97 @@ export function fetchZohoInvoicePdf(invoiceId: string) {
     body: { action: 'invoice_pdf', invoice_id: invoiceId },
   })
 }
+
+// --- App -> Zoho invoice write path (item B) ---------------------------
+// Every call below hits a dedicated Edge Function (zoho-items-list /
+// zoho-invoice-create / zoho-invoice-update / zoho-invoice-delete), never
+// Zoho directly — supabase.functions.invoke forwards the caller's session
+// JWT automatically, and each function independently verifies
+// admin/super_admin server-side. The Zoho access token is minted and used
+// entirely server-side; it never reaches this client.
+
+export interface ZohoItem {
+  item_id: string
+  name: string
+  rate: number
+  unit: string | null
+}
+
+export interface ZohoItemsListResult {
+  ok: boolean
+  items: ZohoItem[]
+}
+
+// Full catalog (63 items today) — small enough to fetch once and filter
+// client-side rather than searching server-side.
+export function fetchZohoItemsCatalog() {
+  return supabase.functions.invoke<ZohoItemsListResult>('zoho-items-list', { method: 'GET' })
+}
+
+export interface ZohoLinkedStudent {
+  id: string
+  name: string
+}
+
+// Candidates for the invoice-create student picker — only active students
+// already linked to a Zoho contact. zoho-invoice-create rejects any other
+// student_id (400 "student not linked to a Zoho contact"), so there's no
+// point offering one here.
+export function fetchZohoLinkedStudents(centerId: string) {
+  return supabase
+    .from('students')
+    .select('id, name')
+    .eq('center_id', centerId)
+    .eq('active', true)
+    .not('zoho_contact_id', 'is', null)
+    .order('name', { ascending: true })
+    .returns<ZohoLinkedStudent[]>()
+}
+
+export interface ZohoInvoiceLineItemInput {
+  item_id: string
+  quantity: number
+  rate?: number
+}
+
+export interface ZohoInvoiceWriteResult {
+  ok: boolean
+  zoho_invoice_id: string
+}
+
+export interface CreateZohoInvoiceInput {
+  student_id: string
+  date: string
+  line_items: ZohoInvoiceLineItemInput[]
+  notes?: string
+}
+
+export function createZohoInvoice(input: CreateZohoInvoiceInput) {
+  return supabase.functions.invoke<ZohoInvoiceWriteResult>('zoho-invoice-create', { body: input })
+}
+
+export interface UpdateZohoInvoiceInput {
+  zoho_invoice_id: string
+  date?: string
+  line_items?: ZohoInvoiceLineItemInput[]
+  notes?: string
+}
+
+export function updateZohoInvoice(input: UpdateZohoInvoiceInput) {
+  return supabase.functions.invoke<ZohoInvoiceWriteResult>('zoho-invoice-update', { body: input })
+}
+
+export function deleteZohoInvoice(zohoInvoiceId: string) {
+  return supabase.functions.invoke<ZohoInvoiceWriteResult>('zoho-invoice-delete', {
+    body: { zoho_invoice_id: zohoInvoiceId },
+  })
+}
+
+// Which zoho_invoices rows were created through this app — read-only from
+// the client (RLS: admin/super_admin/shareholder SELECT only). This table is
+// the backend's trust anchor for the update/delete origin guard; the
+// frontend must never insert/update/delete it directly, only read it to
+// decide whether to show the Edit/Delete actions.
+export function fetchAppInvoiceOriginIds() {
+  return supabase.from('app_invoice_origins').select('zoho_invoice_id').returns<{ zoho_invoice_id: string }[]>()
+}
