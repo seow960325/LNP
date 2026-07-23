@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Settings } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
@@ -76,10 +77,19 @@ export function StaffJobTitlesPage() {
 
   if (!profile) return null
 
+  const isAdmin = profile.role === 'admin' || profile.role === 'super_admin'
+
   return (
     <div className="min-h-screen bg-cream p-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <PageHeader title="Staff" />
+        <PageHeader title="Staff">
+          {isAdmin && (
+            <Link to="/job-titles" className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
+              <Settings className="h-3 w-3" aria-hidden="true" />
+              Manage titles
+            </Link>
+          )}
+        </PageHeader>
 
         {loadState === 'loading' && <LoadingState label="Loading staff…" />}
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}

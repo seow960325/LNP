@@ -45,6 +45,7 @@ import { HomePage } from './pages/HomePage'
 import { EntrancePage } from './pages/EntrancePage'
 import { ClassesPage } from './pages/ClassesPage'
 import { AttendanceConditionsPage } from './pages/AttendanceConditionsPage'
+import { JobTitlesPage } from './pages/JobTitlesPage'
 
 // Gate: a user whose password was admin-reset is locked out of every route
 // under here until they set a new password — see ForceChangePasswordPage,
@@ -210,6 +211,7 @@ export function App() {
               <Route path="/leave/balances" element={<LeaveBalancesPage />} />
               <Route path="/classes" element={<ClassesPage />} />
               <Route path="/attendance/conditions" element={<AttendanceConditionsPage />} />
+              <Route path="/job-titles" element={<JobTitlesPage />} />
             </Route>
 
             {/* Parent — Phase 2 stub */}

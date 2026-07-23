@@ -23,6 +23,7 @@ const ROUTE_PARENTS: { pattern: string; parent: string }[] = [
   { pattern: '/payroll/opening', parent: '/payroll' },
   { pattern: '/directory', parent: '/' },
   { pattern: '/directory/staff', parent: '/directory' },
+  { pattern: '/job-titles', parent: '/directory/staff' },
   { pattern: '/directory/staff/:jobTitleId', parent: '/directory/staff' },
   { pattern: '/directory/shareholder', parent: '/directory' },
   { pattern: '/directory/shareholder/:id', parent: '/directory/shareholder' },
@@ -30,7 +31,7 @@ const ROUTE_PARENTS: { pattern: string; parent: string }[] = [
   // Fallback only — StaffMemberDetailPage overrides this once it knows the
   // member's real job_title_id, so Back lands on that specific tile.
   { pattern: '/staff/:id', parent: '/directory/staff' },
-  { pattern: '/students', parent: '/' },
+  { pattern: '/students', parent: '/directory' },
   { pattern: '/students/class/:classId', parent: '/students' },
   { pattern: '/students/past', parent: '/students' },
   // Fallback only — StudentDetailPage overrides this once it knows the

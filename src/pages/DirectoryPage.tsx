@@ -1,8 +1,13 @@
 import { Link } from 'react-router-dom'
-import { Users, Landmark } from 'lucide-react'
+import { GraduationCap, Users, Landmark } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 
+// Students links straight into the existing, unmodified student-directory
+// flow (class tiles -> student profile) at /students — it isn't rebuilt
+// here, just given a way back into the main nav now that the old shared
+// Staff/Students tab bar (its only entry point) is gone.
 const TILES = [
+  { label: 'Students', to: '/students', Icon: GraduationCap },
   { label: 'Staff', to: '/directory/staff', Icon: Users },
   { label: 'Shareholder', to: '/directory/shareholder', Icon: Landmark },
 ]

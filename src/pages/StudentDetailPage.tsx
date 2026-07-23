@@ -16,24 +16,11 @@ import {
 import type { ZohoRecurringInvoice, ZohoInvoice } from '../lib/zohoApi'
 import { formatMYR } from '../lib/zohoFinance'
 import { formatDate } from '../lib/helpers'
+import { openPdfFromBase64 } from '../lib/pdfUtils'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
-
-// Decodes the base64 PDF the zoho-sync Edge Function returns and opens it as
-// a blob URL — this is Zoho's own rendered PDF, nothing is generated
-// client-side. Revoked after a minute; the browser tab holds its own copy
-// once opened.
-function openPdfFromBase64(base64: string) {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  const blob = new Blob([bytes], { type: 'application/pdf' })
-  const url = URL.createObjectURL(blob)
-  window.open(url, '_blank', 'noopener,noreferrer')
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
-}
 
 export function StudentDetailPage() {
   const { id } = useParams<{ id: string }>()

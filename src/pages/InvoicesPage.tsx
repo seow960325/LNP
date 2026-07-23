@@ -1,35 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState'
 import { PageHeader } from '../components/PageHeader'
 import { TabNav, BILLING_TABS } from '../components/TabNav'
-import { fetchInvoices } from '../lib/billingApi'
-import type { InvoiceWithDetails } from '../lib/billingApi'
+import { fetchZohoInvoices, fetchZohoInvoicePdf } from '../lib/zohoApi'
+import type { ZohoInvoice } from '../lib/zohoApi'
+import { formatMYR } from '../lib/zohoFinance'
 import { formatDate, toKLDateISO } from '../lib/helpers'
+import { openPdfFromBase64 } from '../lib/pdfUtils'
 import { withTimeout } from '../lib/withTimeout'
 import { getUserErrorMessage } from '../lib/errorMessages'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
-const STATUS_STYLES: Record<string, string> = {
-  draft: 'bg-line/60 text-muted',
-  sent: 'bg-accent-soft text-accent-hover',
-  paid: 'bg-success-soft text-success',
-  void: 'bg-danger/10 text-danger',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  sent: 'Sent',
-  paid: 'Paid',
-  void: 'Void',
-}
-
 const YEAR_EXPANDED_STORAGE_KEY = 'center-ops:invoices-year-expanded'
+// Sentinel bucket for the (expected-rare) row with no Zoho invoice date —
+// sorts after every real year rather than crashing the numeric ordering.
+const UNKNOWN_YEAR = 'unknown'
 
-function loadExpandedYears(): Record<number, boolean> {
+function loadExpandedYears(): Record<string, boolean> {
   try {
     const raw = localStorage.getItem(YEAR_EXPANDED_STORAGE_KEY)
     return raw ? JSON.parse(raw) : {}
@@ -38,7 +31,7 @@ function loadExpandedYears(): Record<number, boolean> {
   }
 }
 
-function saveExpandedYears(state: Record<number, boolean>) {
+function saveExpandedYears(state: Record<string, boolean>) {
   try {
     localStorage.setItem(YEAR_EXPANDED_STORAGE_KEY, JSON.stringify(state))
   } catch {
@@ -47,8 +40,9 @@ function saveExpandedYears(state: Record<number, boolean>) {
 }
 
 interface YearGroup {
-  year: number
-  invoices: InvoiceWithDetails[]
+  key: string
+  label: string
+  invoices: ZohoInvoice[]
 }
 
 export function InvoicesPage() {
@@ -57,14 +51,18 @@ export function InvoicesPage() {
 
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [invoices, setInvoices] = useState<InvoiceWithDetails[]>([])
-  const [expandedYears, setExpandedYears] = useState<Record<number, boolean>>(() => loadExpandedYears())
+  const [invoices, setInvoices] = useState<ZohoInvoice[]>([])
+  const [expandedYears, setExpandedYears] = useState<Record<string, boolean>>(() => loadExpandedYears())
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   function loadInvoices() {
     if (!profile) return
     setLoadState('loading')
-    // No status filter here — this view shows every status, grouped by year.
-    withTimeout(fetchInvoices(profile.center_id))
+    // Reads the zoho_invoices mirror (all 711+ real invoices) — the app
+    // `invoices` table is currently empty; app-created invoices that push to
+    // Zoho are a separate, later feature. No status filter — every status
+    // shows here.
+    withTimeout(fetchZohoInvoices())
       .then(({ data, error }) => {
         if (error || !data) {
           setLoadError('Could not load invoices. Please try again.')
@@ -87,45 +85,75 @@ export function InvoicesPage() {
 
   const currentYear = Number(toKLDateISO(new Date()).slice(0, 4))
 
-  // Grouped by calendar year (from issue_date, not created_at) — current
-  // year first, then prior years descending; latest invoice first within
-  // each year. Years with no invoices simply don't get a group.
+  // Grouped by calendar year from zoho_invoices.date — current year first,
+  // then prior years descending; latest invoice first within each year.
+  // Years with no invoices simply don't get a group.
   const yearGroups: YearGroup[] = useMemo(() => {
-    const byYear = new Map<number, InvoiceWithDetails[]>()
+    const byYear = new Map<string, ZohoInvoice[]>()
     for (const invoice of invoices) {
-      const year = Number(invoice.issue_date.slice(0, 4))
-      const bucket = byYear.get(year)
+      const key = invoice.date ? invoice.date.slice(0, 4) : UNKNOWN_YEAR
+      const bucket = byYear.get(key)
       if (bucket) {
         bucket.push(invoice)
       } else {
-        byYear.set(year, [invoice])
+        byYear.set(key, [invoice])
       }
     }
 
-    const years = [...byYear.keys()].sort((a, b) => b - a)
-    const orderedYears = [currentYear, ...years.filter((y) => y !== currentYear)].filter((y) => byYear.has(y))
+    const numericYears = [...byYear.keys()].filter((k) => k !== UNKNOWN_YEAR).sort((a, b) => Number(b) - Number(a))
+    const orderedKeys = [String(currentYear), ...numericYears.filter((y) => y !== String(currentYear))].filter((y) =>
+      byYear.has(y),
+    )
+    if (byYear.has(UNKNOWN_YEAR)) orderedKeys.push(UNKNOWN_YEAR)
 
-    return orderedYears.map((year) => ({
-      year,
-      invoices: [...byYear.get(year)!].sort((a, b) => b.issue_date.localeCompare(a.issue_date)),
+    return orderedKeys.map((key) => ({
+      key,
+      label: key === UNKNOWN_YEAR ? 'Unknown date' : key,
+      invoices: [...byYear.get(key)!].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
     }))
   }, [invoices, currentYear])
 
-  function isYearExpanded(year: number): boolean {
-    return expandedYears[year] ?? year === currentYear
+  // Default-expand the current year if it has invoices; otherwise the most
+  // recent year that does (yearGroups[0] — already ordered current-year-
+  // first-then-descending, filtered to groups with data) — so the newest
+  // invoices are never hidden behind an empty current-year default.
+  const defaultExpandedKey = yearGroups[0]?.key ?? String(currentYear)
+
+  function isYearExpanded(key: string): boolean {
+    return expandedYears[key] ?? key === defaultExpandedKey
   }
 
-  function toggleYear(year: number) {
+  function toggleYear(key: string) {
     setExpandedYears((current) => {
-      const next = { ...current, [year]: !isYearExpanded(year) }
+      const next = { ...current, [key]: !isYearExpanded(key) }
       saveExpandedYears(next)
       return next
     })
   }
 
-  if (!profile || !isAdmin) return null
+  async function handleViewPdf(invoiceId: string) {
+    setDownloadingId(invoiceId)
+    const { data, error } = await fetchZohoInvoicePdf(invoiceId)
+    setDownloadingId(null)
 
-  const formatCurrency = (amount: number) => `RM ${amount.toFixed(2)}`
+    if (error || !data?.pdf_base64) {
+      let message = 'Could not load the invoice PDF. Please try again.'
+      if (error instanceof FunctionsHttpError) {
+        try {
+          const body = await error.context.json()
+          if (body?.error) message = body.error
+        } catch {
+          // Body wasn't JSON — fall back to the generic message.
+        }
+      }
+      toast.error(message)
+      return
+    }
+
+    openPdfFromBase64(data.pdf_base64)
+  }
+
+  if (!profile || !isAdmin) return null
 
   return (
     <div className="min-h-screen bg-cream p-6">
@@ -147,17 +175,17 @@ export function InvoicesPage() {
         {loadState === 'error' && <ErrorState message={loadError ?? 'Something went wrong.'} />}
 
         {loadState === 'ready' && invoices.length === 0 && (
-          <EmptyState message="No invoices yet. Create one to get started." />
+          <EmptyState message="No invoices yet." />
         )}
 
         {loadState === 'ready' &&
-          yearGroups.map(({ year, invoices: yearInvoices }) => {
-            const expanded = isYearExpanded(year)
+          yearGroups.map(({ key, label, invoices: yearInvoices }) => {
+            const expanded = isYearExpanded(key)
             return (
-              <div key={year} className="space-y-2">
+              <div key={key} className="space-y-2">
                 <button
                   type="button"
-                  onClick={() => toggleYear(year)}
+                  onClick={() => toggleYear(key)}
                   aria-expanded={expanded}
                   className="flex min-h-tap w-full items-center gap-2 rounded-xl bg-white px-4 py-3 text-left shadow-card hover:bg-cream"
                 >
@@ -167,7 +195,7 @@ export function InvoicesPage() {
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
                   )}
                   <span className="font-bold text-ink">
-                    {year} <span className="font-normal text-muted">({yearInvoices.length})</span>
+                    {label} <span className="font-normal text-muted">({yearInvoices.length})</span>
                   </span>
                 </button>
 
@@ -177,36 +205,33 @@ export function InvoicesPage() {
                       <thead>
                         <tr className="border-b border-line">
                           <th className="px-4 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Invoice No.</th>
-                          <th className="px-4 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Student</th>
-                          <th className="px-4 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Term</th>
-                          <th className="px-4 py-3 text-right font-semibold text-2xs uppercase tracking-wider text-muted">Subtotal</th>
+                          <th className="px-4 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Customer</th>
+                          <th className="px-4 py-3 text-right font-semibold text-2xs uppercase tracking-wider text-muted">Total</th>
+                          <th className="px-4 py-3 text-right font-semibold text-2xs uppercase tracking-wider text-muted">Balance</th>
                           <th className="px-4 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Status</th>
-                          <th className="px-4 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Issue Date</th>
-                          <th className="px-4 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Due Date</th>
+                          <th className="px-4 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted">Date</th>
+                          <th className="px-4 py-3 text-left font-semibold text-2xs uppercase tracking-wider text-muted"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {yearInvoices.map((invoice) => (
-                          <tr key={invoice.id} className="border-t border-line hover:bg-cream transition-colors">
-                            <td className="px-4 py-3">
-                              <Link to={`/invoices/${invoice.id}`} className="font-bold text-accent hover:underline">
-                                {invoice.invoice_no}
-                              </Link>
-                            </td>
-                            <td className="px-4 py-3 text-ink">{invoice.students?.name}</td>
-                            <td className="px-4 py-3 text-muted">{invoice.term_label || '—'}</td>
-                            <td className="px-4 py-3 text-right font-bold text-ink">{formatCurrency(invoice.subtotal)}</td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={`inline-block rounded-full px-2.5 py-1 text-2xs font-semibold ${
-                                  STATUS_STYLES[invoice.status]
-                                }`}
+                          <tr key={invoice.invoice_id} className="border-t border-line hover:bg-cream transition-colors">
+                            <td className="px-4 py-3 font-bold text-ink">{invoice.invoice_number ?? invoice.invoice_id}</td>
+                            <td className="px-4 py-3 text-ink">{invoice.customer_name ?? '—'}</td>
+                            <td className="px-4 py-3 text-right font-bold text-ink">{formatMYR(invoice.total)}</td>
+                            <td className="px-4 py-3 text-right text-muted">{formatMYR(invoice.balance)}</td>
+                            <td className="px-4 py-3 capitalize text-muted">{invoice.status ?? '—'}</td>
+                            <td className="px-4 py-3 text-muted">{invoice.date ? formatDate(invoice.date) : '—'}</td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleViewPdf(invoice.invoice_id)}
+                                disabled={downloadingId === invoice.invoice_id}
+                                className="min-h-tap shrink-0 rounded-xl border border-line px-3 text-xs font-semibold text-muted hover:bg-cream disabled:opacity-60"
                               >
-                                {STATUS_LABELS[invoice.status]}
-                              </span>
+                                {downloadingId === invoice.invoice_id ? 'Loading…' : 'View PDF'}
+                              </button>
                             </td>
-                            <td className="px-4 py-3 text-muted">{formatDate(invoice.issue_date)}</td>
-                            <td className="px-4 py-3 text-muted">{invoice.due_date ? formatDate(invoice.due_date) : '—'}</td>
                           </tr>
                         ))}
                       </tbody>

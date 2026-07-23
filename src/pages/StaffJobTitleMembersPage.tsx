@@ -380,11 +380,19 @@ export function StaffJobTitleMembersPage() {
                 className="mt-1 min-h-tap w-full rounded-xl border border-line px-3 text-sm disabled:opacity-60"
               >
                 <option value="">Unassigned</option>
-                {jobTitles.map((jt) => (
-                  <option key={jt.id} value={jt.id}>
-                    {jt.name}
-                  </option>
-                ))}
+                {/* Deactivated titles drop out of this picker (per Job Titles
+                    management), except the one currently assigned to whoever
+                    is being edited — otherwise their existing value would
+                    silently vanish from the list rather than showing what's
+                    actually set. */}
+                {jobTitles
+                  .filter((jt) => jt.active || jt.id === formJobTitleId)
+                  .map((jt) => (
+                    <option key={jt.id} value={jt.id}>
+                      {jt.name}
+                      {!jt.active ? ' (inactive)' : ''}
+                    </option>
+                  ))}
               </select>
             </div>
 
