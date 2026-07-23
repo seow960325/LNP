@@ -26,7 +26,6 @@ export function ProfilePage() {
   useEffect(() => {
     if (profile && !initialized.current) {
       setFullName(profile.full_name)
-      setPhone(profile.phone ?? '')
       setAvatarUrl(profile.avatar_url)
       initialized.current = true
     }
@@ -37,6 +36,21 @@ export function ProfilePage() {
     supabase.auth.getUser().then(({ data }) => {
       if (cancelled) return
       setEmail(data.user?.email ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // phone is column-grant-revoked from the plain profiles select AuthContext
+  // now uses (see H3 migration + the get_own_profile RPC removal from
+  // AuthContext) — this is the one screen that needs it, so it pays for the
+  // SECURITY DEFINER RPC itself instead of every page load doing so.
+  useEffect(() => {
+    let cancelled = false
+    supabase.rpc('get_own_profile').then(({ data }) => {
+      if (cancelled) return
+      setPhone((data as { phone: string | null } | null)?.phone ?? '')
     })
     return () => {
       cancelled = true
